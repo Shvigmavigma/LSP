@@ -98,6 +98,7 @@ def get_db():
 def is_curator(user: User) -> bool:
     """Проверяет, является ли пользователь куратором (глобальная роль)."""
     return user.is_teacher and user.teacher_info and user.teacher_info.get("curator", False)
+
 def get_author_role(user: User, project: Project) -> str:
     """Возвращает роль пользователя для отображения в комментарии."""
     if user.is_admin:
@@ -171,6 +172,7 @@ async def admin_create_user(
     db.commit()
     db.refresh(new_user)
     return new_user
+
 @app.delete("/admin/comments/{comment_id}", tags=["Admin"])
 async def admin_delete_comment_permanently(
     comment_id: str,
@@ -214,6 +216,7 @@ async def admin_delete_comment_permanently(
     if not found:
         raise HTTPException(status_code=404, detail="Hidden comment not found")
     return {"message": "Comment permanently deleted"}
+
 @app.get("/admin/users", response_model=List[UserResponse], tags=["Admin"])
 async def admin_get_all_users(
     db: Session = Depends(get_db),
@@ -377,7 +380,7 @@ def get_participant_role(project: Project, user_id: int) -> Optional[str]:
             return p.get("role")
     return None
 
-# ==================== ВЕРЕФИКАЦИ УЧИТЕЛЬСКОЙ ПОЧТЫ ====================
+# ==================== ВЕРИФИКАЦИЯ EMAIL УЧИТЕЛЯ ====================
 ACCEPTED_EMAILS_FILE = Path("accepted_emails.json")
 
 def load_accepted_emails():
@@ -405,6 +408,63 @@ def is_email_accepted(email: str) -> bool:
     if domain in [d.lower() for d in data.get("domains", [])]:
         return True
     return False
+
+# ==================== ВЕРИФИКАЦИЯ EMAIL УЧЕНИКА ====================
+ACCEPTED_STUDENT_EMAILS_FILE = Path("accepted_student_emails.json")
+
+def load_accepted_student_emails():
+    if not ACCEPTED_STUDENT_EMAILS_FILE.exists():
+        example_emails = {
+            "accepted_emails": [],
+            "domains": ["lit1533.ru"]
+        }
+        with open(ACCEPTED_STUDENT_EMAILS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(example_emails, f, ensure_ascii=False, indent=2)
+        return example_emails
+    try:
+        with open(ACCEPTED_STUDENT_EMAILS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Ошибка загрузки файла с email учеников: {e}")
+        return {"accepted_emails": [], "domains": []}
+
+def is_student_email_accepted(email: str) -> bool:
+    """
+    Проверяет, разрешён ли email для регистрации ученика.
+    Разрешены:
+    - все email с доменом из списка domains (например, lit1533.ru)
+    - email, явно указанные в списке accepted_emails
+    """
+    data = load_accepted_student_emails()
+    email_lower = email.lower()
+
+    # Проверка по домену
+    domain = email_lower.split('@')[-1]
+    allowed_domains = [d.lower() for d in data.get("domains", [])]
+    if domain in allowed_domains:
+        return True
+
+    # Проверка по конкретным email
+    if email_lower in [e.lower() for e in data.get("accepted_emails", [])]:
+        return True
+
+    return False
+
+@app.post("/auth/check-student-email", tags=["Auth"])
+async def check_student_email(request: dict):
+    """
+    Проверяет, разрешён ли email для регистрации ученика.
+    """
+    email = request.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    if is_student_email_accepted(email):
+        return {"accepted": True, "message": "Email разрешён для регистрации ученика"}
+    else:
+        raise HTTPException(
+            status_code=403,
+            detail="Этот email не разрешён для регистрации ученика. Используйте email с доменом lit1533.ru или из списка разрешённых."
+        )
 
 # ==================== УЧЕНИКИ ====================
 @app.post("/students/", response_model=StudentResponse, tags=["Students"])
@@ -488,7 +548,7 @@ async def delete_student(student_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"Student {student_id} deleted successfully"}
 
-# ==================== TEACHERS ====================
+# ==================== УЧИТЕЛЯ ====================
 @app.post("/auth/check-teacher-email", tags=["Auth"])
 async def check_teacher_email(request: dict):
     email = request.get("email")
@@ -627,7 +687,7 @@ async def delete_teacher(teacher_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"Teacher {teacher_id} deleted successfully"}
 
-# ==================== ЭНД ОБЫЧНЫХ ЮЗЕРОВ ====================
+# ==================== ОБЩИЕ ПОЛЬЗОВАТЕЛИ ====================
 @app.get("/users/me", response_model=UserResponse, tags=["Common"])
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
@@ -926,7 +986,6 @@ async def add_comment(
     if project.comments is None:
         project.comments = []
     comment.authorId = current_user.id
-    # Добавляем роль автора
     comment.authorRole = get_author_role(current_user, project)
     project.comments.append(comment.model_dump(mode='json'))
     flag_modified(project, "comments")
@@ -992,7 +1051,7 @@ async def add_task_comment(
         print("Ошибка при сохранении комментария к задаче:", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
-# ==================== Предложения \ Разрешения ====================
+# ==================== ПРЕДЛОЖЕНИЯ ====================
 @app.post("/projects/{project_id}/suggestions", response_model=ProjectResponse, tags=["Projects"])
 async def create_suggestion(
     project_id: int,
@@ -1087,7 +1146,7 @@ async def reject_suggestion(
     db.refresh(project)
     return project
 
-# ==================== СКРЫТЬ КОММЕНТЫ ====================
+# ==================== СКРЫТИЕ КОММЕНТАРИЕВ ====================
 @app.post("/projects/{project_id}/comments/{comment_id}/hide", response_model=ProjectResponse, tags=["Projects"])
 async def hide_comment(
     project_id: int,
@@ -1191,18 +1250,27 @@ async def accept_invitation(
     db.refresh(project)
     return project
 
-# ==================== АВТОРИЗАЦИЯ И ВЕРЕФИКАЦИЯ ====================
+# ==================== АУТЕНТИФИКАЦИЯ И ВЕРИФИКАЦИЯ ====================
 @app.post("/auth/request-verification-code", tags=["Auth"])
 async def request_verification_code(request: dict, db: Session = Depends(get_db)):
     email = request.get("email")
     is_teacher = request.get("is_teacher", False)
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
-    if is_teacher and not is_email_accepted(email):
-        raise HTTPException(status_code=403, detail="Этот email не разрешен для регистрации учителя")
+
+    # Проверка для учителей
+    if is_teacher:
+        if not is_email_accepted(email):
+            raise HTTPException(status_code=403, detail="Этот email не разрешен для регистрации учителя")
+    else:
+        # Проверка для учеников
+        if not is_student_email_accepted(email):
+            raise HTTPException(status_code=403, detail="Этот email не разрешён для регистрации ученика. Используйте email с доменом lit1533.ru или из списка разрешённых.")
+
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
+
     code = generate_verification_code()
     redis_client.setex(f"verify:{email}", 600, code)
     await send_verification_email(email, code)
@@ -1250,8 +1318,15 @@ async def register_with_verification(request: dict, db: Session = Depends(get_db
     if not stored_code or stored_code != code:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code")
     redis_client.delete(f"verify:{email}")
-    if is_teacher and not is_email_accepted(email):
-        raise HTTPException(status_code=403, detail="Этот email не разрешен для регистрации учителя")
+
+    # Проверка email для учителей и учеников
+    if is_teacher:
+        if not is_email_accepted(email):
+            raise HTTPException(status_code=403, detail="Этот email не разрешен для регистрации учителя")
+    else:
+        if not is_student_email_accepted(email):
+            raise HTTPException(status_code=403, detail="Этот email не разрешён для регистрации ученика")
+
     existing_user = db.query(User).filter(
         (User.nickname == user_data.get('nickname')) |
         (User.email == email)
@@ -1338,7 +1413,7 @@ async def logout(request: Request, current_user: User = Depends(get_current_user
         redis_client.delete(f"refresh:{current_user.id}:{refresh_token}")
     return {"message": "Logged out successfully"}
 
-# ==================== УДАЛИТЬ КОММЕНТЫ ====================
+# ==================== УДАЛЕНИЕ КОММЕНТАРИЕВ (СКРЫТИЕ) ====================
 @app.delete("/projects/{project_id}/comments/{comment_id}", response_model=ProjectResponse, tags=["Projects"])
 async def delete_project_comment(
     project_id: int,
@@ -1396,7 +1471,7 @@ async def delete_task_comment(
     db.refresh(project)
     return project
 
-# ==================== СКРЫТИЕ ПРОЧИТАННЫХ КОМЕНТОВ ====================
+# ==================== ОТМЕТКА ПРОЧИТАННЫХ КОММЕНТАРИЕВ ====================
 @app.put("/projects/{project_id}/comments/{comment_id}/read", response_model=ProjectResponse, tags=["Projects"])
 async def mark_project_comment_read(
     project_id: int,

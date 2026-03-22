@@ -68,6 +68,7 @@
             type="text"
             placeholder="Введите никнейм"
             required
+            @input="clearErrors"
           />
         </div>
 
@@ -79,6 +80,7 @@
             type="text"
             placeholder="Введите полное имя"
             required
+            @input="clearErrors"
           />
         </div>
 
@@ -90,11 +92,16 @@
             type="email"
             placeholder="Введите email"
             required
+            @blur="checkEmail"
+            @input="clearErrors"
           />
-          <!-- Сообщение о проверке email для учителя -->
           <small v-if="accountType === 'teacher'" class="email-note">
             ✉️ Для учителей требуется подтверждение email. 
             Используйте email из списка разрешенных.
+          </small>
+          <small v-if="accountType === 'student'" class="email-note">
+            ✉️ Для учеников требуется подтверждение email. 
+            Используйте email с доменом lit1533.ru или из списка разрешённых.
           </small>
         </div>
 
@@ -185,6 +192,7 @@
             type="password"
             placeholder="Введите пароль"
             required
+            @input="clearErrors"
           />
         </div>
 
@@ -196,38 +204,29 @@
             type="password"
             placeholder="Повторите пароль"
             required
-            @input="passwordMatchError = false"
+            @input="clearErrors"
           />
         </div>
 
         <!-- Информация о подтверждении email -->
-        <div v-if="accountType === 'teacher'" class="verification-notice">
+        <div class="verification-notice">
           <span class="notice-icon">🔐</span>
           <div class="notice-text">
-            <strong>Подтверждение обязательно</strong>
-            <p>Для регистрации учителя мы проверим, есть ли ваш email в списке разрешенных.</p>
+            <strong>Подтверждение email обязательно</strong>
+            <p>После отправки формы на указанный email придёт код подтверждения. Без подтверждения регистрация не завершится.</p>
           </div>
         </div>
 
-        <!-- Отображение ошибки, если пароли не совпадают -->
+        <!-- Ошибки валидации -->
+        <div v-if="emailError" class="error-message">
+          {{ emailError }}
+        </div>
         <div v-if="passwordMatchError" class="error-message">
           Пароли не совпадают
         </div>
-
-        <!-- Ошибка, если не выбрана ни одна роль учителя -->
         <div v-if="accountType === 'teacher' && selectedRoles.length === 0 && showRoleError" class="error-message">
           Пожалуйста, выберите хотя бы одну роль
         </div>
-
-        <!-- Ошибка для email учителя (если не в списке) -->
-        <div v-if="teacherEmailError" class="teacher-email-error">
-          <span class="error-icon">⚠️</span>
-          <div class="error-content">
-            <strong>Email не разрешен для регистрации учителя</strong>
-            <p>Этот email не находится в списке разрешенных.</p>
-          </div>
-        </div>
-
         <div v-if="errorMessage" class="error-message">
           {{ errorMessage }}
         </div>
@@ -272,20 +271,18 @@ type TeacherRole = 'customer' | 'expert' | 'supervisor';
 const selectedRoles = ref<TeacherRole[]>([]);
 const showRoleError = ref(false);
 
-// Флаг ошибки email учителя
-const teacherEmailError = ref(false);
-
 const form = reactive<RegisterForm>({
   nickname: '',
   fullname: '',
   email: '',
-  class_: 0,
+  class_: 3.1, // минимальное значение класса – 3.1
   speciality: '',
   password: '',
 });
 
 const loading = ref(false);
 const errorMessage = ref('');
+const emailError = ref('');
 
 // Данные аватарки
 const avatarFile = ref<File | null>(null);
@@ -306,7 +303,6 @@ const toggleRole = (role: TeacherRole) => {
   showRoleError.value = false;
 };
 
-// Функции для перевода роли на русский
 const getRoleDisplay = (role: TeacherRole): string => {
   const roles = {
     customer: 'Заказчик',
@@ -346,53 +342,71 @@ const clearAvatar = () => {
   }
 };
 
-// Функция для проверки email учителя через файл
-const checkTeacherEmail = async (email: string): Promise<boolean> => {
+const clearErrors = () => {
+  emailError.value = '';
+  errorMessage.value = '';
+  passwordMatchError.value = false;
+  showRoleError.value = false;
+};
+
+const checkEmail = async () => {
+  if (!form.email) return;
   try {
-    // Загружаем файл accepted_emails.json
-    const response = await fetch('/accepted_emails.json');
-    const data = await response.json();
-    
-    // Проверяем, есть ли email в списке
-    return data.accepted_emails?.includes(email) || false;
-  } catch (error) {
-    console.error('Ошибка при загрузке списка разрешенных email:', error);
-    return false;
+    const endpoint = accountType.value === 'teacher'
+      ? '/auth/check-teacher-email'
+      : '/auth/check-student-email';
+    const response = await axios.post(endpoint, { email: form.email });
+    if (response.data.accepted) {
+      emailError.value = '';
+    }
+  } catch (error: any) {
+    if (error.response?.status === 403) {
+      emailError.value = error.response.data.detail;
+    } else {
+      emailError.value = 'Ошибка проверки email';
+    }
   }
 };
 
 const handleRegister = async () => {
   // Сбрасываем ошибки
-  teacherEmailError.value = false;
-  
+  clearErrors();
+
   // Проверка совпадения паролей
   if (form.password !== confirmPassword.value) {
     passwordMatchError.value = true;
     return;
   }
-  passwordMatchError.value = false;
 
   // Проверка email
   if (!form.email) {
-    errorMessage.value = 'Email обязателен для регистрации';
+    emailError.value = 'Email обязателен для регистрации';
     return;
   }
 
   // Для учителя проверяем, выбрана ли хотя бы одна роль
-  if (accountType.value === 'teacher') {
-    showRoleError.value = false;
-    if (selectedRoles.value.length === 0) {
-      showRoleError.value = true;
-      errorMessage.value = 'Пожалуйста, выберите хотя бы одну роль';
+  if (accountType.value === 'teacher' && selectedRoles.value.length === 0) {
+    showRoleError.value = true;
+    return;
+  }
+
+  // Проверка email через бэкенд
+  try {
+    const endpoint = accountType.value === 'teacher'
+      ? '/auth/check-teacher-email'
+      : '/auth/check-student-email';
+    const response = await axios.post(endpoint, { email: form.email });
+    if (!response.data.accepted) {
+      emailError.value = response.data.detail || 'Email не разрешён';
       return;
     }
-    
-    // Проверяем, есть ли email в списке разрешенных
-    const isEmailAccepted = await checkTeacherEmail(form.email);
-    if (!isEmailAccepted) {
-      teacherEmailError.value = true;
-      return;
+  } catch (error: any) {
+    if (error.response?.status === 403) {
+      emailError.value = error.response.data.detail;
+    } else {
+      emailError.value = 'Ошибка проверки email';
     }
+    return;
   }
 
   loading.value = true;
@@ -400,18 +414,17 @@ const handleRegister = async () => {
 
   try {
     if (accountType.value === 'teacher') {
-      await handleTeacherRegistration();
+      await requestVerification(true);
     } else {
-      await handleStudentRegistration();
+      await requestVerification(false);
     }
   } catch (error: any) {
     console.error('Registration error:', error);
-    
     if (error.response?.status === 400) {
       const detail = error.response.data?.detail;
       errorMessage.value = typeof detail === 'string' 
         ? detail 
-        : 'Ошибка регистрации. Возможно, пользователь с таким никнеймом или email уже существует.';
+        : 'Ошибка при отправке кода. Возможно, email уже зарегистрирован.';
     } else if (error.code === 'ERR_NETWORK') {
       errorMessage.value = 'Ошибка сети. Проверьте подключение к серверу.';
     } else {
@@ -422,116 +435,67 @@ const handleRegister = async () => {
   }
 };
 
-// Регистрация ученика
-const handleStudentRegistration = async () => {
-  const { class_, ...rest } = form;
-  const userData = {
-    ...rest,
-    class: class_ || 0,
-    password: form.password,
-    is_teacher: false
-  };
-
-  try {
-    // Используем общий эндпоинт /users/
-    const response = await axios.post('http://localhost:8000/users/', userData);
-    const newUser = response.data;
-    
-    console.log('Student created:', newUser);
-    
-    // Автоматически логиним ученика
-    const loginSuccess = await authStore.login(form.nickname, form.password);
-    
-    if (!loginSuccess) {
-      throw new Error('Не удалось выполнить автоматический вход');
-    }
-
-    // Загружаем аватарку, если есть
-    if (avatarFile.value && authStore.user?.id) {
-      await uploadAvatar(authStore.user.id);
-    }
-    
-    router.push('/main');
-  } catch (error) {
-    console.error('Student registration error:', error);
-    throw error;
-  }
-};
-
-// Регистрация учителя
-const handleTeacherRegistration = async () => {
-  // Подготовка данных учителя (без куратора)
-  const teacherData = {
+const requestVerification = async (isTeacher: boolean) => {
+  // Подготовка данных пользователя
+  const userData: any = {
     nickname: form.nickname,
     fullname: form.fullname,
     email: form.email,
     speciality: form.speciality,
     password: form.password,
-    is_teacher: true,
-    teacher_info: {
-      roles: selectedRoles.value,  // массив выбранных ролей (customer, expert, supervisor)
-      curator: false                // по умолчанию false, админ назначит позже
-    }
+    is_teacher: isTeacher,
   };
 
-  try {
-    // Запрос кода подтверждения
-    await axios.post('http://localhost:8000/auth/request-verification-code', {
-      email: form.email,
-      is_teacher: true
-    });
-    
-    // Сохраняем данные учителя в sessionStorage
-    sessionStorage.setItem('pending_registration', JSON.stringify(teacherData));
-    console.log('Teacher data saved:', teacherData);
+  if (isTeacher) {
+    userData.teacher_info = {
+      roles: selectedRoles.value,
+      curator: false,
+    };
+  } else {
+    userData.class_ = form.class_ || 0;
+  }
 
-    // Сохраняем аватарку, если есть
-    if (avatarFile.value) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        sessionStorage.setItem('pending_avatar', reader.result as string);
-      };
-      reader.readAsDataURL(avatarFile.value);
-      
-      setTimeout(() => {
-        router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
-      }, 500);
-    } else {
+  // Запрашиваем код подтверждения
+  await axios.post('http://localhost:8000/auth/request-verification-code', {
+    email: form.email,
+    is_teacher: isTeacher,
+  });
+
+  // Сохраняем данные в sessionStorage
+  sessionStorage.setItem('pending_registration', JSON.stringify(userData));
+  console.log('User data saved:', userData);
+
+  // Сохраняем аватарку, если есть
+  if (avatarFile.value) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      sessionStorage.setItem('pending_avatar', reader.result as string);
+    };
+    reader.readAsDataURL(avatarFile.value);
+    // Даём время на сохранение аватарки перед переходом
+    setTimeout(() => {
       router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
-    }
-    
-  } catch (error: any) {
-    console.error('Error requesting verification code:', error);
-    
-    if (error.response?.status === 400) {
-      errorMessage.value = 'Ошибка при отправке кода. Проверьте email и попробуйте снова.';
-    } else {
-      throw error;
-    }
+    }, 500);
+  } else {
+    router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
   }
 };
 
-// Загрузка аватарки
+// Загрузка аватарки (используется при автоматическом входе после регистрации – больше не нужно, т.к. регистрация идёт через верификацию)
 const uploadAvatar = async (userId: number) => {
   if (!avatarFile.value) return;
-  
   const formData = new FormData();
   formData.append('file', avatarFile.value);
-
-  const response = await axios.post(
+  await axios.post(
     `http://localhost:8000/users/${userId}/avatar`,
     formData,
     { headers: { 'Content-Type': 'multipart/form-data' } }
   );
-
-  if (authStore.user) {
-    authStore.user.avatar = response.data.avatar;
-  }
 };
 </script>
 
 <style scoped>
-/* Стили полностью скопированы из исходного файла */
+/* Все стили остаются без изменений (скопированы из исходного файла) */
 .register-page {
   display: flex;
   flex-direction: column;
@@ -769,41 +733,6 @@ label {
   margin: 0;
 }
 
-/* Стиль для ошибки email учителя */
-.teacher-email-error {
-  background: var(--error-bg);
-  border: 2px solid var(--danger-color);
-  border-radius: 8px;
-  padding: 16px;
-  margin: 20px 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.error-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.error-content {
-  flex: 1;
-}
-
-.error-content strong {
-  display: block;
-  color: var(--danger-color);
-  margin-bottom: 4px;
-  font-size: 1rem;
-}
-
-.error-content p {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  margin: 0;
-  line-height: 1.4;
-}
-
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -988,12 +917,6 @@ input[type="file"]::-webkit-file-upload-button {
   .selected-role-tag {
     padding: 4px 10px;
     font-size: 0.85rem;
-  }
-  
-  .teacher-email-error {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
   }
 }
 </style>
