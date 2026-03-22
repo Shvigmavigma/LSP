@@ -21,7 +21,11 @@
           <span class="card-title">Управление проектами</span>
           <span class="card-desc">Просмотр, редактирование, удаление проектов и задач</span>
         </router-link>
-
+        <router-link to="/admin/emails" class="menu-card">
+          <span class="card-icon">✉️</span>
+          <span class="card-title">Разрешённые email</span>
+          <span class="card-desc">Управление списками email для учителей и учеников</span>
+        </router-link>
         <div class="menu-card danger" @click="confirmDeleteAllUsers">
           <span class="card-icon">⚠️</span>
           <span class="card-title">Удалить всех пользователей</span>
@@ -33,6 +37,7 @@
           <span class="card-title">Удалить все проекты</span>
           <span class="card-desc">Необратимое удаление всех проектов</span>
         </div>
+        
       </div>
     </div>
 

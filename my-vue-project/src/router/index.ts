@@ -16,7 +16,7 @@ import ProfileEdit from '../views/ProfileEdit.vue'
 import UserProjects from '../views/UserProjects.vue'
 import InviteAccept from '@/views/InviteAccept.vue'
 
-// Админские страницы
+import AdminEmails from '../views/AdminEmails.vue'
 import AdminPanel from '../views/AdminPanel.vue'
 import AdminUsers from '../views/AdminUsers.vue'
 import AdminUserEdit from '../views/AdminUserEdit.vue'
@@ -73,7 +73,13 @@ const routes: Array<RouteRecordRaw> = [
     component: AdminProjectEdit,
     meta: { requiresAdmin: true }
   },
-]
+  {
+    path: '/admin/emails',
+    name: 'AdminEmails',
+    component: AdminEmails,
+    meta: { requiresAdmin: true }
+  },
+  ]
 
 const router = createRouter({
   history: createWebHistory(),

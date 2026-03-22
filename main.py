@@ -1517,6 +1517,72 @@ async def mark_task_comment_read(
     db.commit()
     db.refresh(project)
     return project
+# ==================== УПРАВЛЕНИЕ РАЗРЕШЁННЫМИ EMAIL ====================
+
+@app.get("/admin/accepted-emails/teachers", tags=["Admin"])
+async def get_accepted_teacher_emails(
+    admin: User = Depends(get_current_admin)
+):
+    """Получить список разрешённых email для учителей."""
+    try:
+        with open(ACCEPTED_EMAILS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data
+    except FileNotFoundError:
+
+        return {"accepted_emails": [], "domains": []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка чтения файла: {str(e)}")
+
+@app.put("/admin/accepted-emails/teachers", tags=["Admin"])
+async def update_accepted_teacher_emails(
+    data: dict,
+    admin: User = Depends(get_current_admin)
+):
+    """Обновить список разрешённых email для учителей."""
+    # Валидация структуры
+    if "accepted_emails" not in data or "domains" not in data:
+        raise HTTPException(status_code=400, detail="Неверная структура: требуется accepted_emails и domains")
+    if not isinstance(data["accepted_emails"], list) or not isinstance(data["domains"], list):
+        raise HTTPException(status_code=400, detail="accepted_emails и domains должны быть массивами")
+    try:
+        with open(ACCEPTED_EMAILS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return {"message": "Файл успешно обновлён"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка записи файла: {str(e)}")
+
+@app.get("/admin/accepted-emails/students", tags=["Admin"])
+async def get_accepted_student_emails(
+    admin: User = Depends(get_current_admin)
+):
+    """Получить список разрешённых email для учеников."""
+    try:
+        with open(ACCEPTED_STUDENT_EMAILS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data
+    except FileNotFoundError:
+
+        return {"accepted_emails": [], "domains": ["lit1533.ru"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка чтения файла: {str(e)}")
+
+@app.put("/admin/accepted-emails/students", tags=["Admin"])
+async def update_accepted_student_emails(
+    data: dict,
+    admin: User = Depends(get_current_admin)
+):
+    """Обновить список разрешённых email для учеников."""
+    if "accepted_emails" not in data or "domains" not in data:
+        raise HTTPException(status_code=400, detail="Неверная структура: требуется accepted_emails и domains")
+    if not isinstance(data["accepted_emails"], list) or not isinstance(data["domains"], list):
+        raise HTTPException(status_code=400, detail="accepted_emails и domains должны быть массивами")
+    try:
+        with open(ACCEPTED_STUDENT_EMAILS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return {"message": "Файл успешно обновлён"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка записи файла: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
