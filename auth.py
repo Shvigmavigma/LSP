@@ -1,4 +1,4 @@
-# auth.py
+
 import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
@@ -23,13 +23,13 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Проверяет, соответствует ли введенный пароль хешу из базы данных
     """
     try:
-        # Конвертируем в байты для bcrypt
+        # Конвертм в байтов для bcrypt
         if isinstance(plain_password, str):
             plain_password = plain_password.encode('utf-8')
         if isinstance(hashed_password, str):
             hashed_password = hashed_password.encode('utf-8')
         
-        # Обрезаем до 72 байт (ограничение bcrypt)
+        # Обрезка до 72 байт (ограничение bcrypt)
         if len(plain_password) > 72:
             plain_password = plain_password[:72]
         result = bcrypt.checkpw(plain_password, hashed_password)

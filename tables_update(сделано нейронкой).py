@@ -6,7 +6,7 @@ import os
 
 load_dotenv()
 
-# Подключение к базе данных
+
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./my_database.db")
 
 def upgrade_users_table():

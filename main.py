@@ -86,7 +86,6 @@ os.makedirs("avatars", exist_ok=True)
 app.mount("/avatars", StaticFiles(directory="avatars"), name="avatars")
 AVATAR_DIR = "avatars"
 
-# Создаем таблицы
 Base.metadata.create_all(bind=engine)
 
 def get_db():
@@ -99,8 +98,6 @@ def get_db():
 def is_curator(user: User) -> bool:
     """Проверяет, является ли пользователь куратором (глобальная роль)."""
     return user.is_teacher and user.teacher_info and user.teacher_info.get("curator", False)
-
-# Новая функция для получения роли автора комментария
 def get_author_role(user: User, project: Project) -> str:
     """Возвращает роль пользователя для отображения в комментарии."""
     if user.is_admin:
@@ -120,7 +117,7 @@ def get_author_role(user: User, project: Project) -> str:
             return role_names.get(role, role)
     return "Участник"
 
-# ==================== TOKEN ENDPOINT ====================
+# ==================== ЭНД ТОКЕНОВ ====================
 @app.post("/token", response_model=TokenResponse, tags=["Auth"])
 async def token_login(
     form_data: OAuth2PasswordRequestFormStrict = Depends(),
@@ -141,7 +138,7 @@ async def token_login(
     redis_client.setex(f"refresh:{user.id}:{refresh_token}", REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60, "valid")
     return TokenResponse(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 
-# ==================== ADMIN ENDPOINTS ====================
+# ==================== ЭНД АДМИНОВ ====================
 @app.post("/admin/users", response_model=UserResponse, tags=["Admin"])
 async def admin_create_user(
     username: str = Body(..., description="Никнейм нового администратора"),
@@ -186,8 +183,6 @@ async def admin_delete_comment_permanently(
     """
     if not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(status_code=403, detail="Only admin or curator can permanently delete comments")
-
-    # Ищем комментарий во всех проектах (можно оптимизировать, но для простоты)
     projects = db.query(Project).all()
     found = False
     for project in projects:
@@ -382,7 +377,7 @@ def get_participant_role(project: Project, user_id: int) -> Optional[str]:
             return p.get("role")
     return None
 
-# ==================== TEACHER EMAIL VERIFICATION ====================
+# ==================== ВЕРЕФИКАЦИ УЧИТЕЛЬСКОЙ ПОЧТЫ ====================
 ACCEPTED_EMAILS_FILE = Path("accepted_emails.json")
 
 def load_accepted_emails():
@@ -411,7 +406,7 @@ def is_email_accepted(email: str) -> bool:
         return True
     return False
 
-# ==================== STUDENTS ====================
+# ==================== УЧЕНИКИ ====================
 @app.post("/students/", response_model=StudentResponse, tags=["Students"])
 async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     existing_nickname = db.query(User).filter(User.nickname == student.nickname.strip()).first()
@@ -632,7 +627,7 @@ async def delete_teacher(teacher_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": f"Teacher {teacher_id} deleted successfully"}
 
-# ==================== COMMON USER ENDPOINTS ====================
+# ==================== ЭНД ОБЫЧНЫХ ЮЗЕРОВ ====================
 @app.get("/users/me", response_model=UserResponse, tags=["Common"])
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
@@ -716,7 +711,7 @@ async def upload_avatar(
             os.remove(filepath)
         raise HTTPException(status_code=500, detail=f"Image processing failed: {str(e)}")
 
-# ==================== PROJECTS ====================
+# ==================== ПРОЕКТЫ ====================
 
 @app.post("/projects/{project_id}/join-requests", response_model=ProjectResponse, tags=["Projects"])
 async def create_join_request(
@@ -997,7 +992,7 @@ async def add_task_comment(
         print("Ошибка при сохранении комментария к задаче:", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
-# ==================== SUGGESTIONS ====================
+# ==================== Предложения \ Разрешения ====================
 @app.post("/projects/{project_id}/suggestions", response_model=ProjectResponse, tags=["Projects"])
 async def create_suggestion(
     project_id: int,
@@ -1092,7 +1087,7 @@ async def reject_suggestion(
     db.refresh(project)
     return project
 
-# ==================== HIDE COMMENTS ====================
+# ==================== СКРЫТЬ КОММЕНТЫ ====================
 @app.post("/projects/{project_id}/comments/{comment_id}/hide", response_model=ProjectResponse, tags=["Projects"])
 async def hide_comment(
     project_id: int,
@@ -1107,7 +1102,7 @@ async def hide_comment(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Проверяем права: научный руководитель, админ или куратор
+    # Проверка прав -  научный руководитель, админ или куратор
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if role != ProjectRole.SUPERVISOR.value:
@@ -1123,7 +1118,7 @@ async def hide_comment(
     db.refresh(project)
     return project
 
-# ==================== INVITATIONS ====================
+# ==================== ПРИГЛАШЕНИЯ ====================
 @app.post("/projects/{project_id}/invite", response_model=Dict[str, str], tags=["Projects"])
 async def create_invitation(
     project_id: int,
@@ -1196,7 +1191,7 @@ async def accept_invitation(
     db.refresh(project)
     return project
 
-# ==================== AUTH & VERIFICATION ====================
+# ==================== АВТОРИЗАЦИЯ И ВЕРЕФИКАЦИЯ ====================
 @app.post("/auth/request-verification-code", tags=["Auth"])
 async def request_verification_code(request: dict, db: Session = Depends(get_db)):
     email = request.get("email")
@@ -1343,7 +1338,7 @@ async def logout(request: Request, current_user: User = Depends(get_current_user
         redis_client.delete(f"refresh:{current_user.id}:{refresh_token}")
     return {"message": "Logged out successfully"}
 
-# ==================== DELETE COMMENTS ====================
+# ==================== УДАЛИТЬ КОММЕНТЫ ====================
 @app.delete("/projects/{project_id}/comments/{comment_id}", response_model=ProjectResponse, tags=["Projects"])
 async def delete_project_comment(
     project_id: int,
@@ -1401,7 +1396,7 @@ async def delete_task_comment(
     db.refresh(project)
     return project
 
-# ==================== MARK COMMENTS READ ====================
+# ==================== СКРЫТИЕ ПРОЧИТАННЫХ КОМЕНТОВ ====================
 @app.put("/projects/{project_id}/comments/{comment_id}/read", response_model=ProjectResponse, tags=["Projects"])
 async def mark_project_comment_read(
     project_id: int,
