@@ -1,0 +1,7 @@
+для запуска перейти в папку current_version
+установить все нужные библиотеки из файла requirements: pip install -r requirements.txt
+так же в корневой папке прописать команду: uvicorn main:app --reload --port 8000
+дальше перейти в папку my-vue-project
+npm install
+там прописать команду npm run dev
+перейти по ссылки localhost
