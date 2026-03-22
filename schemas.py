@@ -8,23 +8,23 @@ class JoinRequest(BaseModel):
     id: str
     user_id: int
     created_at: datetime
-    status: str  # 'pending', 'accepted', 'rejected'
-# ---------- Comment Schema (с полем hidden) ----------
+    status: str 
+# ---------- СХЕМА КОММЕНТОВ ----------
 class Comment(BaseModel):
     id: str
     authorId: int
     content: str
-    authorRole: Optional[str] = None   # <-- добавлено
+    authorRole: Optional[str] = None   
     createdAt: str
     isRead: bool
-    hidden: bool = False                    # <-- новое поле
+    hidden: bool = False      
 
-# ---------- Project Roles ----------
+# ---------- РОЛИ В ПРОЕКТАХ ----------
 class ProjectRole(str, Enum):
     CUSTOMER = "customer"      # Заказчик
     SUPERVISOR = "supervisor"   # Научный руководитель
     EXPERT = "expert"           # Эксперт
-    EXECUTOR = "executor"       # Исполнитель (студент)
+    EXECUTOR = "executor"       # Исполнитель
     CURATOR = "curator"         # Куратор
 
 # ---------- Participant ----------
@@ -32,18 +32,18 @@ class Participant(BaseModel):
     user_id: int
     role: ProjectRole
     joined_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
-    invited_by: Optional[int] = None  # ID пригласившего пользователя
+    invited_by: Optional[int] = None 
 
-# ---------- User Base (общая база) ----------
+# ---------- общая база ----------
 class UserBase(BaseModel):
     nickname: str
     fullname: str
     email: EmailStr
     avatar: Optional[str] = None
     speciality: Optional[str] = None
-    is_teacher: bool = False  # По умолчанию ученик
+    is_teacher: bool = False  
 
-# ---------- Student (ученик) ----------
+# ---------- ученик ----------
 class StudentBase(UserBase):
     class_: float = Field(
         0.0,
@@ -51,7 +51,7 @@ class StudentBase(UserBase):
         validation_alias="class",
         serialization_alias="class"
     )
-    is_teacher: bool = False  # Переопределяем, чтобы всегда было False
+    is_teacher: bool = False 
 
 class StudentCreate(StudentBase):
     password: str
@@ -78,12 +78,12 @@ class StudentUpdate(BaseModel):
     avatar: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)
 
-# ---------- Teacher (учитель) ----------
+# ---------- учитель ----------
 class TeacherRole(str, Enum):
     CUSTOMER = "customer"      # Заказчик
     EXPERT = "expert"           # Эксперт
     SUPERVISOR = "supervisor"   # Научный руководитель
-    # Куратор не включён в список, так как выбирается отдельным чекбоксом
+    #куратор будет отдельно
 
 class TeacherInfo(BaseModel):
     roles: List[TeacherRole] = Field(default=[], description="Роли учителя: заказчик, эксперт, научный руководитель")
@@ -112,7 +112,7 @@ class TeacherUpdate(BaseModel):
     teacher_info: Optional[TeacherInfo] = None
     model_config = ConfigDict(populate_by_name=True)
 
-# ---------- Общий пользователь (для списков и базовых операций) ----------
+# ---------- Общий пользователь ----------
 class UserResponse(BaseModel):
     id: int
     nickname: str
@@ -123,9 +123,7 @@ class UserResponse(BaseModel):
     is_active: bool
     is_verified: bool
     is_teacher: bool
-    # Поля, которые могут быть только у учеников
     class_: Optional[float] = Field(None, alias="class")
-    # Поля, которые могут быть только у учителей
     teacher_info: Optional[TeacherInfo] = None
     
     created_at: Optional[datetime] = None
@@ -134,11 +132,11 @@ class UserResponse(BaseModel):
     
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-# ---------- Auth ----------
+# ---------- Авторизация ----------
 class LoginRequest(BaseModel):
     nickname: str
     password: str
-# ---------- Suggestion (предложение) ----------
+# ---------- предложение ----------
 class SuggestionStatus(str, Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
@@ -146,7 +144,7 @@ class SuggestionStatus(str, Enum):
 
 
 
-# Схема для создания предложения (без id, status, created_at, comments)
+# Схема для создания предложения 
 class SuggestionCreate(BaseModel):
     target_type: str
     target_id: Optional[str] = None
@@ -154,13 +152,13 @@ class SuggestionCreate(BaseModel):
 class Suggestion(BaseModel):
     id: str
     author_id: int
-    target_type: str  # "project", "task", "link"
-    target_id: Optional[str] = None  # для задачи — её индекс или id
-    changes: Dict[str, Any]          # предлагаемые изменения
+    target_type: str  
+    target_id: Optional[str] = None  
+    changes: Dict[str, Any]        
     status: SuggestionStatus = SuggestionStatus.PENDING
     created_at: datetime
     comments: List[Comment] = []
-# ---------- Project ----------
+# ---------- Проект ----------
 class ProjectBase(BaseModel):
     title: str = Field(..., min_length=1, json_schema_extra={"example": "Космическая программа"})
     body: str = Field(..., min_length=1, json_schema_extra={"example": "Подробное описание..."})
@@ -187,12 +185,12 @@ class ProjectBase(BaseModel):
     suggestions: List[Suggestion] = [] 
 
 class ProjectCreate(ProjectBase):
-    pass  # Все поля наследуются
+    pass  
 
 class ProjectResponse(ProjectBase):
     suggestions: List[Suggestion] = []
     id: int
-    join_requests: List[JoinRequest] = []   # добавлено! 
+    join_requests: List[JoinRequest] = []  
     model_config = ConfigDict(from_attributes=True)
 
 class ProjectUpdate(BaseModel):
@@ -219,7 +217,7 @@ class PasswordResetConfirm(BaseModel):
     token: str
     new_password: str
 
-# ---------- Token схемы ----------
+# ---------- Токен схемы ----------
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -227,7 +225,7 @@ class TokenResponse(BaseModel):
 
 
 
-# ---------- Invitation (приглашение) ----------
+# ---------- приглашение ----------
 class InvitationCreate(BaseModel):
     email: str
     role: ProjectRole
@@ -244,4 +242,4 @@ class JoinRequest(BaseModel):
     id: str
     user_id: int
     created_at: datetime
-    status: str  # "pending", "accepted", "rejected"
+    status: str  
