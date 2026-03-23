@@ -297,18 +297,19 @@
 
             <!-- Блок комментариев проекта -->
             <div v-if="showProjectComments" class="comments-container">
-              <CommentsSection
-                :comments="project.comments || []"
-                :can-comment="hasFullAccess"
-                :is-author="canEdit"
-                :can-hide-comments="canHideComments"
-                :is-admin="isAdmin"
-                :is-curator="isCurator"
-                :on-add-comment="addProjectComment"
-                :on-mark-as-read="markProjectCommentAsRead"
-                :on-hide-comment="hideProjectComment"
-                :on-permanent-delete="permanentDeleteComment"
-              />
+            <CommentsSection
+              :comments="project.comments || []"
+              :can-comment="hasFullAccess"
+              :is-author="canEdit"
+              :can-hide-comments="canHideComments"
+              :is-admin="isAdmin"
+              :is-curator="isCurator"
+              :on-add-comment="addProjectComment"
+              :on-mark-as-read="markProjectCommentAsRead"
+              :on-hide-comment="hideProjectComment"
+              :on-restore-comment="restoreProjectComment"
+              :on-permanent-delete="permanentDeleteComment"
+            />
             </div>
 
             <!-- Блок запросов на вступление -->
@@ -498,6 +499,9 @@ const driveEditValue = ref('');
 const deleteInProgress = ref(false);
 const isAdminOrCurator = computed(() => isAdmin.value || isCurator.value);
 
+const projectId = Number(route.params.projectId);
+const taskIndex = Number(route.params.taskIndex);
+
 // Роль текущего пользователя в проекте (только если он участник)
 const userRole = computed<ProjectRole | null>(() => {
   if (!authStore.userId || !project.value) return null;
@@ -635,7 +639,29 @@ const userPendingRequest = computed(() => {
   if (!authStore.userId || !project.value?.join_requests) return false;
   return project.value.join_requests.some(r => r.user_id === authStore.userId && r.status === 'pending');
 });
+const restoreProjectComment = async (commentId: string) => {
+  if (!project.value) return;
+  try {
+    await axios.post(`${baseUrl}/projects/${project.value.id}/comments/${commentId}/restore`);
+    showNotification('Комментарий восстановлен', 'success');
+    await loadProject();
+  } catch (error) {
+    console.error('Failed to restore comment', error);
+    showNotification('Ошибка при восстановлении комментария', 'error');
+  }
+};
 
+const restoreTaskComment = async (commentId: string) => {
+  if (!project.value) return;
+  try {
+    await axios.post(`${baseUrl}/projects/${project.value.id}/tasks/${taskIndex}/comments/${commentId}/restore`);
+    showNotification('Комментарий восстановлен', 'success');
+    await loadProject();
+  } catch (error) {
+    console.error('Failed to restore comment', error);
+    showNotification('Ошибка при восстановлении комментария', 'error');
+  }
+};
 // Модальное окно приглашения
 const showInviteModal = ref(false);
 

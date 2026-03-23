@@ -73,6 +73,7 @@
           :on-mark-as-read="markTaskCommentAsRead"
           :on-hide-comment="hideTaskComment"
           :on-permanent-delete="permanentDeleteComment"
+          :on-restore-comment="restoreTaskComment"
         />
       </section>
 
@@ -582,7 +583,21 @@ const openConfirmDialog = () => {
 const closeConfirmDialog = () => { 
   showConfirmDialog.value = false; 
 };
-
+const restoreTaskComment = async (commentId: string) => {
+  if (!project.value) return;
+  try {
+    await axios.post(`${baseUrl}/projects/${projectId}/tasks/${taskIndex}/comments/${commentId}/restore`);
+    showNotification('Комментарий восстановлен', 'success');
+    const updatedProject = await projectsStore.fetchProjectById(projectId);
+    project.value = updatedProject;
+    if (updatedProject && updatedProject.tasks && updatedProject.tasks[taskIndex]) {
+      task.value = updatedProject.tasks[taskIndex];
+    }
+  } catch (error) {
+    console.error('Failed to restore comment', error);
+    showNotification('Ошибка при восстановлении комментария', 'error');
+  }
+};
 const confirmExtraChange = async () => {
   if (!canEditTask.value) { 
     showNotification('Только заказчик, исполнитель или куратор могут изменять прогресс', 'info'); 
