@@ -803,7 +803,43 @@ async def create_join_request(
     db.commit()
     db.refresh(project)
     return project
+@app.patch("/projects/{project_id}/hide", response_model=ProjectResponse, tags=["Projects"])
+async def toggle_hide_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
+    # Инициализируем hidden_by_users, если None
+    if project.hidden_by_users is None:
+        project.hidden_by_users = []
+
+    # Админ или куратор могут глобально скрывать/показывать
+    if current_user.is_admin or is_curator(current_user):
+        project.is_hidden = not project.is_hidden
+        if project.is_hidden:
+            project.hidden_by = current_user.id
+        else:
+            project.hidden_by = None
+    else:
+        # Обычные пользователи также скрывают проект глобально
+        participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
+        if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
+            raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can hide/show projects")
+        
+        # Используем то же поле is_hidden для глобального скрытия
+        project.is_hidden = not project.is_hidden
+        if project.is_hidden:
+            project.hidden_by = current_user.id
+        else:
+            project.hidden_by = None
+    
+    db.commit()
+    db.refresh(project)
+    return project
 @app.put("/projects/{project_id}/join-requests/{request_id}/accept", response_model=ProjectResponse, tags=["Projects"])
 async def accept_join_request(
     project_id: int,
@@ -905,7 +941,10 @@ async def create_project(
         participants=[p.model_dump(mode='json') for p in project.participants],
         tasks=project.tasks,
         links=project.links,
-        comments=[c.model_dump(mode='json') for c in project.comments] if project.comments else []
+        comments=[c.model_dump(mode='json') for c in project.comments] if project.comments else [],
+        is_hidden=False,
+        hidden_by=None,
+        hidden_by_users=[]
     )
     db.add(db_project)
     db.commit()
@@ -915,23 +954,60 @@ async def create_project(
 @app.get("/projects/", response_model=List[ProjectResponse], tags=["Projects"])
 async def get_projects(
     participant_id: Optional[int] = Query(None, description="ID участника для фильтрации проектов"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
+    """
+    Получить список всех проектов.
+    - Администраторы и кураторы видят все проекты.
+    - Обычные пользователи не видят проекты, скрытые глобально (админом/куратором).
+    - Также пользователи не видят проекты, которые они сами скрыли (если скрыли для себя).
+    """
     if participant_id is not None:
         all_projects = db.query(Project).all()
         projects = [
             p for p in all_projects
             if any(part.get("user_id") == participant_id for part in (p.participants or []))
         ]
+        if not (current_user.is_admin or is_curator(current_user)):
+            # Обычные пользователи:
+            # 1. Не видят проекты, скрытые глобально (админом/куратором)
+            # 2. Не видят проекты, которые они сами скрыли (hidden_by_users)
+            filtered_projects = []
+            for p in projects:
+                if not p.is_hidden:
+                    hidden_by_users = p.hidden_by_users if p.hidden_by_users else []
+                    if current_user.id not in hidden_by_users:
+                        filtered_projects.append(p)
+            return filtered_projects
+        return projects
     else:
-        projects = db.query(Project).all()
-    return projects
+        query = db.query(Project)
+        if not (current_user.is_admin or is_curator(current_user)):
+            # Обычные пользователи:
+            # 1. Не видят проекты, скрытые глобально
+            # 2. Не видят проекты, которые они сами скрыли
+            all_projects = query.filter(Project.is_hidden == False).all()
+            filtered_projects = []
+            for p in all_projects:
+                hidden_by_users = p.hidden_by_users if p.hidden_by_users else []
+                if current_user.id not in hidden_by_users:
+                    filtered_projects.append(p)
+            return filtered_projects
+        return query.all()
+
 
 @app.get("/projects/{project_id}", response_model=ProjectResponse, tags=["Projects"])
-async def get_project_by_id(project_id: int, db: Session = Depends(get_db)):
+async def get_project_by_id(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Проверяем, видит ли пользователь этот проект
+    if not (current_user.is_admin or is_curator(current_user)):
+        if project.is_hidden or current_user.id in (project.hidden_by_users or []):
+            raise HTTPException(status_code=403, detail="Project is hidden")
+    
     return project
 
 @app.put("/projects/{project_id}", response_model=ProjectResponse, tags=["Projects"])
@@ -1012,14 +1088,36 @@ async def delete_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    # Админ и куратор могут удалить любой проект
-    if not (current_user.is_admin or is_curator(current_user)):
-        participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
-        if not participant or participant.get("role") != ProjectRole.CUSTOMER.value:
-            raise HTTPException(status_code=403, detail="Only customer, curator or admin can delete the project")
-    db.delete(project)
+    
+    # Инициализируем hidden_by_users, если None
+    if project.hidden_by_users is None:
+        project.hidden_by_users = []
+    
+    # Админ или куратор - полное удаление
+    if current_user.is_admin or is_curator(current_user):
+        db.delete(project)
+        db.commit()
+        return {"message": f"Project {project_id} permanently deleted successfully"}
+    
+    # Проверяем, что пользователь является заказчиком или исполнителем
+    participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
+    if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
+        raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can delete/hide the project")
+    
+    # Добавляем пользователя в список скрывших (для персонального скрытия)
+    if current_user.id not in project.hidden_by_users:
+        project.hidden_by_users.append(current_user.id)
+    
+    # Делаем проект глобально скрытым (если он ещё не скрыт)
+    if not project.is_hidden:
+        project.is_hidden = True
+        project.hidden_by = current_user.id
+    
+    flag_modified(project, "hidden_by_users")
     db.commit()
-    return {"message": f"Project {project_id} deleted successfully"}
+    db.refresh(project)
+    
+    return {"message": f"Project {project_id} hidden successfully"}
 
 @app.post("/projects/{project_id}/tasks/{task_index}/comments", response_model=ProjectResponse, tags=["Projects"])
 async def add_task_comment(

@@ -38,3 +38,6 @@ class Project(Base):
     comments = Column(JSON, default=list)
     suggestions = Column(JSON, default=list)          
     join_requests = Column(JSON, default=list)
+    is_hidden = Column(Boolean, default=False)
+    hidden_by = Column(Integer, nullable=True)
+    hidden_by_users = Column(JSON, default=list)
