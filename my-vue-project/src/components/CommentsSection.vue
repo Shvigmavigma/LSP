@@ -48,7 +48,7 @@
             <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
             <span v-if="!comment.isRead && isAuthor" class="unread-badge">Новый</span>
 
-            <!-- Кнопка скрытия для всех, у кого есть права (автор, заказчик, админ, куратор) -->
+            <!-- Кнопка скрытия для всех, у кого есть права -->
             <button
               v-if="canHide(comment) && !comment.hidden && onHideComment"
               class="delete-comment-btn"
@@ -56,6 +56,16 @@
               title="Скрыть комментарий"
             >
               <span class="delete-icon">🗑️</span>
+            </button>
+
+            <!-- Кнопка восстановления для скрытых комментариев (только админ/куратор) -->
+            <button
+              v-if="comment.hidden && (isAdmin || isCurator) && onRestoreComment"
+              class="restore-comment-btn"
+              @click="confirmRestoreComment(comment)"
+              title="Восстановить комментарий"
+            >
+              <span class="restore-icon">👁️‍🗨️</span>
             </button>
 
             <!-- Кнопка окончательного удаления для скрытых комментариев (только админ/куратор) -->
@@ -94,6 +104,20 @@
       </div>
     </div>
 
+    <!-- Модальное окно подтверждения восстановления -->
+    <div v-if="showRestoreModal" class="hide-modal-overlay" @click.self="closeRestoreModal">
+      <div class="hide-modal-content">
+        <div class="hide-modal-icon">👁️‍🗨️</div>
+        <h3>Восстановить комментарий</h3>
+        <p>Вы уверены, что хотите восстановить этот комментарий?</p>
+        <p class="comment-preview">"{{ commentToRestore?.content.substring(0, 50) }}..."</p>
+        <div class="hide-modal-actions">
+          <button class="hide-modal-confirm" @click="restoreComment">Да, восстановить</button>
+          <button class="hide-modal-cancel" @click="closeRestoreModal">Отмена</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Модальное окно подтверждения окончательного удаления -->
     <div v-if="showPermanentDeleteModal" class="hide-modal-overlay" @click.self="closePermanentDeleteModal">
       <div class="hide-modal-content">
@@ -126,6 +150,7 @@ const props = defineProps<{
   onAddComment?: (content: string) => Promise<void>;
   onMarkAsRead?: (commentId: string) => Promise<void>;
   onHideComment?: (commentId: string) => Promise<void>;
+  onRestoreComment?: (commentId: string) => Promise<void>;  // <-- новый проп
   onPermanentDelete?: (commentId: string) => Promise<void>;
 }>();
 
@@ -137,6 +162,8 @@ const newComment = ref('');
 const authorImageErrors = ref<Record<number, boolean>>({});
 const showHideModal = ref(false);
 const commentToHide = ref<Comment | null>(null);
+const showRestoreModal = ref(false);
+const commentToRestore = ref<Comment | null>(null);
 const showPermanentDeleteModal = ref(false);
 const commentToDeletePermanently = ref<Comment | null>(null);
 
@@ -250,6 +277,28 @@ const hideComment = async () => {
   }
 };
 
+const confirmRestoreComment = (comment: Comment) => {
+  commentToRestore.value = comment;
+  showRestoreModal.value = true;
+};
+
+const closeRestoreModal = () => {
+  showRestoreModal.value = false;
+  commentToRestore.value = null;
+};
+
+const restoreComment = async () => {
+  if (!commentToRestore.value || !props.onRestoreComment) return;
+  try {
+    await props.onRestoreComment(commentToRestore.value.id);
+  } catch (error) {
+    console.error('restoreComment error', error);
+    alert('Не удалось восстановить комментарий');
+  } finally {
+    closeRestoreModal();
+  }
+};
+
 const confirmPermanentDelete = (comment: Comment) => {
   commentToDeletePermanently.value = comment;
   showPermanentDeleteModal.value = true;
@@ -272,6 +321,45 @@ const permanentDeleteComment = async () => {
   }
 };
 </script>
+
+<style scoped>
+/* Существующие стили... */
+.restore-comment-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-color);
+}
+.restore-comment-btn:hover {
+  opacity: 1;
+  background: rgba(66, 185, 131, 0.2);
+}
+.permanent-delete-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--danger-color);
+}
+.permanent-delete-btn:hover {
+  opacity: 1;
+  background: rgba(244, 67, 54, 0.2);
+}
+/* Остальные стили из исходного файла */
+</style>
 
 <style scoped>
 .comments-section {

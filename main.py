@@ -803,6 +803,7 @@ async def create_join_request(
     db.commit()
     db.refresh(project)
     return project
+
 @app.patch("/projects/{project_id}/hide", response_model=ProjectResponse, tags=["Projects"])
 async def toggle_hide_project(
     project_id: int,
@@ -878,7 +879,76 @@ async def accept_join_request(
     db.commit()
     db.refresh(project)
     return project
+@app.post("/projects/{project_id}/comments/{comment_id}/restore", response_model=ProjectResponse, tags=["Projects"])
+async def restore_comment(
+    project_id: int,
+    comment_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Восстановить скрытый комментарий. Доступно только администратору или куратору.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Только админ или куратор могут восстанавливать комментарии
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Only admin or curator can restore comments")
+    
+    # Ищем комментарий
+    comment = next((c for c in (project.comments or []) if c.get("id") == comment_id), None)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    
+    # Если комментарий не скрыт, возвращаем ошибку
+    if not comment.get("hidden"):
+        raise HTTPException(status_code=400, detail="Comment is not hidden")
+    
+    # Восстанавливаем комментарий
+    comment["hidden"] = False
+    flag_modified(project, "comments")
+    
+    db.commit()
+    db.refresh(project)
+    return project
 
+@app.post("/projects/{project_id}/tasks/{task_index}/comments/{comment_id}/restore", response_model=ProjectResponse, tags=["Projects"])
+async def restore_task_comment(
+    project_id: int,
+    task_index: int,
+    comment_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Восстановить скрытый комментарий к задаче. Доступно только администратору или куратору.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Only admin or curator can restore comments")
+    
+    if not project.tasks or task_index < 0 or task_index >= len(project.tasks):
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task = project.tasks[task_index]
+    comment = next((c for c in (task.get("comments") or []) if c.get("id") == comment_id), None)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    
+    if not comment.get("hidden"):
+        raise HTTPException(status_code=400, detail="Comment is not hidden")
+    
+    comment["hidden"] = False
+    flag_modified(project, "tasks")
+    
+    db.commit()
+    db.refresh(project)
+    return project
 @app.put("/projects/{project_id}/join-requests/{request_id}/reject", response_model=ProjectResponse, tags=["Projects"])
 async def reject_join_request(
     project_id: int,
