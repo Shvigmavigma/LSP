@@ -113,9 +113,10 @@ export interface Project {
   links?: ProjectLinks;
   comments?: Comment[];
   suggestions?: Suggestion[];
-  join_requests?: JoinRequest[];  // <-- добавлено
+  join_requests?: JoinRequest[]; 
+  is_hidden?: boolean;
+  hidden_by?: number;  
 }
-
 export interface ProjectLinks {
   github?: string;
   google_drive?: string;

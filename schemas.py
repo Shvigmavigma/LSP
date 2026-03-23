@@ -190,7 +190,11 @@ class ProjectCreate(ProjectBase):
 class ProjectResponse(ProjectBase):
     suggestions: List[Suggestion] = []
     id: int
-    join_requests: List[JoinRequest] = []  
+    is_hidden: bool = False
+    hidden_by: Optional[int] = None
+    hidden_by_users : Optional[Dict] = None
+    join_requests: List[JoinRequest] = []
+    hidden_by_users: List[int] = [] 
     model_config = ConfigDict(from_attributes=True)
 
 class ProjectUpdate(BaseModel):

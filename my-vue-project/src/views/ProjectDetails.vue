@@ -204,8 +204,13 @@
             <!-- Кнопки управления проектом (единый блок) -->
             <div class="project-actions" v-if="hasManagementRights">
               <button class="edit-project-button" @click="goToEdit">✎ Редактировать проект</button>
-              <button class="delete-project-button" @click="deleteProject">🗑 Удалить проект</button>
-              <button v-if="canHide" class="delete-project-button" @click="hideProject">🗑 Скрыть проект</button>
+              <button 
+                class="delete-project-button" 
+                @click="handleProjectDelete" 
+                :disabled="deleteInProgress"
+              >
+                {{ deleteInProgress ? 'Обработка...' : (isAdminOrCurator ? '🗑 Удалить проект' : '🗑 Скрыть проект') }}
+              </button>
             </div>
           </div>
 
@@ -490,6 +495,8 @@ const showEditGithub = ref(false);
 const githubEditValue = ref('');
 const showEditDrive = ref(false);
 const driveEditValue = ref('');
+const deleteInProgress = ref(false);
+const isAdminOrCurator = computed(() => isAdmin.value || isCurator.value);
 
 // Роль текущего пользователя в проекте (только если он участник)
 const userRole = computed<ProjectRole | null>(() => {
@@ -518,6 +525,46 @@ const canSuggest = computed(() =>
   isAdmin.value || 
   isCurator.value
 );
+const handleProjectDelete = async () => {
+  if (!project.value) return;
+  
+  deleteInProgress.value = true;
+  
+  // Админ или куратор - полное удаление
+  if (isAdminOrCurator.value) {
+    if (confirm('Вы уверены, что хотите полностью удалить проект? Это действие необратимо.')) {
+      try {
+        await axios.delete(`${baseUrl}/projects/${project.value.id}`);
+        showNotification('Проект успешно удалён', 'success');
+        router.push('/main');
+      } catch (error) {
+        console.error('Ошибка при удалении проекта:', error);
+        showNotification('Не удалось удалить проект', 'error');
+      } finally {
+        deleteInProgress.value = false;
+      }
+    } else {
+      deleteInProgress.value = false;
+    }
+    return;
+  }
+  
+  // Заказчик или исполнитель - скрытие проекта
+  if (confirm('Скрыть проект из списка? Вы сможете снова его увидеть, если администратор или куратор вернёт его.')) {
+    try {
+      await axios.patch(`${baseUrl}/projects/${project.value.id}/hide`);
+      showNotification('Проект скрыт', 'success');
+      router.push('/main');
+    } catch (error) {
+      console.error('Failed to hide project', error);
+      showNotification('Ошибка при скрытии проекта', 'error');
+    } finally {
+      deleteInProgress.value = false;
+    }
+  } else {
+    deleteInProgress.value = false;
+  }
+};
 
 // Право скрывать комментарии (научрук, админ, куратор)
 const canHideComments = computed(() => 
@@ -1011,7 +1058,16 @@ const deleteProject = async () => {
 
 const hideProject = async () => {
   if (!project.value) return;
-  alert('Функция скрытия проекта пока не реализована на сервере.');
+  if (confirm('Скрыть проект из списка? Вы сможете снова его увидеть, если заказчик или куратор вернёт его.')) {
+    try {
+      await axios.patch(`${baseUrl}/projects/${project.value.id}/hide`);
+      showNotification('Проект скрыт', 'success');
+      router.push('/main'); // или на список проектов
+    } catch (error) {
+      console.error('Failed to hide project', error);
+      showNotification('Ошибка при скрытии проекта', 'error');
+    }
+  }
 };
 
 const goToEdit = () => router.push(`/project/edit/${route.params.id}`);
