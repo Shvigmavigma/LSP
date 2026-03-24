@@ -23,7 +23,7 @@
 
       <table class="users-table">
         <thead>
-          <tr>
+           <tr>
             <th>ID</th>
             <th>Никнейм</th>
             <th>Email</th>
@@ -32,12 +32,16 @@
             <th>Админ</th>
             <th>Куратор</th>
             <th>Действия</th>
-          </tr>
+           </tr>
         </thead>
         <tbody>
           <tr v-for="user in filteredUsers" :key="user.id">
             <td>{{ user.id }}</td>
-            <td>{{ user.nickname }}</td>
+            <td>
+              <router-link :to="`/user/${user.id}`" class="user-link">
+                {{ user.nickname }}
+              </router-link>
+            </td>
             <td>{{ user.email }}</td>
             <td>{{ user.is_teacher ? 'Учитель' : 'Ученик' }}</td>
             <td>
@@ -271,6 +275,16 @@ function goBack() {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-primary);
+  vertical-align: middle;
+}
+.user-link {
+  color: var(--link-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+.user-link:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
 }
 input[type="checkbox"] {
   width: 18px;
