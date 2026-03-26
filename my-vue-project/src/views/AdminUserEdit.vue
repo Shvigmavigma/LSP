@@ -1,75 +1,85 @@
 <template>
   <div class="admin-user-edit-page">
     <header class="page-header">
-      <h1>Редактирование пользователя</h1>
+      <h1>{{ $t('adminUserEdit.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
-        <button class="back-button" @click="goBack" title="Назад">◀</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <button class="back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else class="edit-card">
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
-          <label>Никнейм</label>
+          <label>{{ $t('adminUserEdit.nickname') }}</label>
           <input v-model="form.nickname" type="text" required />
         </div>
 
         <div class="form-group">
-          <label>Полное имя</label>
+          <label>{{ $t('adminUserEdit.fullname') }}</label>
           <input v-model="form.fullname" type="text" required />
         </div>
 
         <div class="form-group">
-          <label>Email</label>
+          <label>{{ $t('adminUserEdit.email') }}</label>
           <input v-model="form.email" type="email" required />
         </div>
 
         <div v-if="!form.is_teacher" class="form-group">
-          <label>Класс</label>
+          <label>{{ $t('adminUserEdit.class') }}</label>
           <ClassInput v-model="form.class" />
         </div>
 
         <div class="form-group">
-          <label>Специальность</label>
+          <label>{{ $t('adminUserEdit.speciality') }}</label>
           <input v-model="form.speciality" type="text" />
         </div>
 
         <div class="form-group">
           <label>
             <input type="checkbox" v-model="form.is_active" />
-            Активен
+            {{ $t('adminUserEdit.active') }}
           </label>
         </div>
 
         <div class="form-group">
           <label>
             <input type="checkbox" v-model="form.is_admin" />
-            Администратор
+            {{ $t('adminUserEdit.admin') }}
           </label>
         </div>
 
         <div v-if="form.is_teacher" class="form-group">
-          <label>Роли учителя</label>
+          <label>{{ $t('adminUserEdit.teacherRoles') }}</label>
           <div class="roles-selector">
-            <label><input type="checkbox" v-model="form.teacher_roles" value="customer" /> Заказчик</label>
-            <label><input type="checkbox" v-model="form.teacher_roles" value="expert" /> Эксперт</label>
-            <label><input type="checkbox" v-model="form.teacher_roles" value="supervisor" /> Научный руководитель</label>
+            <label>
+              <input type="checkbox" v-model="form.teacher_roles" value="customer" />
+              {{ $t('roles.customer') }}
+            </label>
+            <label>
+              <input type="checkbox" v-model="form.teacher_roles" value="expert" />
+              {{ $t('roles.expert') }}
+            </label>
+            <label>
+              <input type="checkbox" v-model="form.teacher_roles" value="supervisor" />
+              {{ $t('roles.supervisor') }}
+            </label>
           </div>
           <label>
             <input type="checkbox" v-model="form.curator" />
-            Куратор
+            {{ $t('roles.curator') }}
           </label>
         </div>
 
         <div class="form-actions">
           <button type="submit" class="save-btn" :disabled="saving">
-            {{ saving ? 'Сохранение...' : 'Сохранить' }}
+            {{ saving ? $t('common.saving') : $t('common.save') }}
           </button>
-          <button type="button" class="cancel-btn" @click="goBack">Отмена</button>
+          <button type="button" class="cancel-btn" @click="goBack">{{ $t('common.cancel') }}</button>
         </div>
       </form>
     </div>
@@ -79,11 +89,14 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import ClassInput from '@/components/ClassInput.vue';
 import axios from 'axios';
 import type { User } from '@/types';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const userId = Number(route.params.id);
@@ -132,7 +145,7 @@ onMounted(async () => {
     form.teacher_roles = user.teacher_info?.roles || [];
     form.curator = user.teacher_info?.curator || false;
   } catch (err) {
-    error.value = 'Ошибка загрузки пользователя';
+    error.value = t('adminUserEdit.loadError');
     console.error(err);
   } finally {
     loading.value = false;
@@ -158,11 +171,11 @@ async function handleSubmit() {
       };
     }
     await axios.put(`/admin/users/${userId}`, updateData);
-    alert('Изменения сохранены');
+    alert(t('adminUserEdit.saveSuccess'));
     router.push('/admin/users');
   } catch (err) {
     console.error(err);
-    alert('Ошибка сохранения');
+    alert(t('adminUserEdit.saveError'));
   } finally {
     saving.value = false;
   }

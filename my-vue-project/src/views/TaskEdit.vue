@@ -9,58 +9,59 @@
     </Transition>
 
     <header class="edit-header">
-      <h1>{{ isNew ? 'Создание задачи' : 'Редактирование задачи' }}</h1>
+      <h1>{{ isNew ? $t('taskEdit.createTitle') : $t('taskEdit.editTitle') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
-        <button class="back-button" @click="goBack" title="Вернуться к задаче">◀</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <button class="back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
 
     <!-- Информационная подсказка для админа/куратора -->
     <div v-if="isAdminOrCurator" class="admin-hint">
       <span class="hint-icon">⚙️</span>
-      <span class="hint-text">Вы имеете полные права как администратор или куратор.</span>
+      <span class="hint-text">{{ $t('taskEdit.adminHint') }}</span>
     </div>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="!hasEditPermission" class="error">У вас нет прав для редактирования этой задачи</div>
+    <div v-else-if="!hasEditPermission" class="error">{{ $t('taskEdit.noEditPermission') }}</div>
 
     <div v-else class="edit-card">
       <form @submit.prevent="handleSubmit">
         <!-- Основная информация -->
         <div class="form-section">
-          <h2>Основная информация</h2>
+          <h2>{{ $t('taskEdit.basicInfo') }}</h2>
           <div class="form-group">
-            <label for="title">Название задачи</label>
+            <label for="title">{{ $t('taskEdit.taskTitle') }}</label>
             <input id="title" v-model="form.title" type="text" required />
           </div>
           <div class="form-group">
-            <label for="body">Описание</label>
+            <label for="body">{{ $t('taskEdit.description') }}</label>
             <textarea id="body" v-model="form.body" rows="4" required></textarea>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label for="timeline">Дата начала (ДД.ММ.ГГГГ)</label>
+              <label for="timeline">{{ $t('taskEdit.startDate') }}</label>
               <input
                 id="timeline"
                 :value="form.timeline"
                 @input="updateTimeline"
                 type="text"
-                placeholder="01.01.2025"
+                :placeholder="$t('taskEdit.datePlaceholder')"
                 :class="{ 'invalid': timelineError }"
               />
               <span v-if="timelineError" class="error-message">{{ timelineError }}</span>
             </div>
             <div class="form-group">
-              <label for="timelinend">Дата окончания (ДД.ММ.ГГГГ)</label>
+              <label for="timelinend">{{ $t('taskEdit.endDate') }}</label>
               <input
                 id="timelinend"
                 :value="form.timelinend"
                 @input="updateTimelinend"
                 type="text"
-                placeholder="31.12.2025"
+                :placeholder="$t('taskEdit.datePlaceholder')"
                 :class="{ 'invalid': timelinendError }"
               />
               <span v-if="timelinendError" class="error-message">{{ timelinendError }}</span>
@@ -70,9 +71,9 @@
 
         <!-- Статус задачи -->
         <div class="form-section">
-          <h2>Статус задачи</h2>
+          <h2>{{ $t('taskEdit.taskStatus') }}</h2>
           <div class="status-selector">
-            <label>Текущий статус: <strong>{{ getStatusText(form.status) }}</strong></label>
+            <label>{{ $t('taskEdit.currentStatus') }}: <strong>{{ getStatusText(form.status) }}</strong></label>
             <div class="status-buttons">
               <button
                 type="button"
@@ -81,7 +82,7 @@
                 @click="form.status = 'в работе'"
                 :disabled="form.status === 'в работе'"
               >
-                В работе
+                {{ $t('taskEdit.status.inProgress') }}
               </button>
               <button
                 type="button"
@@ -90,7 +91,7 @@
                 @click="form.status = 'ожидает'"
                 :disabled="form.status === 'ожидает'"
               >
-                Ожидает
+                {{ $t('taskEdit.status.waiting') }}
               </button>
               <button
                 type="button"
@@ -99,7 +100,7 @@
                 @click="form.status = 'выполнена'"
                 :disabled="form.status === 'выполнена'"
               >
-                Выполнена
+                {{ $t('taskEdit.status.completed') }}
               </button>
             </div>
           </div>
@@ -108,12 +109,12 @@
         <!-- Подзадачи -->
         <div class="form-section">
           <div class="subtasks-header">
-            <h2>Подзадачи</h2>
-            <button type="button" class="add-subtask-button" @click="addSubtask">+ Добавить подзадачу</button>
+            <h2>{{ $t('taskEdit.subtasks') }}</h2>
+            <button type="button" class="add-subtask-button" @click="addSubtask">+ {{ $t('taskEdit.addSubtask') }}</button>
           </div>
 
           <div v-if="subtasks.length === 0" class="no-subtasks">
-            Нет подзадач. Добавьте подзадачи, чтобы распределить прогресс.
+            {{ $t('taskEdit.noSubtasks') }}
           </div>
 
           <div v-else class="subtasks-list">
@@ -125,24 +126,24 @@
               <div class="subtask-header">
                 <input
                   v-model="subtask.title"
-                  placeholder="Название подзадачи"
+                  :placeholder="$t('taskEdit.subtaskTitlePlaceholder')"
                   class="subtask-title-input"
                 />
                 <button
                   type="button"
                   class="remove-subtask"
                   @click="removeSubtask(index)"
-                  title="Удалить подзадачу"
+                  :title="$t('common.delete')"
                 >✕</button>
               </div>
               <textarea
                 v-model="subtask.description"
-                placeholder="Описание (необязательно)"
+                :placeholder="$t('taskEdit.subtaskDescriptionPlaceholder')"
                 rows="2"
                 class="subtask-description"
               ></textarea>
               <div class="subtask-percent">
-                <label>Процент от задачи:</label>
+                <label>{{ $t('taskEdit.percentOfTask') }}:</label>
                 <input
                   type="number"
                   v-model.number="subtask.progressPercent"
@@ -150,27 +151,27 @@
                   max="100"
                   step="1"
                 />%
-                <span class="percent-hint">(сумма: {{ totalSubtasksPercent }}%)</span>
+                <span class="percent-hint">({{ $t('taskEdit.sum') }}: {{ totalSubtasksPercent }}%)</span>
               </div>
               <div class="subtask-completed">
                 <label>
                   <input type="checkbox" v-model="subtask.completed" />
-                  Выполнено
+                  {{ $t('taskEdit.completed') }}
                 </label>
               </div>
             </div>
           </div>
           <div v-if="totalSubtasksPercent > 100" class="error-message">
-            Сумма процентов подзадач не может превышать 100%! Текущая сумма: {{ totalSubtasksPercent }}%
+            {{ $t('taskEdit.sumExceeds100', { sum: totalSubtasksPercent }) }}
           </div>
         </div>
 
         <!-- Кнопки сохранения -->
         <div class="form-actions">
           <button type="submit" class="save-button" :disabled="saving || totalSubtasksPercent > 100">
-            {{ saving ? 'Сохранение...' : 'Сохранить' }}
+            {{ saving ? $t('common.saving') : $t('common.save') }}
           </button>
-          <button type="button" class="cancel-button" @click="goBack">Отмена</button>
+          <button type="button" class="cancel-button" @click="goBack">{{ $t('common.cancel') }}</button>
         </div>
       </form>
     </div>
@@ -180,13 +181,16 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import type { Project, Task, SubTask, ProjectRole } from '@/types';
 import axios from 'axios';
 
+const { t } = useI18n();
 const baseUrl = 'http://localhost:8000';
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -253,13 +257,16 @@ function closeNotification() {
   }
 }
 
-// Является ли пользователь куратором (глобально)
+// Является ли пользователь куратором (глобально) – исправлено
 const isCurator = computed(() => {
-  return authStore.user?.is_teacher && authStore.user?.teacher_info?.curator === true;
+  const user = authStore.user;
+  if (!user) return false;
+  if (!user.is_teacher) return false;
+  return user.teacher_info?.curator ?? false;
 });
 
-// Является ли пользователь администратором или куратором
-const isAdminOrCurator = computed(() => authStore.user?.is_admin || isCurator.value);
+// Является ли пользователь администратором или куратором – исправлено
+const isAdminOrCurator = computed(() => (authStore.user?.is_admin ?? false) || isCurator.value);
 
 // Право на редактирование задачи (заказчик, исполнитель, куратор в проекте, либо глобальный админ/куратор)
 const hasEditPermission = computed(() => {
@@ -327,9 +334,9 @@ const totalSubtasksPercent = computed(() => {
 // Перевод статуса
 function getStatusText(status: string): string {
   const map: Record<string, string> = {
-    'в работе': 'В работе',
-    'ожидает': 'Ожидает',
-    'выполнена': 'Выполнена',
+    'в работе': t('taskEdit.status.inProgress'),
+    'ожидает': t('taskEdit.status.waiting'),
+    'выполнена': t('taskEdit.status.completed'),
   };
   return map[status] || status;
 }
@@ -337,7 +344,7 @@ function getStatusText(status: string): string {
 // Загрузка данных
 onMounted(async () => {
   if (isNaN(projectId)) {
-    error.value = 'Некорректный ID проекта';
+    error.value = t('taskEdit.invalidProjectId');
     loading.value = false;
     return;
   }
@@ -349,21 +356,17 @@ onMounted(async () => {
   try {
     project.value = await projectsStore.fetchProjectById(projectId);
     if (!project.value) {
-      error.value = 'Проект не найден';
+      error.value = t('taskEdit.projectNotFound');
       return;
     }
 
-    // Проверка прав (hasEditPermission computed обновится автоматически)
-    // Если нет прав, покажем сообщение, но загрузку продолжим для отображения ошибки
-
     if (taskIndex < 0 || taskIndex >= (project.value.tasks?.length || 0)) {
-      error.value = 'Задача не найдена';
+      error.value = t('taskEdit.taskNotFound');
       return;
     }
 
     originalTask.value = project.value.tasks[taskIndex];
     if (originalTask.value) {
-      // Заполняем форму
       form.title = originalTask.value.title;
       form.body = originalTask.value.body;
       form.timeline = originalTask.value.timeline || '';
@@ -371,12 +374,11 @@ onMounted(async () => {
       form.status = originalTask.value.status || 'ожидает';
       form.progress = originalTask.value.progress || 0;
 
-      // Подзадачи
       subtasks.value = originalTask.value.subtasks?.map(st => ({ ...st })) || [];
     }
   } catch (err) {
     console.error('Ошибка загрузки:', err);
-    error.value = 'Ошибка загрузки данных';
+    error.value = t('taskEdit.loadError');
   } finally {
     loading.value = false;
   }
@@ -402,27 +404,25 @@ function removeSubtask(index: number) {
 async function handleSubmit() {
   if (!project.value || !originalTask.value) return;
 
-  // Валидация обязательных полей
   if (!form.title.trim()) {
-    showNotification('Название задачи не может быть пустым', 'info');
+    showNotification(t('taskEdit.taskTitleRequired'), 'info');
     return;
   }
   if (!form.body.trim()) {
-    showNotification('Описание задачи не может быть пустым', 'info');
+    showNotification(t('taskEdit.taskDescriptionRequired'), 'info');
     return;
   }
 
-  // Валидация дат
   timelineError.value = '';
   timelinendError.value = '';
   let valid = true;
 
   if (!isValidDate(form.timeline || '')) {
-    timelineError.value = 'Неверный формат даты начала';
+    timelineError.value = t('taskEdit.invalidStartDate');
     valid = false;
   }
   if (!isValidDate(form.timelinend || '')) {
-    timelinendError.value = 'Неверный формат даты окончания';
+    timelinendError.value = t('taskEdit.invalidEndDate');
     valid = false;
   }
 
@@ -432,19 +432,18 @@ async function handleSubmit() {
     const start = parseDate(form.timeline);
     const end = parseDate(form.timelinend);
     if (start && end && start > end) {
-      showNotification('Дата начала не может быть позже даты окончания', 'info');
+      showNotification(t('taskEdit.startBeforeEnd'), 'info');
       return;
     }
   }
 
   if (totalSubtasksPercent.value > 100) {
-    showNotification(`Сумма процентов подзадач (${totalSubtasksPercent.value}%) не может превышать 100%`, 'error');
+    showNotification(t('taskEdit.sumExceeds100', { sum: totalSubtasksPercent.value }), 'error');
     return;
   }
 
   saving.value = true;
 
-  // Собираем обновлённую задачу
   const updatedTask: Task = {
     title: form.title,
     body: form.body,
@@ -455,22 +454,21 @@ async function handleSubmit() {
     progress: totalSubtasksPercent.value,
   };
 
-  // Копируем массив задач
   const updatedTasks = [...project.value.tasks];
   updatedTasks[taskIndex] = updatedTask;
 
   try {
     await projectsStore.updateProject(projectId, { tasks: updatedTasks });
-    showNotification('Задача успешно сохранена', 'success');
+    showNotification(t('taskEdit.saveSuccess'), 'success');
     setTimeout(() => {
       router.push(`/project/${projectId}/task/${taskIndex}`);
     }, 1000);
   } catch (err: any) {
     console.error('Ошибка сохранения задачи:', err);
     if (err.response?.status === 403) {
-      showNotification('У вас недостаточно прав для редактирования задачи', 'error');
+      showNotification(t('taskEdit.noEditPermission'), 'error');
     } else {
-      showNotification('Не удалось сохранить задачу', 'error');
+      showNotification(t('taskEdit.saveError'), 'error');
     }
   } finally {
     saving.value = false;

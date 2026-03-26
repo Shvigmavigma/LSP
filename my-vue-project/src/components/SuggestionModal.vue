@@ -1,21 +1,20 @@
-<!-- src/components/SuggestionModal.vue (если требуется доработка для корректной отправки) -->
 <template>
   <Teleport to="body">
     <div v-if="show" class="modal-overlay" @click.self="close">
       <div class="modal-content">
-        <h3>Создать предложение</h3>
+        <h3>{{ $t('suggestionModal.title') }}</h3>
         <form @submit.prevent="submit">
           <div class="form-group">
-            <label>Что хотите изменить?</label>
+            <label>{{ $t('suggestionModal.whatToChange') }}</label>
             <select v-model="targetType">
-              <option value="project">Проект (название, описание, доп. информация)</option>
-              <option value="task">Задачу</option>
-              <option value="link">Ссылку</option>
+              <option value="project">{{ $t('suggestionModal.options.project') }}</option>
+              <option value="task">{{ $t('suggestionModal.options.task') }}</option>
+              <option value="link">{{ $t('suggestionModal.options.link') }}</option>
             </select>
           </div>
 
           <div v-if="targetType === 'task'" class="form-group">
-            <label>Выберите задачу</label>
+            <label>{{ $t('suggestionModal.selectTask') }}</label>
             <select v-model="targetId">
               <option v-for="(task, idx) in tasks" :key="idx" :value="String(idx)">
                 {{ task.title }}
@@ -24,18 +23,18 @@
           </div>
 
           <div class="form-group">
-            <label>Предлагаемые изменения (JSON)</label>
+            <label>{{ $t('suggestionModal.changesLabel') }}</label>
             <textarea
               v-model="changes"
               rows="6"
-              placeholder='{"title": "Новое название", "body": "Новое описание"}'
+              :placeholder="$t('suggestionModal.changesPlaceholder')"
             ></textarea>
             <div v-if="jsonError" class="error-message">{{ jsonError }}</div>
           </div>
 
           <div class="modal-actions">
-            <button type="submit" class="submit-btn">Отправить</button>
-            <button type="button" class="cancel-btn" @click="close">Отмена</button>
+            <button type="submit" class="submit-btn">{{ $t('common.send') }}</button>
+            <button type="button" class="cancel-btn" @click="close">{{ $t('common.cancel') }}</button>
           </div>
         </form>
       </div>
@@ -45,7 +44,10 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { Task } from '@/types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   show: boolean;
@@ -81,7 +83,7 @@ function submit() {
     });
     close();
   } catch (e) {
-    jsonError.value = 'Неверный формат JSON';
+    jsonError.value = t('suggestionModal.invalidJson');
   }
 }
 
@@ -91,6 +93,7 @@ function close() {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений */
 .modal-overlay {
   position: fixed;
   top: 0;

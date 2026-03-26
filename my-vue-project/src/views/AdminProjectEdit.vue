@@ -12,42 +12,43 @@
       <h1>{{ pageTitle }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
-        <button class="back-button" @click="goBack" title="Назад">◀</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <button class="back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
 
     <!-- Информационная подсказка для админа -->
     <div class="admin-hint">
       <span class="hint-icon">⚙️</span>
-      <span class="hint-text">Вы редактируете проект как администратор. Все ограничения сняты.</span>
+      <span class="hint-text">{{ $t('adminProjectEdit.adminHint') }}</span>
     </div>
 
     <div class="edit-card">
       <form @submit.prevent="handleSubmit">
         <!-- Основная информация -->
         <div class="form-section">
-          <h2>Основная информация</h2>
+          <h2>{{ $t('adminProjectEdit.basicInfo') }}</h2>
           <div class="form-group">
-            <label for="title">Название проекта</label>
+            <label for="title">{{ $t('adminProjectEdit.projectTitle') }}</label>
             <input id="title" v-model="form.title" type="text" required />
           </div>
           <div class="form-group">
-            <label for="body">Описание</label>
+            <label for="body">{{ $t('adminProjectEdit.description') }}</label>
             <textarea id="body" v-model="form.body" rows="4" required></textarea>
           </div>
           <div class="form-group">
-            <label for="underbody">Дополнительная информация</label>
+            <label for="underbody">{{ $t('adminProjectEdit.additionalInfo') }}</label>
             <textarea id="underbody" v-model="form.underbody" rows="2"></textarea>
           </div>
         </div>
 
         <!-- Участники проекта -->
         <div class="form-section">
-          <h2>Участники проекта</h2>
+          <h2>{{ $t('adminProjectEdit.participants') }}</h2>
           <div class="participants-section">
             <div v-if="participants.length > 0" class="current-participants">
-              <span class="participants-label">Текущие участники:</span>
+              <span class="participants-label">{{ $t('adminProjectEdit.currentParticipants') }}:</span>
               <div class="participant-tags">
                 <div
                   v-for="(p, index) in participants"
@@ -62,19 +63,19 @@
                     type="button"
                     class="remove-participant"
                     @click="removeParticipant(index)"
-                    :title="'Удалить'"
+                    :title="$t('common.delete')"
                   >✕</button>
                 </div>
               </div>
             </div>
 
             <div class="participant-search">
-              <label>Добавить участника по никнейму</label>
+              <label>{{ $t('adminProjectEdit.addParticipantByNickname') }}</label>
               <div class="search-row">
                 <input
                   v-model="searchQuery"
                   type="text"
-                  placeholder="Введите никнейм..."
+                  :placeholder="$t('adminProjectEdit.nicknamePlaceholder')"
                   @input="searchUsers"
                 />
                 <select v-model="selectedRole">
@@ -82,7 +83,7 @@
                     {{ getRoleDisplay(role) }}
                   </option>
                 </select>
-                <button @click="addParticipant" :disabled="!selectedUser">Добавить</button>
+                <button @click="addParticipant" :disabled="!selectedUser">{{ $t('common.add') }}</button>
               </div>
               <div v-if="searchResults.length > 0" class="search-results">
                 <div
@@ -101,24 +102,24 @@
 
         <!-- Приглашение по email (всегда доступно для админа) -->
         <div class="form-section">
-          <h2>Пригласить участника по email</h2>
+          <h2>{{ $t('adminProjectEdit.inviteByEmail') }}</h2>
           <div class="invite-section">
             <div class="invite-row">
               <input
                 v-model="inviteEmail"
                 type="email"
-                placeholder="Email пользователя"
+                :placeholder="$t('adminProjectEdit.emailPlaceholder')"
                 class="invite-input"
               />
               <select v-model="inviteRole">
-                <option value="executor">Исполнитель</option>
-                <option value="customer">Заказчик</option>
-                <option value="supervisor">Научный руководитель</option>
-                <option value="expert">Эксперт</option>
-                <option value="curator">Куратор</option>
+                <option value="executor">{{ $t('roles.executor') }}</option>
+                <option value="customer">{{ $t('roles.customer') }}</option>
+                <option value="supervisor">{{ $t('roles.supervisor') }}</option>
+                <option value="expert">{{ $t('roles.expert') }}</option>
+                <option value="curator">{{ $t('roles.curator') }}</option>
               </select>
               <button @click="sendInvite" :disabled="!inviteEmail || sendingInvite">
-                {{ sendingInvite ? 'Отправка...' : 'Отправить приглашение' }}
+                {{ sendingInvite ? $t('common.sending') : $t('adminProjectEdit.sendInvite') }}
               </button>
             </div>
             <div v-if="inviteResult" class="invite-result" :class="{ success: inviteSuccess, error: !inviteSuccess }">
@@ -130,12 +131,12 @@
         <!-- Задачи -->
         <div class="form-section">
           <div class="tasks-header">
-            <h2>Задачи проекта</h2>
-            <button type="button" class="add-task-button" @click="addTask">+ Добавить задачу</button>
+            <h2>{{ $t('adminProjectEdit.tasks') }}</h2>
+            <button type="button" class="add-task-button" @click="addTask">+ {{ $t('adminProjectEdit.addTask') }}</button>
           </div>
 
           <div v-if="tasks.length === 0" class="no-tasks">
-            Пока нет задач. Нажмите "Добавить задачу", чтобы создать первую.
+            {{ $t('adminProjectEdit.noTasks') }}
           </div>
 
           <div v-else class="tasks-list">
@@ -147,63 +148,63 @@
             >
               <!-- Компактное отображение задачи -->
               <div v-if="!task.expanded" class="task-compact" @click="toggleTaskExpand(index)">
-                <span class="task-title">{{ task.title || 'Без названия' }}</span>
+                <span class="task-title">{{ task.title || $t('adminProjectEdit.untitled') }}</span>
                 <button
                   type="button"
                   class="delete-task-button"
                   @click.stop="removeTask(index)"
-                  title="Удалить задачу"
+                  :title="$t('common.delete')"
                 >✕</button>
               </div>
 
               <!-- Развёрнутая форма задачи -->
               <div v-else class="task-form">
                 <div class="task-form-header">
-                  <h3>{{ task.id ? 'Редактирование задачи' : 'Новая задача' }}</h3>
+                  <h3>{{ task.id ? $t('adminProjectEdit.editTask') : $t('adminProjectEdit.newTask') }}</h3>
                   <button type="button" class="close-task-form" @click="toggleTaskExpand(index)">✕</button>
                 </div>
 
                 <div class="form-group">
-                  <label :for="'task-title-'+index">Название задачи</label>
+                  <label :for="'task-title-'+index">{{ $t('adminProjectEdit.taskTitle') }}</label>
                   <input :id="'task-title-'+index" v-model="task.title" type="text" required />
                 </div>
 
                 <div class="form-group">
-                  <label :for="'task-status-'+index">Статус</label>
+                  <label :for="'task-status-'+index">{{ $t('adminProjectEdit.taskStatus') }}</label>
                   <select :id="'task-status-'+index" v-model="task.status">
-                    <option value="в работе">В работе</option>
-                    <option value="ожидает">Ожидает</option>
-                    <option value="выполнена">Выполнена</option>
+                    <option value="в работе">{{ $t('adminProjectEdit.status.inProgress') }}</option>
+                    <option value="ожидает">{{ $t('adminProjectEdit.status.waiting') }}</option>
+                    <option value="выполнена">{{ $t('adminProjectEdit.status.completed') }}</option>
                   </select>
                 </div>
 
                 <div class="form-group">
-                  <label :for="'task-body-'+index">Описание задачи</label>
+                  <label :for="'task-body-'+index">{{ $t('adminProjectEdit.taskDescription') }}</label>
                   <textarea :id="'task-body-'+index" v-model="task.body" rows="2" required></textarea>
                 </div>
 
                 <div class="form-row">
                   <div class="form-group">
-                    <label :for="'task-start-'+index">Дата начала (ДД.ММ.ГГГГ)</label>
+                    <label :for="'task-start-'+index">{{ $t('adminProjectEdit.startDate') }}</label>
                     <input
                       :id="'task-start-'+index"
                       :value="task.timeline"
                       @input="updateTaskDate(index, 'timeline', $event)"
                       type="text"
-                      placeholder="01.01.2025"
+                      :placeholder="$t('adminProjectEdit.datePlaceholder')"
                       :class="{ 'invalid': task.startError }"
                     />
                     <span v-if="task.startError" class="error-message">{{ task.startError }}</span>
                   </div>
 
                   <div class="form-group">
-                    <label :for="'task-end-'+index">Дата окончания (ДД.ММ.ГГГГ)</label>
+                    <label :for="'task-end-'+index">{{ $t('adminProjectEdit.endDate') }}</label>
                     <input
                       :id="'task-end-'+index"
                       :value="task.timelinend"
                       @input="updateTaskDate(index, 'timelinend', $event)"
                       type="text"
-                      placeholder="31.12.2025"
+                      :placeholder="$t('adminProjectEdit.datePlaceholder')"
                       :class="{ 'invalid': task.endError }"
                     />
                     <span v-if="task.endError" class="error-message">{{ task.endError }}</span>
@@ -211,8 +212,8 @@
                 </div>
 
                 <div class="task-form-actions">
-                  <button type="button" class="save-task-button" @click="saveTask(index)">✓ Готово</button>
-                  <button type="button" class="cancel-task-button" @click="toggleTaskExpand(index)">Отмена</button>
+                  <button type="button" class="save-task-button" @click="saveTask(index)">✓ {{ $t('common.save') }}</button>
+                  <button type="button" class="cancel-task-button" @click="toggleTaskExpand(index)">{{ $t('common.cancel') }}</button>
                 </div>
               </div>
             </div>
@@ -222,9 +223,9 @@
         <!-- Кнопки отправки -->
         <div class="form-actions">
           <button type="submit" class="save-button" :disabled="saving">
-            {{ saving ? 'Сохранение...' : (isNew ? 'Создать проект' : 'Сохранить изменения') }}
+            {{ saving ? $t('common.saving') : (isNew ? $t('adminProjectEdit.createProject') : $t('adminProjectEdit.saveChanges')) }}
           </button>
-          <button type="button" class="cancel-button" @click="goBack">Отмена</button>
+          <button type="button" class="cancel-button" @click="goBack">{{ $t('common.cancel') }}</button>
         </div>
       </form>
     </div>
@@ -234,12 +235,15 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import type { Project, Task, User, Participant, ProjectRole } from '@/types';
 import axios from 'axios';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+const { t } = useI18n();
 
 const baseUrl = 'http://localhost:8000';
 
@@ -320,7 +324,7 @@ type EditableTask = Task & {
 const tasks = ref<EditableTask[]>([]);
 
 const pageTitle = computed(() => {
-  return isNew ? 'Создание нового проекта (админ)' : 'Редактирование проекта (админ)';
+  return isNew ? t('adminProjectEdit.newProjectTitle') : t('adminProjectEdit.editProjectTitle');
 });
 
 // Получение доступных ролей для пользователя
@@ -329,11 +333,9 @@ function getAvailableRoles(user: User): ProjectRole[] {
     return ['executor'];
   }
   const teacherRoles = (user.teacher_info?.roles || []) as ProjectRole[];
-  // Добавляем executor как всегда доступный
   if (!teacherRoles.includes('executor')) {
     teacherRoles.push('executor');
   }
-  // Добавляем curator, если есть флаг
   if (user.teacher_info?.curator && !teacherRoles.includes('curator')) {
     teacherRoles.push('curator');
   }
@@ -364,13 +366,11 @@ function selectUser(user: UserWithRoles) {
   selectedRole.value = user.availableRoles[0];
 }
 
-// Доступные роли для выбранного пользователя
 const availableRolesForSelected = computed(() => {
   if (!selectedUser.value) return [];
   return selectedUser.value.availableRoles;
 });
 
-// Подсказка о доступных ролях для отображения в результатах поиска
 function getUserRolesHint(user: UserWithRoles): string {
   return user.availableRoles.map(r => getRoleDisplay(r)).join(', ');
 }
@@ -408,7 +408,6 @@ onMounted(async () => {
       return;
     }
 
-    // Заполняем форму текущими данными проекта
     form.title = project.title;
     form.body = project.body;
     form.underbody = project.underbody || '';
@@ -420,7 +419,6 @@ onMounted(async () => {
       endError: undefined,
     }));
   }
-  // Для нового проекта ничего не добавляем автоматически – админ сам добавит участников
 });
 
 function getUserNickname(id: number): string {
@@ -430,18 +428,18 @@ function getUserNickname(id: number): string {
 
 function getRoleDisplay(role: ProjectRole): string {
   const map: Record<ProjectRole, string> = {
-    customer: 'Заказчик',
-    supervisor: 'Научный руководитель',
-    expert: 'Эксперт',
-    executor: 'Исполнитель',
-    curator: 'Куратор',
+    customer: t('roles.customer'),
+    supervisor: t('roles.supervisor'),
+    expert: t('roles.expert'),
+    executor: t('roles.executor'),
+    curator: t('roles.curator'),
   };
   return map[role];
 }
 
 async function sendInvite() {
   if (!inviteEmail.value || isNew) {
-    showNotification('Приглашения можно отправлять только для существующих проектов', 'info');
+    showNotification(t('adminProjectEdit.inviteOnlyExisting'), 'info');
     return;
   }
   sendingInvite.value = true;
@@ -453,13 +451,13 @@ async function sendInvite() {
       email: inviteEmail.value,
       role: inviteRole.value,
     });
-    inviteResult.value = `Приглашение создано! Токен: ${response.data.token}`;
+    inviteResult.value = `${t('adminProjectEdit.inviteCreated')} ${response.data.token}`;
     inviteSuccess.value = true;
     inviteEmail.value = '';
-    showNotification('Приглашение успешно создано', 'success');
+    showNotification(t('adminProjectEdit.inviteSuccess'), 'success');
   } catch (error: any) {
     console.error('Failed to create invite:', error);
-    const msg = error.response?.data?.detail || 'Ошибка при создании приглашения';
+    const msg = error.response?.data?.detail || t('adminProjectEdit.inviteError');
     inviteResult.value = msg;
     inviteSuccess.value = false;
     showNotification(msg, 'error');
@@ -527,19 +525,19 @@ function addTask() {
 function saveTask(index: number) {
   const task = tasks.value[index];
   if (!task) return;
-  if (!task.title.trim()) { showNotification('Название задачи не может быть пустым', 'info'); return; }
-  if (!task.body.trim()) { showNotification('Описание задачи не может быть пустым', 'info'); return; }
+  if (!task.title.trim()) { showNotification(t('adminProjectEdit.taskTitleRequired'), 'info'); return; }
+  if (!task.body.trim()) { showNotification(t('adminProjectEdit.taskDescriptionRequired'), 'info'); return; }
 
   task.startError = undefined;
   task.endError = undefined;
   let valid = true;
 
   if (!isValidDate(task.timeline || '')) {
-    task.startError = 'Неверный формат даты начала';
+    task.startError = t('adminProjectEdit.invalidStartDate');
     valid = false;
   }
   if (!isValidDate(task.timelinend || '')) {
-    task.endError = 'Неверный формат даты окончания';
+    task.endError = t('adminProjectEdit.invalidEndDate');
     valid = false;
   }
 
@@ -549,7 +547,7 @@ function saveTask(index: number) {
     const start = parseDate(task.timeline);
     const end = parseDate(task.timelinend);
     if (start && end && start > end) {
-      showNotification('Дата начала не может быть позже даты окончания', 'info');
+      showNotification(t('adminProjectEdit.startBeforeEnd'), 'info');
       return;
     }
   }
@@ -568,13 +566,13 @@ function toggleTaskExpand(index: number) {
 // Сохранение проекта
 async function handleSubmit() {
   if (!form.title.trim() || !form.body.trim()) {
-    showNotification('Заполните название и описание проекта', 'info');
+    showNotification(t('adminProjectEdit.fillRequired'), 'info');
     return;
   }
 
   for (let i = 0; i < tasks.value.length; i++) {
     if (tasks.value[i]?.expanded) {
-      showNotification('Завершите редактирование всех задач перед сохранением', 'info');
+      showNotification(t('adminProjectEdit.finishEditing'), 'info');
       return;
     }
   }
@@ -592,16 +590,16 @@ async function handleSubmit() {
   try {
     if (isNew) {
       const created = await projectsStore.createProject(projectData);
-      showNotification('Проект успешно создан', 'success');
+      showNotification(t('adminProjectEdit.projectCreated'), 'success');
       setTimeout(() => router.push(`/admin/projects`), 1500);
     } else {
       await projectsStore.updateProject(projectId, projectData);
-      showNotification('Изменения сохранены', 'success');
+      showNotification(t('adminProjectEdit.projectSaved'), 'success');
       setTimeout(() => router.push(`/admin/projects`), 1500);
     }
   } catch (err: any) {
     console.error('Ошибка сохранения проекта:', err);
-    showNotification('Не удалось сохранить изменения. Пожалуйста, попробуйте позже.', 'error');
+    showNotification(t('adminProjectEdit.saveError'), 'error');
   } finally {
     saving.value = false;
   }

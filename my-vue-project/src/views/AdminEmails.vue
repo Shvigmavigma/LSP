@@ -1,36 +1,45 @@
 <template>
   <div class="admin-emails-page">
     <header class="page-header">
-      <h1>Управление разрешёнными email</h1>
+      <h1>{{ $t('adminEmails.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
-        <button class="back-button" @click="goBack" title="Назад">◀</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <button class="back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
 
     <div class="email-tabs">
-      <button class="tab-button" :class="{ active: activeTab === 'teachers' }" @click="activeTab = 'teachers'">
-        👨‍🏫 Учителя
+      <button
+        class="tab-button"
+        :class="{ active: activeTab === 'teachers' }"
+        @click="activeTab = 'teachers'"
+      >
+        👨‍🏫 {{ $t('adminEmails.tabs.teachers') }}
       </button>
-      <button class="tab-button" :class="{ active: activeTab === 'students' }" @click="activeTab = 'students'">
-        👨‍🎓 Ученики
+      <button
+        class="tab-button"
+        :class="{ active: activeTab === 'students' }"
+        @click="activeTab = 'students'"
+      >
+        👨‍🎓 {{ $t('adminEmails.tabs.students') }}
       </button>
     </div>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else class="edit-card">
       <!-- Информационная подсказка -->
       <div class="info-hint" :class="activeTab === 'students' ? 'students-hint' : 'teachers-hint'">
         <span class="hint-icon">ℹ️</span>
         <span class="hint-text">
           <template v-if="activeTab === 'students'">
-            Для учеников разрешены все email с доменом <strong>lit1533.ru</strong>.
-            Дополнительные email можно добавить вручную.
+            {{ $t('adminEmails.hint.students.part1') }}
+            <strong>lit1533.ru</strong>.
+            {{ $t('adminEmails.hint.students.part2') }}
           </template>
           <template v-else>
-            Для учителей email должен быть обязательно в списке разрешённых.
-            Домены не проверяются, только конкретные email.
+            {{ $t('adminEmails.hint.teachers') }}
           </template>
         </span>
       </div>
@@ -38,56 +47,61 @@
       <!-- Раздел email -->
       <div class="form-section">
         <div class="section-header">
-          <h3> Разрешённые email</h3>
+          <h3>{{ $t('adminEmails.allowedEmails') }}</h3>
           <button class="add-button" @click="openAddEmailModal">
-            + Добавить email
+            + {{ $t('adminEmails.addEmail') }}
           </button>
         </div>
-        
+
         <div v-if="emailsList.length === 0" class="empty-list">
-          Нет добавленных email
+          {{ $t('adminEmails.noEmails') }}
         </div>
         <div v-else class="items-list">
           <div v-for="email in emailsList" :key="email" class="list-item">
             <span class="item-text">{{ email }}</span>
-            <button class="remove-item" @click="removeEmail(email)" title="Удалить">✕</button>
+            <button class="remove-item" @click="removeEmail(email)" :title="$t('common.delete')">✕</button>
           </div>
         </div>
-        <div class="hint">Email в этом списке разрешены для регистрации.</div>
+        <div class="hint">{{ $t('adminEmails.emailHint') }}</div>
       </div>
 
       <!-- Раздел доменов (только для учеников) -->
       <div v-if="activeTab === 'students'" class="form-section">
         <div class="section-header">
-          <h3>🌐 Разрешённые домены</h3>
+          <h3>🌐 {{ $t('adminEmails.allowedDomains') }}</h3>
           <button class="add-button" @click="openAddDomainModal">
-            + Добавить домен
+            + {{ $t('adminEmails.addDomain') }}
           </button>
         </div>
-        
+
         <div class="domain-note">
           <span class="domain-icon">🏫</span>
-          <span>По умолчанию разрешён домен <strong>lit1533.ru</strong></span>
+          <span>
+            {{ $t('adminEmails.defaultDomainNote') }}
+            <strong>lit1533.ru</strong>
+          </span>
         </div>
-        
+
         <div v-if="domainsList.length === 0" class="empty-list">
-          Нет дополнительных доменов
+          {{ $t('adminEmails.noDomains') }}
         </div>
         <div v-else class="items-list">
           <div v-for="domain in domainsList" :key="domain" class="list-item">
             <span class="item-text">{{ domain }}</span>
-            <button class="remove-item" @click="removeDomain(domain)" title="Удалить">✕</button>
+            <button class="remove-item" @click="removeDomain(domain)" :title="$t('common.delete')">✕</button>
           </div>
         </div>
-        <div class="hint">Любой email с этими доменами разрешён.</div>
+        <div class="hint">{{ $t('adminEmails.domainHint') }}</div>
       </div>
 
       <!-- Кнопки сохранения -->
       <div class="form-actions">
         <button class="save-button" @click="saveData" :disabled="saving">
-          {{ saving ? 'Сохранение...' : ' Сохранить изменения' }}
+          {{ saving ? $t('common.saving') : $t('adminEmails.saveChanges') }}
         </button>
-        <button class="cancel-button" @click="loadData">↺ Отменить изменения</button>
+        <button class="cancel-button" @click="loadData">
+          ↺ {{ $t('common.cancelChanges') }}
+        </button>
       </div>
 
       <div v-if="saveMessage" class="save-message" :class="{ success: saveSuccess, error: !saveSuccess }">
@@ -99,17 +113,21 @@
     <Teleport to="body">
       <div v-if="showAddEmailModal" class="modal-overlay" @click.self="closeAddEmailModal">
         <div class="modal-content">
-          <h3>Добавить email</h3>
+          <h3>{{ $t('adminEmails.addEmailModalTitle') }}</h3>
           <input
             v-model="newEmail"
             type="email"
-            placeholder="user@example.com"
+            :placeholder="$t('adminEmails.emailPlaceholder')"
             class="modal-input"
             @keyup.enter="addEmail"
           />
           <div class="modal-actions">
-            <button class="modal-confirm" @click="addEmail" :disabled="!newEmail.trim()">Добавить</button>
-            <button class="modal-cancel" @click="closeAddEmailModal">Отмена</button>
+            <button class="modal-confirm" @click="addEmail" :disabled="!newEmail.trim()">
+              {{ $t('common.add') }}
+            </button>
+            <button class="modal-cancel" @click="closeAddEmailModal">
+              {{ $t('common.cancel') }}
+            </button>
           </div>
         </div>
       </div>
@@ -119,17 +137,21 @@
     <Teleport to="body">
       <div v-if="showAddDomainModal" class="modal-overlay" @click.self="closeAddDomainModal">
         <div class="modal-content">
-          <h3>Добавить домен</h3>
+          <h3>{{ $t('adminEmails.addDomainModalTitle') }}</h3>
           <input
             v-model="newDomain"
             type="text"
-            placeholder="example.com"
+            :placeholder="$t('adminEmails.domainPlaceholder')"
             class="modal-input"
             @keyup.enter="addDomain"
           />
           <div class="modal-actions">
-            <button class="modal-confirm" @click="addDomain" :disabled="!newDomain.trim()">Добавить</button>
-            <button class="modal-cancel" @click="closeAddDomainModal">Отмена</button>
+            <button class="modal-confirm" @click="addDomain" :disabled="!newDomain.trim()">
+              {{ $t('common.add') }}
+            </button>
+            <button class="modal-cancel" @click="closeAddDomainModal">
+              {{ $t('common.cancel') }}
+            </button>
           </div>
         </div>
       </div>
@@ -138,12 +160,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import axios from 'axios';
-
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+const { t } = useI18n();
 const router = useRouter();
+
 const activeTab = ref<'teachers' | 'students'>('teachers');
 const loading = ref(true);
 const saving = ref(false);
@@ -173,7 +198,7 @@ const loadData = async () => {
     saveMessage.value = '';
   } catch (error) {
     console.error('Failed to load data', error);
-    saveMessage.value = 'Ошибка загрузки данных';
+    saveMessage.value = t('adminEmails.loadError');
     saveSuccess.value = false;
   } finally {
     loading.value = false;
@@ -183,7 +208,7 @@ const loadData = async () => {
 const saveData = async () => {
   saving.value = true;
   saveMessage.value = '';
-  
+
   const payload = {
     accepted_emails: emailsList.value,
     domains: domainsList.value
@@ -194,14 +219,14 @@ const saveData = async () => {
       ? '/admin/accepted-emails/teachers'
       : '/admin/accepted-emails/students';
     await axios.put(endpoint, payload);
-    saveMessage.value = 'Изменения сохранены';
+    saveMessage.value = t('adminEmails.saveSuccess');
     saveSuccess.value = true;
     setTimeout(() => {
       saveMessage.value = '';
     }, 3000);
   } catch (error) {
     console.error('Failed to save data', error);
-    saveMessage.value = 'Ошибка сохранения';
+    saveMessage.value = t('adminEmails.saveError');
     saveSuccess.value = false;
   } finally {
     saving.value = false;

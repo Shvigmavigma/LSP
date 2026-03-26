@@ -12,7 +12,8 @@
       <h1>{{ pageTitle }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
       </div>
     </header>
 
@@ -21,10 +22,10 @@
       <span class="hint-icon">{{ isAdminOrCurator ? '⚙️' : 'ℹ️' }}</span>
       <span class="hint-text">
         <template v-if="isAdminOrCurator">
-          Вы имеете полные права как администратор или куратор.
+          {{ $t('projectEdit.adminHint') }}
         </template>
         <template v-else>
-          Редактировать проект могут только заказчик, исполнитель, администратор или куратор.
+          {{ $t('projectEdit.noRightsHint') }}
         </template>
       </span>
     </div>
@@ -33,27 +34,27 @@
       <form @submit.prevent="handleSubmit">
         <!-- Основная информация -->
         <div class="form-section">
-          <h2>Основная информация</h2>
+          <h2>{{ $t('projectEdit.basicInfo') }}</h2>
           <div class="form-group">
-            <label for="title">Название проекта</label>
+            <label for="title">{{ $t('projectEdit.projectTitle') }}</label>
             <input id="title" v-model="form.title" type="text" required />
           </div>
           <div class="form-group">
-            <label for="body">Описание</label>
+            <label for="body">{{ $t('projectEdit.description') }}</label>
             <textarea id="body" v-model="form.body" rows="4" required></textarea>
           </div>
           <div class="form-group">
-            <label for="underbody">Дополнительная информация</label>
+            <label for="underbody">{{ $t('projectEdit.additionalInfo') }}</label>
             <textarea id="underbody" v-model="form.underbody" rows="2"></textarea>
           </div>
         </div>
 
         <!-- Участники проекта -->
         <div class="form-section">
-          <h2>Участники проекта</h2>
+          <h2>{{ $t('projectEdit.participants') }}</h2>
           <div class="participants-section">
             <div v-if="participants.length > 0" class="current-participants">
-              <span class="participants-label">Текущие участники:</span>
+              <span class="participants-label">{{ $t('projectEdit.currentParticipants') }}:</span>
               <div class="participant-tags">
                 <div
                   v-for="(p, index) in participants"
@@ -76,12 +77,12 @@
             </div>
 
             <div class="participant-search">
-              <label>Добавить участника по никнейму</label>
+              <label>{{ $t('projectEdit.addParticipantByNickname') }}</label>
               <div class="search-row">
                 <input
                   v-model="searchQuery"
                   type="text"
-                  placeholder="Введите никнейм..."
+                  :placeholder="$t('projectEdit.nicknamePlaceholder')"
                   @input="searchUsers"
                 />
                 <select v-model="selectedRole">
@@ -89,7 +90,7 @@
                     {{ getRoleDisplay(role) }}
                   </option>
                 </select>
-                <button @click="addParticipant" :disabled="!selectedUser">Добавить</button>
+                <button @click="addParticipant" :disabled="!selectedUser">{{ $t('common.add') }}</button>
               </div>
               <div v-if="searchResults.length > 0" class="search-results">
                 <div
@@ -104,34 +105,34 @@
               </div>
             </div>
             <div v-if="isSuggestMode" class="suggest-note">
-              <p>⚠️ В режиме предложения вы можете изменять любые поля – они будут отправлены как предложение.</p>
+              <p>⚠️ {{ $t('projectEdit.suggestModeNote') }}</p>
             </div>
             <div v-if="isApplyingSuggestion" class="suggest-note">
-              <p>📝 Вы редактируете проект на основе предложения. После сохранения предложение будет автоматически принято.</p>
+              <p>📝 {{ $t('projectEdit.applySuggestionNote') }}</p>
             </div>
           </div>
         </div>
 
         <!-- Приглашение по email (только для существующих проектов) -->
         <div v-if="isEdit" class="form-section">
-          <h2>Пригласить участника по email</h2>
+          <h2>{{ $t('projectEdit.inviteByEmail') }}</h2>
           <div class="invite-section">
             <div class="invite-row">
               <input
                 v-model="inviteEmail"
                 type="email"
-                placeholder="Email пользователя"
+                :placeholder="$t('projectEdit.emailPlaceholder')"
                 class="invite-input"
               />
               <select v-model="inviteRole">
-                <option value="executor">Исполнитель</option>
-                <option value="customer">Заказчик</option>
-                <option value="supervisor">Научный руководитель</option>
-                <option value="expert">Эксперт</option>
-                <option value="curator">Куратор</option>
+                <option value="executor">{{ $t('roles.executor') }}</option>
+                <option value="customer">{{ $t('roles.customer') }}</option>
+                <option value="supervisor">{{ $t('roles.supervisor') }}</option>
+                <option value="expert">{{ $t('roles.expert') }}</option>
+                <option value="curator">{{ $t('roles.curator') }}</option>
               </select>
               <button @click="sendInvite" :disabled="!inviteEmail || sendingInvite">
-                {{ sendingInvite ? 'Отправка...' : 'Отправить приглашение' }}
+                {{ sendingInvite ? $t('common.sending') : $t('projectEdit.sendInvite') }}
               </button>
             </div>
             <div v-if="inviteResult" class="invite-result" :class="{ success: inviteSuccess, error: !inviteSuccess }">
@@ -143,15 +144,15 @@
         <!-- Задачи -->
         <div class="form-section">
           <div class="tasks-header">
-            <h2>Задачи проекта</h2>
+            <h2>{{ $t('projectEdit.tasks') }}</h2>
             <div class="task-buttons">
-              <button type="button" class="add-task-button" @click="addTask">+ Добавить задачу</button>
-              <button type="button" class="add-default-tasks-button" @click="addDefaultTasks">📋 Добавить дефолтные задачи</button>
+              <button type="button" class="add-task-button" @click="addTask">+ {{ $t('projectEdit.addTask') }}</button>
+              <button type="button" class="add-default-tasks-button" @click="addDefaultTasks">📋 {{ $t('projectEdit.addDefaultTasks') }}</button>
             </div>
           </div>
 
           <div v-if="tasks.length === 0" class="no-tasks">
-            Пока нет задач. Нажмите "Добавить задачу", чтобы создать первую.
+            {{ $t('projectEdit.noTasks') }}
           </div>
 
           <div v-else class="tasks-list">
@@ -163,63 +164,63 @@
             >
               <!-- Компактное отображение задачи -->
               <div v-if="!task.expanded" class="task-compact" @click="toggleTaskExpand(index)">
-                <span class="task-title">{{ task.title || 'Без названия' }}</span>
+                <span class="task-title">{{ task.title || $t('projectEdit.untitled') }}</span>
                 <button
                   type="button"
                   class="delete-task-button"
                   @click.stop="removeTask(index)"
-                  title="Удалить задачу"
+                  :title="$t('common.delete')"
                 >✕</button>
               </div>
 
               <!-- Развёрнутая форма задачи -->
               <div v-else class="task-form">
                 <div class="task-form-header">
-                  <h3>{{ task.id ? 'Редактирование задачи' : 'Новая задача' }}</h3>
+                  <h3>{{ task.id ? $t('projectEdit.editTask') : $t('projectEdit.newTask') }}</h3>
                   <button type="button" class="close-task-form" @click="toggleTaskExpand(index)">✕</button>
                 </div>
 
                 <div class="form-group">
-                  <label :for="'task-title-'+index">Название задачи</label>
+                  <label :for="'task-title-'+index">{{ $t('projectEdit.taskTitle') }}</label>
                   <input :id="'task-title-'+index" v-model="task.title" type="text" required />
                 </div>
 
                 <div class="form-group">
-                  <label :for="'task-status-'+index">Статус</label>
+                  <label :for="'task-status-'+index">{{ $t('projectEdit.taskStatus') }}</label>
                   <select :id="'task-status-'+index" v-model="task.status">
-                    <option value="в работе">В работе</option>
-                    <option value="ожидает">Ожидает</option>
-                    <option value="выполнена">Выполнена</option>
+                    <option value="в работе">{{ $t('projectEdit.status.inProgress') }}</option>
+                    <option value="ожидает">{{ $t('projectEdit.status.waiting') }}</option>
+                    <option value="выполнена">{{ $t('projectEdit.status.completed') }}</option>
                   </select>
                 </div>
 
                 <div class="form-group">
-                  <label :for="'task-body-'+index">Описание задачи</label>
+                  <label :for="'task-body-'+index">{{ $t('projectEdit.taskDescription') }}</label>
                   <textarea :id="'task-body-'+index" v-model="task.body" rows="2" required></textarea>
                 </div>
 
                 <div class="form-row">
                   <div class="form-group">
-                    <label :for="'task-start-'+index">Дата начала (ДД.ММ.ГГГГ)</label>
+                    <label :for="'task-start-'+index">{{ $t('projectEdit.startDate') }}</label>
                     <input
                       :id="'task-start-'+index"
                       :value="task.timeline"
                       @input="updateTaskDate(index, 'timeline', $event)"
                       type="text"
-                      placeholder="01.01.2025"
+                      :placeholder="$t('projectEdit.datePlaceholder')"
                       :class="{ 'invalid': task.startError }"
                     />
                     <span v-if="task.startError" class="error-message">{{ task.startError }}</span>
                   </div>
 
                   <div class="form-group">
-                    <label :for="'task-end-'+index">Дата окончания (ДД.ММ.ГГГГ)</label>
+                    <label :for="'task-end-'+index">{{ $t('projectEdit.endDate') }}</label>
                     <input
                       :id="'task-end-'+index"
                       :value="task.timelinend"
                       @input="updateTaskDate(index, 'timelinend', $event)"
                       type="text"
-                      placeholder="31.12.2025"
+                      :placeholder="$t('projectEdit.datePlaceholder')"
                       :class="{ 'invalid': task.endError }"
                     />
                     <span v-if="task.endError" class="error-message">{{ task.endError }}</span>
@@ -227,24 +228,24 @@
                 </div>
 
                 <div class="task-form-actions">
-                  <button type="button" class="save-task-button" @click="saveTask(index)">✓ Готово</button>
-                  <button type="button" class="cancel-task-button" @click="toggleTaskExpand(index)">Отмена</button>
+                  <button type="button" class="save-task-button" @click="saveTask(index)">✓ {{ $t('common.save') }}</button>
+                  <button type="button" class="cancel-task-button" @click="toggleTaskExpand(index)">{{ $t('common.cancel') }}</button>
                 </div>
               </div>
             </div>
           </div>
           <div v-if="isSuggestMode" class="suggest-note">
-            <p>⚠️ В режиме предложения вы можете изменять задачи, они будут включены в предложение как есть.</p>
+            <p>⚠️ {{ $t('projectEdit.suggestModeTasksNote') }}</p>
           </div>
           <div v-if="isApplyingSuggestion" class="suggest-note">
-            <p>📝 Вы редактируете задачи на основе предложения. После сохранения предложение будет автоматически принято.</p>
+            <p>📝 {{ $t('projectEdit.applySuggestionTasksNote') }}</p>
           </div>
         </div>
 
         <!-- Кнопки отправки -->
         <div class="form-actions">
           <button type="submit" class="save-button" :disabled="saving">
-            {{ saving ? (isSuggestMode ? 'Отправка...' : (isApplyingSuggestion ? 'Принять и сохранить...' : 'Сохранение...')) : submitButtonText }}
+            {{ saving ? (isSuggestMode ? $t('common.sending') : (isApplyingSuggestion ? $t('projectEdit.acceptingAndSaving') : $t('common.saving'))) : submitButtonText }}
           </button>
           <button type="button" class="cancel-button" @click="goBack">{{ cancelButtonText }}</button>
         </div>
@@ -256,13 +257,16 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import type { Project, Task, User, Participant, ProjectRole, Suggestion } from '@/types';
 import axios from 'axios';
 
+const { t } = useI18n();
 const baseUrl = 'http://localhost:8000';
 
 const route = useRoute();
@@ -324,18 +328,20 @@ const currentUserId = computed(() => authStore.user?.id);
 
 // Является ли пользователь куратором (глобально)
 const isCurator = computed(() => {
-  return authStore.user?.is_teacher && authStore.user?.teacher_info?.curator === true;
+  const user = authStore.user;
+  if (!user) return false;
+  if (!user.is_teacher) return false;
+  return user.teacher_info?.curator ?? false;
 });
 
 // Является ли пользователь администратором или куратором
-const isAdminOrCurator = computed(() => authStore.user?.is_admin || isCurator.value);
+const isAdminOrCurator = computed(() => (authStore.user?.is_admin ?? false) || isCurator.value);
 
 // Определение роли создателя проекта
 function getCreatorRole(): ProjectRole {
   const user = authStore.user;
   if (!user) return 'executor';
   if (!user.is_teacher) return 'executor';
-  // Учитель
   if (user.teacher_info) {
     if (user.teacher_info.roles?.includes('customer')) return 'customer';
     if (user.teacher_info.curator) return 'curator';
@@ -404,7 +410,7 @@ const canSuggest = computed(() =>
   userRole.value === 'expert' ||
   userRole.value === 'supervisor' ||
   userRole.value === 'executor' ||
-  authStore.user?.is_admin ||
+  (authStore.user?.is_admin ?? false) ||
   isCurator.value
 );
 
@@ -412,23 +418,23 @@ const canSuggest = computed(() =>
 const canEdit = computed(() => 
   userRole.value === 'customer' || 
   userRole.value === 'executor' || 
-  authStore.user?.is_admin || 
+  (authStore.user?.is_admin ?? false) || 
   isCurator.value
 );
 
 const pageTitle = computed(() => {
-  if (isNew) return 'Создание нового проекта';
-  if (isApplyingSuggestion.value) return 'Применить предложение';
-  return isSuggestMode.value ? 'Предложить изменения проекта' : 'Редактирование проекта';
+  if (isNew) return t('projectEdit.newProjectTitle');
+  if (isApplyingSuggestion.value) return t('projectEdit.applySuggestionTitle');
+  return isSuggestMode.value ? t('projectEdit.suggestChangesTitle') : t('projectEdit.editProjectTitle');
 });
 
 const submitButtonText = computed(() => {
-  if (isNew) return 'Создать проект';
-  if (isApplyingSuggestion.value) return 'Принять и сохранить';
-  return isSuggestMode.value ? 'Отправить предложение' : 'Сохранить изменения';
+  if (isNew) return t('projectEdit.createProject');
+  if (isApplyingSuggestion.value) return t('projectEdit.acceptAndSave');
+  return isSuggestMode.value ? t('projectEdit.sendSuggestion') : t('common.save');
 });
 
-const cancelButtonText = computed(() => 'Отмена');
+const cancelButtonText = computed(() => t('common.cancel'));
 
 // Получение доступных ролей для пользователя
 function getAvailableRoles(user: User): ProjectRole[] {
@@ -468,7 +474,6 @@ function selectUser(user: UserWithRoles) {
   selectedUser.value = user;
   searchQuery.value = user.nickname;
   searchResults.value = [];
-  // Устанавливаем роль по умолчанию – первую доступную
   selectedRole.value = user.availableRoles[0];
 }
 
@@ -497,22 +502,21 @@ function addParticipant() {
 
 function removeParticipant(index: number) {
   const participant = participants.value[index];
-  // Запрещаем удалять самого себя (кроме админа/куратора – они могут?)
   if (!isAdminOrCurator.value && participant.user_id === currentUserId.value) {
-    showNotification('Вы не можете удалить себя из проекта', 'info');
+    showNotification(t('projectEdit.cannotRemoveSelf'), 'info');
     return;
   }
   if (participants.value.length === 1) {
-    showNotification('Проект должен иметь хотя бы одного участника', 'info');
+    showNotification(t('projectEdit.needAtLeastOneParticipant'), 'info');
     return;
   }
   participants.value.splice(index, 1);
 }
 
 function getRemoveTitle(userId: number): string {
-  if (!isAdminOrCurator.value && userId === currentUserId.value) return 'Нельзя удалить себя';
-  if (participants.value.length === 1) return 'Нельзя удалить единственного участника';
-  return 'Удалить';
+  if (!isAdminOrCurator.value && userId === currentUserId.value) return t('projectEdit.cannotRemoveSelfTooltip');
+  if (participants.value.length === 1) return t('projectEdit.cannotRemoveLastTooltip');
+  return t('common.delete');
 }
 
 // Загрузка данных
@@ -521,7 +525,6 @@ onMounted(async () => {
     await usersStore.fetchAllUsers();
   }
 
-  // Проверяем query-параметр suggestion
   const suggestionParam = route.query.suggestion as string | undefined;
   if (suggestionParam && !isNew) {
     isApplyingSuggestion.value = true;
@@ -542,38 +545,32 @@ onMounted(async () => {
     const participant = project.participants?.find(p => p.user_id === authStore.userId);
     userRole.value = participant?.role || null;
 
-    // Если мы в режиме применения предложения, загружаем предложение
     if (isApplyingSuggestion.value && applyingSuggestionId.value) {
       const suggestion = project.suggestions?.find(s => s.id === applyingSuggestionId.value);
       if (!suggestion) {
-        showNotification('Предложение не найдено', 'error');
+        showNotification(t('projectEdit.suggestionNotFound'), 'error');
         router.push(`/project/${projectId}`);
         return;
       }
-      // Применяем изменения из предложения к форме
       applySuggestionChanges(suggestion);
     } else {
-      // Обычный режим – проверяем права
       const modeParam = route.query.mode;
       if (modeParam === 'suggest') {
-        // Для режима предложения достаточно прав canSuggest
         if (!canSuggest.value) {
-          showNotification('У вас нет прав для создания предложения', 'error');
+          showNotification(t('projectEdit.noSuggestRights'), 'error');
           setTimeout(() => router.push(`/project/${projectId}`), 2000);
           return;
         }
         isSuggestMode.value = true;
       } else {
-        // Для обычного редактирования проверяем canEdit
         if (!canEdit.value) {
-          showNotification('У вас нет прав для редактирования проекта. Только заказчик, исполнитель, администратор или куратор могут редактировать.', 'info');
+          showNotification(t('projectEdit.noEditRights'), 'info');
           setTimeout(() => router.push(`/project/${projectId}`), 2000);
           return;
         }
         isSuggestMode.value = false;
       }
 
-      // Заполняем форму текущими данными проекта
       form.title = project.title;
       form.body = project.body;
       form.underbody = project.underbody || '';
@@ -586,7 +583,6 @@ onMounted(async () => {
       }));
     }
   } else {
-    // Новый проект: добавляем текущего пользователя с его ролью
     isSuggestMode.value = false;
     isApplyingSuggestion.value = false;
     if (authStore.userId) {
@@ -600,7 +596,6 @@ onMounted(async () => {
   }
 });
 
-// Применение изменений из предложения
 function applySuggestionChanges(suggestion: Suggestion) {
   const changes = suggestion.changes;
   if (changes.title) form.title = changes.title;
@@ -623,14 +618,7 @@ function getUserNickname(id: number): string {
 }
 
 function getRoleDisplay(role: ProjectRole): string {
-  const map: Record<ProjectRole, string> = {
-    customer: 'Заказчик',
-    supervisor: 'Научный руководитель',
-    expert: 'Эксперт',
-    executor: 'Исполнитель',
-    curator: 'Куратор',
-  };
-  return map[role];
+  return t(`roles.${role}`);
 }
 
 async function sendInvite() {
@@ -644,13 +632,13 @@ async function sendInvite() {
       email: inviteEmail.value,
       role: inviteRole.value,
     });
-    inviteResult.value = `Приглашение создано! Токен: ${response.data.token}`;
+    inviteResult.value = `${t('projectEdit.inviteCreated')} ${response.data.token}`;
     inviteSuccess.value = true;
     inviteEmail.value = '';
-    showNotification('Приглашение успешно создано', 'success');
+    showNotification(t('projectEdit.inviteSuccess'), 'success');
   } catch (error: any) {
     console.error('Failed to create invite:', error);
-    const msg = error.response?.data?.detail || 'Ошибка при создании приглашения';
+    const msg = error.response?.data?.detail || t('projectEdit.inviteError');
     inviteResult.value = msg;
     inviteSuccess.value = false;
     showNotification(msg, 'error');
@@ -715,11 +703,10 @@ function addTask() {
   });
 }
 
-// Добавление дефолтных задач
 function addDefaultTasks() {
   defaultTasks.value.forEach(task => {
     const newTask: EditableTask = {
-      title: task.title || 'Новая задача',
+      title: task.title || t('projectEdit.defaultTaskTitle'),
       body: task.body || '',
       status: task.status || 'ожидает',
       timeline: task.timeline || '',
@@ -735,25 +722,25 @@ function addDefaultTasks() {
     };
     tasks.value.push(newTask);
   });
-  showNotification(`Добавлено ${defaultTasks.value.length} дефолтных задач`, 'success');
+  showNotification(t('projectEdit.defaultTasksAdded', { count: defaultTasks.value.length }), 'success');
 }
 
 function saveTask(index: number) {
   const task = tasks.value[index];
   if (!task) return;
-  if (!task.title.trim()) { showNotification('Название задачи не может быть пустым', 'info'); return; }
-  if (!task.body.trim()) { showNotification('Описание задачи не может быть пустым', 'info'); return; }
+  if (!task.title.trim()) { showNotification(t('projectEdit.taskTitleRequired'), 'info'); return; }
+  if (!task.body.trim()) { showNotification(t('projectEdit.taskDescriptionRequired'), 'info'); return; }
 
   task.startError = undefined;
   task.endError = undefined;
   let valid = true;
 
   if (!isValidDate(task.timeline || '')) {
-    task.startError = 'Неверный формат даты начала';
+    task.startError = t('projectEdit.invalidStartDate');
     valid = false;
   }
   if (!isValidDate(task.timelinend || '')) {
-    task.endError = 'Неверный формат даты окончания';
+    task.endError = t('projectEdit.invalidEndDate');
     valid = false;
   }
 
@@ -763,7 +750,7 @@ function saveTask(index: number) {
     const start = parseDate(task.timeline);
     const end = parseDate(task.timelinend);
     if (start && end && start > end) {
-      showNotification('Дата начала не может быть позже даты окончания', 'info');
+      showNotification(t('projectEdit.startBeforeEnd'), 'info');
       return;
     }
   }
@@ -782,19 +769,19 @@ function toggleTaskExpand(index: number) {
 // Сохранение / отправка предложения
 async function handleSubmit() {
   if (!form.title.trim() || !form.body.trim()) {
-    showNotification('Заполните название и описание проекта', 'info');
+    showNotification(t('projectEdit.fillRequired'), 'info');
     return;
   }
 
   for (let i = 0; i < tasks.value.length; i++) {
     if (tasks.value[i]?.expanded) {
-      showNotification('Завершите редактирование всех задач перед сохранением', 'info');
+      showNotification(t('projectEdit.finishEditing'), 'info');
       return;
     }
   }
 
   if (participants.value.length === 0 && !isNew) {
-    showNotification('Проект должен иметь хотя бы одного участника', 'info');
+    showNotification(t('projectEdit.needAtLeastOneParticipant'), 'info');
     return;
   }
 
@@ -803,23 +790,20 @@ async function handleSubmit() {
     body: form.body,
     underbody: form.underbody || '',
     participants: participants.value,
-    tasks: tasks.value.map(({ expanded, startError, endError, id, ...task }) => task), // id исключается
+    tasks: tasks.value.map(({ expanded, startError, endError, id, ...task }) => task),
   };
 
   saving.value = true;
 
   try {
-    // Если мы в режиме применения предложения, сначала принимаем предложение
     if (isApplyingSuggestion.value && applyingSuggestionId.value) {
       await axios.put(`${baseUrl}/projects/${projectId}/suggestions/${applyingSuggestionId.value}/accept`);
-      showNotification('Предложение принято', 'success');
+      showNotification(t('projectEdit.suggestionAccepted'), 'success');
     }
 
     if (isNew) {
-      if (!authStore.userId) throw new Error('Пользователь не авторизован');
-      // Убедимся, что текущий пользователь уже есть в participants (должен быть добавлен при монтировании)
+      if (!authStore.userId) throw new Error('User not authenticated');
       if (!participants.value.some(p => p.user_id === authStore.userId)) {
-        // На случай, если по какой-то причине его нет – добавляем
         const defaultRole = getCreatorRole();
         projectData.participants.push({
           user_id: authStore.userId,
@@ -828,7 +812,7 @@ async function handleSubmit() {
         });
       }
       const created = await projectsStore.createProject(projectData);
-      showNotification('Проект успешно создан', 'success');
+      showNotification(t('projectEdit.projectCreated'), 'success');
       router.push(`/project/${created.id}`);
     } else if (isSuggestMode.value) {
       const suggestionData = {
@@ -836,19 +820,19 @@ async function handleSubmit() {
         changes: projectData,
       };
       await axios.post(`${baseUrl}/projects/${projectId}/suggestions`, suggestionData);
-      showNotification('Предложение отправлено!', 'success');
+      showNotification(t('projectEdit.suggestionSent'), 'success');
       setTimeout(() => router.push(`/project/${projectId}`), 1500);
     } else {
       await projectsStore.updateProject(projectId, projectData);
-      showNotification('Изменения сохранены', 'success');
+      showNotification(t('projectEdit.changesSaved'), 'success');
       setTimeout(() => router.push(`/project/${projectId}`), 1500);
     }
   } catch (err: any) {
-    console.error('Ошибка сохранения проекта:', err);
+    console.error('Error saving project:', err);
     if (err.response?.status === 403) {
-      showNotification('У вас недостаточно прав. Только заказчик, исполнитель, администратор или куратор могут редактировать проект.', 'error');
+      showNotification(t('projectEdit.noEditRights'), 'error');
     } else {
-      showNotification('Не удалось сохранить изменения. Пожалуйста, попробуйте позже.', 'error');
+      showNotification(t('projectEdit.saveError'), 'error');
     }
   } finally {
     saving.value = false;
@@ -858,7 +842,6 @@ async function handleSubmit() {
 const goHome = () => router.push('/main');
 const goBack = () => router.go(-1);
 </script>
-
 <style scoped>
 /* Уведомления */
 .notification {

@@ -1,38 +1,39 @@
 <template>
   <div class="admin-users-page">
     <header class="page-header">
-      <h1>Управление пользователями</h1>
+      <h1>{{ $t('adminUsers.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
-        <button class="back-button" @click="goBack" title="Назад">◀</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <button class="back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else>
       <div class="filters">
-        <input v-model="search" placeholder="Поиск по имени или email" />
+        <input v-model="search" :placeholder="$t('adminUsers.searchPlaceholder')" />
         <select v-model="roleFilter">
-          <option value="all">Все</option>
-          <option value="student">Ученики</option>
-          <option value="teacher">Учителя</option>
-          <option value="admin">Администраторы</option>
+          <option value="all">{{ $t('adminUsers.filterAll') }}</option>
+          <option value="student">{{ $t('adminUsers.filterStudents') }}</option>
+          <option value="teacher">{{ $t('adminUsers.filterTeachers') }}</option>
+          <option value="admin">{{ $t('adminUsers.filterAdmins') }}</option>
         </select>
       </div>
 
       <table class="users-table">
         <thead>
-           <tr>
-            <th>ID</th>
-            <th>Никнейм</th>
-            <th>Email</th>
-            <th>Тип</th>
-            <th>Активен</th>
-            <th>Админ</th>
-            <th>Куратор</th>
-            <th>Действия</th>
-           </tr>
+          <tr>
+            <th>{{ $t('adminUsers.table.id') }}</th>
+            <th>{{ $t('adminUsers.table.nickname') }}</th>
+            <th>{{ $t('adminUsers.table.email') }}</th>
+            <th>{{ $t('adminUsers.table.type') }}</th>
+            <th>{{ $t('adminUsers.table.active') }}</th>
+            <th>{{ $t('adminUsers.table.admin') }}</th>
+            <th>{{ $t('adminUsers.table.curator') }}</th>
+            <th>{{ $t('adminUsers.table.actions') }}</th>
+          </tr>
         </thead>
         <tbody>
           <tr v-for="user in filteredUsers" :key="user.id">
@@ -43,7 +44,7 @@
               </router-link>
             </td>
             <td>{{ user.email }}</td>
-            <td>{{ user.is_teacher ? 'Учитель' : 'Ученик' }}</td>
+            <td>{{ user.is_teacher ? $t('adminUsers.userType.teacher') : $t('adminUsers.userType.student') }}</td>
             <td>
               <input type="checkbox" :checked="user.is_active" @change="toggleActive(user)" />
             </td>
@@ -57,8 +58,8 @@
               <span v-else>—</span>
             </td>
             <td>
-              <button class="edit-btn" @click="editUser(user.id)">✎</button>
-              <button class="delete-btn" @click="confirmDelete(user.id)">🗑</button>
+              <button class="edit-btn" @click="editUser(user.id)" :title="$t('common.edit')">✎</button>
+              <button class="delete-btn" @click="confirmDelete(user.id)" :title="$t('common.delete')">🗑</button>
             </td>
           </tr>
         </tbody>
@@ -69,11 +70,11 @@
     <Teleport to="body">
       <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
         <div class="modal-content">
-          <h3>Удалить пользователя</h3>
-          <p>Вы уверены, что хотите удалить этого пользователя?</p>
+          <h3>{{ $t('adminUsers.deleteConfirmTitle') }}</h3>
+          <p>{{ $t('adminUsers.deleteConfirmMessage') }}</p>
           <div class="modal-actions">
-            <button class="confirm-btn" @click="deleteUser">Удалить</button>
-            <button class="cancel-btn" @click="closeDeleteModal">Отмена</button>
+            <button class="confirm-btn" @click="deleteUser">{{ $t('common.delete') }}</button>
+            <button class="cancel-btn" @click="closeDeleteModal">{{ $t('common.cancel') }}</button>
           </div>
         </div>
       </div>
@@ -84,10 +85,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import axios from 'axios';
 import type { User } from '@/types';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 
+const { t } = useI18n();
 const router = useRouter();
 const users = ref<User[]>([]);
 const loading = ref(true);
@@ -186,7 +190,7 @@ async function deleteUser() {
     closeDeleteModal();
   } catch (error) {
     console.error('Failed to delete user', error);
-    alert('Ошибка при удалении');
+    alert(t('adminUsers.deleteError'));
   }
 }
 

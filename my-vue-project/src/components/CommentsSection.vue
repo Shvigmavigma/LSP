@@ -1,9 +1,13 @@
 <template>
   <div class="comments-section">
     <div class="comments-header">
-      <h3>Комментарии</h3>
-      <button v-if="canComment && onAddComment" class="add-comment-button" @click="showAddComment = true">
-        + Добавить комментарий
+      <h3>{{ $t('commentsSection.title') }}</h3>
+      <button
+        v-if="canComment && onAddComment"
+        class="add-comment-button"
+        @click="showAddComment = true"
+      >
+        + {{ $t('commentsSection.addButton') }}
       </button>
     </div>
 
@@ -11,12 +15,16 @@
     <div v-if="showAddComment" class="add-comment-form">
       <textarea
         v-model="newComment"
-        placeholder="Введите комментарий..."
+        :placeholder="$t('commentsSection.commentPlaceholder')"
         rows="3"
       ></textarea>
       <div class="form-actions">
-        <button @click="saveComment" :disabled="!newComment.trim()" class="save-btn">Отправить</button>
-        <button @click="cancelAddComment" class="cancel-btn">Отмена</button>
+        <button @click="saveComment" :disabled="!newComment.trim()" class="save-btn">
+          {{ $t('common.send') }}
+        </button>
+        <button @click="cancelAddComment" class="cancel-btn">
+          {{ $t('common.cancel') }}
+        </button>
       </div>
     </div>
 
@@ -46,14 +54,16 @@
           </div>
           <div class="comment-meta">
             <span class="comment-date">{{ formatDate(comment.createdAt) }}</span>
-            <span v-if="!comment.isRead && isAuthor" class="unread-badge">Новый</span>
+            <span v-if="!comment.isRead && isAuthor" class="unread-badge">
+              {{ $t('commentsSection.new') }}
+            </span>
 
             <!-- Кнопка скрытия для всех, у кого есть права -->
             <button
               v-if="canHide(comment) && !comment.hidden && onHideComment"
               class="delete-comment-btn"
               @click="confirmHideComment(comment)"
-              title="Скрыть комментарий"
+              :title="$t('commentsSection.hideTitle')"
             >
               <span class="delete-icon">🗑️</span>
             </button>
@@ -63,7 +73,7 @@
               v-if="comment.hidden && (isAdmin || isCurator) && onRestoreComment"
               class="restore-comment-btn"
               @click="confirmRestoreComment(comment)"
-              title="Восстановить комментарий"
+              :title="$t('commentsSection.restoreTitle')"
             >
               <span class="restore-icon">👁️‍🗨️</span>
             </button>
@@ -73,7 +83,7 @@
               v-if="comment.hidden && (isAdmin || isCurator) && onPermanentDelete"
               class="permanent-delete-btn"
               @click="confirmPermanentDelete(comment)"
-              title="Удалить навсегда"
+              :title="$t('commentsSection.permanentDeleteTitle')"
             >
               <span class="delete-icon">🔥</span>
             </button>
@@ -84,22 +94,28 @@
         </div>
         <!-- Кнопка "Отметить как прочитанное" -->
         <div v-if="!comment.isRead && canComment && onMarkAsRead" class="comment-actions">
-          <button @click="markAsRead(comment.id)" class="mark-read-btn">Отметить как прочитанное</button>
+          <button @click="markAsRead(comment.id)" class="mark-read-btn">
+            {{ $t('commentsSection.markRead') }}
+          </button>
         </div>
       </div>
     </div>
-    <div v-else class="no-comments">Пока нет комментариев</div>
+    <div v-else class="no-comments">{{ $t('commentsSection.noComments') }}</div>
 
     <!-- Модальное окно подтверждения скрытия -->
     <div v-if="showHideModal" class="hide-modal-overlay" @click.self="closeHideModal">
       <div class="hide-modal-content">
         <div class="hide-modal-icon">🗑️</div>
-        <h3>Скрыть комментарий</h3>
-        <p>Вы уверены, что хотите скрыть этот комментарий?</p>
+        <h3>{{ $t('commentsSection.hideModalTitle') }}</h3>
+        <p>{{ $t('commentsSection.hideModalConfirm') }}</p>
         <p class="comment-preview">"{{ commentToHide?.content.substring(0, 50) }}..."</p>
         <div class="hide-modal-actions">
-          <button class="hide-modal-confirm" @click="hideComment">Да, скрыть</button>
-          <button class="hide-modal-cancel" @click="closeHideModal">Отмена</button>
+          <button class="hide-modal-confirm" @click="hideComment">
+            {{ $t('common.yes') }}
+          </button>
+          <button class="hide-modal-cancel" @click="closeHideModal">
+            {{ $t('common.no') }}
+          </button>
         </div>
       </div>
     </div>
@@ -108,12 +124,16 @@
     <div v-if="showRestoreModal" class="hide-modal-overlay" @click.self="closeRestoreModal">
       <div class="hide-modal-content">
         <div class="hide-modal-icon">👁️‍🗨️</div>
-        <h3>Восстановить комментарий</h3>
-        <p>Вы уверены, что хотите восстановить этот комментарий?</p>
+        <h3>{{ $t('commentsSection.restoreModalTitle') }}</h3>
+        <p>{{ $t('commentsSection.restoreModalConfirm') }}</p>
         <p class="comment-preview">"{{ commentToRestore?.content.substring(0, 50) }}..."</p>
         <div class="hide-modal-actions">
-          <button class="hide-modal-confirm" @click="restoreComment">Да, восстановить</button>
-          <button class="hide-modal-cancel" @click="closeRestoreModal">Отмена</button>
+          <button class="hide-modal-confirm" @click="restoreComment">
+            {{ $t('common.yes') }}
+          </button>
+          <button class="hide-modal-cancel" @click="closeRestoreModal">
+            {{ $t('common.no') }}
+          </button>
         </div>
       </div>
     </div>
@@ -122,12 +142,16 @@
     <div v-if="showPermanentDeleteModal" class="hide-modal-overlay" @click.self="closePermanentDeleteModal">
       <div class="hide-modal-content">
         <div class="hide-modal-icon">🔥</div>
-        <h3>Удалить комментарий навсегда</h3>
-        <p>Вы уверены, что хотите полностью удалить этот комментарий? Это действие необратимо.</p>
+        <h3>{{ $t('commentsSection.permanentDeleteModalTitle') }}</h3>
+        <p>{{ $t('commentsSection.permanentDeleteModalConfirm') }}</p>
         <p class="comment-preview">"{{ commentToDeletePermanently?.content.substring(0, 50) }}..."</p>
         <div class="hide-modal-actions">
-          <button class="hide-modal-confirm" @click="permanentDeleteComment">Да, удалить</button>
-          <button class="hide-modal-cancel" @click="closePermanentDeleteModal">Отмена</button>
+          <button class="hide-modal-confirm" @click="permanentDeleteComment">
+            {{ $t('common.yes') }}
+          </button>
+          <button class="hide-modal-cancel" @click="closePermanentDeleteModal">
+            {{ $t('common.no') }}
+          </button>
         </div>
       </div>
     </div>
@@ -136,9 +160,12 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { Comment } from '@/types';
 import { useUsersStore } from '@/stores/users';
 import { useAuthStore } from '@/stores/auth';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   comments: Comment[];
@@ -150,7 +177,7 @@ const props = defineProps<{
   onAddComment?: (content: string) => Promise<void>;
   onMarkAsRead?: (commentId: string) => Promise<void>;
   onHideComment?: (commentId: string) => Promise<void>;
-  onRestoreComment?: (commentId: string) => Promise<void>;  // <-- новый проп
+  onRestoreComment?: (commentId: string) => Promise<void>;
   onPermanentDelete?: (commentId: string) => Promise<void>;
 }>();
 
@@ -194,12 +221,12 @@ const formatDate = (dateStr: string) => {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'только что';
-  if (diffMins < 60) return `${diffMins} мин назад`;
-  if (diffHours < 24) return `${diffHours} ч назад`;
-  if (diffDays === 1) return 'вчера';
-  if (diffDays < 7) return `${diffDays} дн назад`;
-  return date.toLocaleDateString('ru-RU', {
+  if (diffMins < 1) return t('time.justNow');
+  if (diffMins < 60) return t('time.minutesAgo', { count: diffMins });
+  if (diffHours < 24) return t('time.hoursAgo', { count: diffHours });
+  if (diffDays === 1) return t('time.yesterday');
+  if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
+  return date.toLocaleDateString(t('time.locale.code'), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -236,7 +263,7 @@ const saveComment = async () => {
     showAddComment.value = false;
   } catch (error) {
     console.error('Error saving comment:', error);
-    alert('Не удалось отправить комментарий');
+    alert(t('commentsSection.saveError'));
   }
 };
 
@@ -271,7 +298,7 @@ const hideComment = async () => {
     await props.onHideComment(commentToHide.value.id);
   } catch (error) {
     console.error('hideComment error', error);
-    alert('Не удалось скрыть комментарий');
+    alert(t('commentsSection.hideError'));
   } finally {
     closeHideModal();
   }
@@ -293,7 +320,7 @@ const restoreComment = async () => {
     await props.onRestoreComment(commentToRestore.value.id);
   } catch (error) {
     console.error('restoreComment error', error);
-    alert('Не удалось восстановить комментарий');
+    alert(t('commentsSection.restoreError'));
   } finally {
     closeRestoreModal();
   }
@@ -315,7 +342,7 @@ const permanentDeleteComment = async () => {
     await props.onPermanentDelete(commentToDeletePermanently.value.id);
   } catch (error) {
     console.error('permanentDelete error', error);
-    alert('Не удалось удалить комментарий');
+    alert(t('commentsSection.permanentDeleteError'));
   } finally {
     closePermanentDeleteModal();
   }

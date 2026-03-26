@@ -1,14 +1,15 @@
 <template>
   <div class="profile-edit-page">
     <header class="edit-header">
-      <h1>Редактирование профиля</h1>
+      <h1>{{ $t('profileEdit.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
       </div>
     </header>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else class="edit-card">
       <!-- Секция аватарки -->
       <div class="avatar-section">
@@ -28,14 +29,14 @@
             @change="handleAvatarUpload"
             :disabled="uploading"
           />
-          <span class="upload-button">{{ uploading ? 'Загрузка...' : 'Загрузить аватар' }}</span>
+          <span class="upload-button">{{ uploading ? $t('common.sending') : $t('profileEdit.uploadAvatar') }}</span>
         </label>
         <div v-if="uploadError" class="upload-error">{{ uploadError }}</div>
       </div>
 
       <form @submit.prevent="handleSave">
         <div class="form-group">
-          <label for="fullname">Полное имя</label>
+          <label for="fullname">{{ $t('profileEdit.fullname') }}</label>
           <input
             id="fullname"
             v-model="form.fullname"
@@ -45,7 +46,7 @@
         </div>
 
         <div class="form-group">
-          <label for="email">Email</label>
+          <label for="email">{{ $t('profileEdit.email') }}</label>
           <input
             id="email"
             v-model="form.email"
@@ -56,17 +57,17 @@
 
         <!-- Поле класса только для учеников -->
         <div v-if="!isTeacher" class="form-group">
-          <label for="class">Класс</label>
+          <label for="class">{{ $t('profileEdit.class') }}</label>
           <ClassInput
             id="class"
             v-model="form.class"
-            placeholder="3.1 – 11.6"
+            :placeholder="$t('profileEdit.classPlaceholder')"
           />
         </div>
 
         <!-- Интерфейс редактирования ролей для учителя (без куратора) -->
         <div v-else class="form-group">
-          <label>Роли (можно выбрать несколько)</label>
+          <label>{{ $t('profileEdit.teacherRoles') }}</label>
           <div class="roles-selector">
             <button
               type="button"
@@ -78,8 +79,8 @@
                 <span v-if="selectedRoles.includes('customer')">✓</span>
               </span>
               <span class="role-icon">📋</span>
-              <span class="role-label">Заказчик</span>
-              <span class="role-desc">Формулирует задачи и требования</span>
+              <span class="role-label">{{ $t('roles.customer') }}</span>
+              <span class="role-desc">{{ $t('profileEdit.customerDesc') }}</span>
             </button>
 
             <button
@@ -92,8 +93,8 @@
                 <span v-if="selectedRoles.includes('expert')">✓</span>
               </span>
               <span class="role-icon">🔍</span>
-              <span class="role-label">Эксперт</span>
-              <span class="role-desc">Оценивает и проверяет работы</span>
+              <span class="role-label">{{ $t('roles.expert') }}</span>
+              <span class="role-desc">{{ $t('profileEdit.expertDesc') }}</span>
             </button>
 
             <button
@@ -106,14 +107,14 @@
                 <span v-if="selectedRoles.includes('supervisor')">✓</span>
               </span>
               <span class="role-icon">🎓</span>
-              <span class="role-label">Научный руководитель</span>
-              <span class="role-desc">Направляет и консультирует</span>
+              <span class="role-label">{{ $t('roles.supervisor') }}</span>
+              <span class="role-desc">{{ $t('profileEdit.supervisorDesc') }}</span>
             </button>
           </div>
 
           <!-- Отображение выбранных ролей -->
           <div v-if="selectedRoles.length > 0" class="selected-roles">
-            <span class="selected-roles-label">Выбрано:</span>
+            <span class="selected-roles-label">{{ $t('profileEdit.selected') }}:</span>
             <span class="selected-role-tag" v-for="role in selectedRoles" :key="role">
               {{ getRoleDisplay(role) }}
             </span>
@@ -121,7 +122,7 @@
         </div>
 
         <div class="form-group">
-          <label for="speciality">Специальность / Предмет</label>
+          <label for="speciality">{{ $t('profileEdit.speciality') }}</label>
           <input
             id="speciality"
             v-model="form.speciality"
@@ -133,10 +134,10 @@
 
         <div class="button-group">
           <button type="submit" class="save-button" :disabled="saving">
-            {{ saving ? 'Сохранение...' : 'Сохранить' }}
+            {{ saving ? $t('common.saving') : $t('common.save') }}
           </button>
           <button type="button" class="cancel-button" @click="goBack">
-            Отмена
+            {{ $t('common.cancel') }}
           </button>
         </div>
       </form>
@@ -148,11 +149,14 @@
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import axios from 'axios';
 import ClassInput from '@/components/ClassInput.vue';
 import type { TeacherInfo } from '@/types';
-
+const baseUrl = 'http://localhost:8000';
+const { t } = useI18n();
 const authStore = useAuthStore();
 const router = useRouter();
 
@@ -182,9 +186,9 @@ const isTeacher = computed(() => authStore.user?.is_teacher || false);
 
 function getRoleDisplay(role: string): string {
   const roles: Record<string, string> = {
-    customer: 'Заказчик',
-    expert: 'Эксперт',
-    supervisor: 'Научный руководитель'
+    customer: t('roles.customer'),
+    expert: t('roles.expert'),
+    supervisor: t('roles.supervisor')
   };
   return roles[role] || role;
 }
@@ -222,7 +226,7 @@ const handleAvatarUpload = async (event: Event) => {
 
   const file = input.files[0];
   if (file.size > 5 * 1024 * 1024) {
-    uploadError.value = 'Файл слишком большой (макс. 5 МБ)';
+    uploadError.value = t('profileEdit.avatarTooBig');
     return;
   }
 
@@ -252,7 +256,7 @@ const handleAvatarUpload = async (event: Event) => {
     avatarError.value = false;
   } catch (error: any) {
     console.error('Error uploading avatar:', error);
-    uploadError.value = error.response?.data?.detail || 'Ошибка загрузки аватарки';
+    uploadError.value = error.response?.data?.detail || t('profileEdit.avatarUploadError');
     previewAvatar.value = null;
   } finally {
     uploading.value = false;
@@ -261,18 +265,15 @@ const handleAvatarUpload = async (event: Event) => {
 
 const handleSave = async () => {
   if (!authStore.user) return;
-
   saving.value = true;
   errorMessage.value = '';
 
   try {
     let response;
-
     if (isTeacher.value) {
-      // Для учителя используем эндпоинт /teachers/{id} с сохранением текущего куратора
       const teacherInfo: TeacherInfo = {
         roles: selectedRoles.value,
-        curator: currentCurator.value // сохраняем текущее значение куратора
+        curator: currentCurator.value
       };
       const updateData = {
         fullname: form.value.fullname,
@@ -280,31 +281,23 @@ const handleSave = async () => {
         speciality: form.value.speciality,
         teacher_info: teacherInfo
       };
-      response = await axios.put(
-        `http://localhost:8000/teachers/${authStore.user.id}`,
-        updateData
-      );
+      // Используем относительный путь (axios baseURL уже установлен)
+      response = await axios.put(`/teachers/${authStore.user.id}`, updateData);
     } else {
-      // Для ученика используем эндпоинт /users/{id} с классом
       const { class: classValue, ...rest } = form.value;
       const updateData = {
         ...rest,
         class_: classValue
       };
-      response = await axios.put(
-        `http://localhost:8000/users/${authStore.user.id}`,
-        updateData
-      );
+      response = await axios.put(`/students/${authStore.user.id}`, updateData);
     }
 
     authStore.user = response.data;
     localStorage.setItem('user', JSON.stringify(response.data));
-
     router.push('/profile');
   } catch (error: any) {
     console.error('Error updating profile:', error);
-    errorMessage.value =
-      error.response?.data?.detail || 'Ошибка при сохранении данных';
+    errorMessage.value = error.response?.data?.detail || t('profileEdit.saveError');
   } finally {
     saving.value = false;
   }

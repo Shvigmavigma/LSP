@@ -2,7 +2,8 @@
   <div class="profile-page">
     <div class="header-actions">
       <ThemeToggle />
-      <button class="home-button" @click="goToMain" title="Главное меню">🏠</button>
+      <LanguageSwitcher />
+      <button class="home-button" @click="goToMain" :title="$t('common.home')">🏠</button>
     </div>
 
     <div class="profile-card">
@@ -16,71 +17,71 @@
           />
           <span v-else>{{ user?.nickname?.charAt(0).toUpperCase() || '?' }}</span>
         </div>
-        <h2>Личный кабинет</h2>
+        <h2>{{ $t('profile.title') }}</h2>
       </div>
 
       <div v-if="user" class="profile-info">
         <div class="info-row">
-          <span class="info-label">Никнейм</span>
+          <span class="info-label">{{ $t('profile.nickname') }}</span>
           <span class="info-value">{{ user.nickname }}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Полное имя</span>
+          <span class="info-label">{{ $t('profile.fullname') }}</span>
           <span class="info-value">{{ user.fullname }}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Email</span>
+          <span class="info-label">{{ $t('profile.email') }}</span>
           <span class="info-value">{{ user.email }}</span>
         </div>
 
         <!-- Для учителя показываем роли, для ученика – класс -->
         <template v-if="user.is_teacher">
           <div class="info-row" v-if="user.teacher_info">
-            <span class="info-label">Роли</span>
+            <span class="info-label">{{ $t('profile.roles') }}</span>
             <span class="info-value">{{ formatTeacherRoles(user.teacher_info) }}</span>
           </div>
         </template>
         <template v-else>
           <div class="info-row">
-            <span class="info-label">Класс</span>
+            <span class="info-label">{{ $t('profile.class') }}</span>
             <span class="info-value">{{ user.class }}</span>
           </div>
         </template>
 
         <div class="info-row">
-          <span class="info-label">Специальность</span>
-          <span class="info-value">{{ user.speciality || 'не указана' }}</span>
+          <span class="info-label">{{ $t('profile.speciality') }}</span>
+          <span class="info-value">{{ user.speciality || $t('profile.notSpecified') }}</span>
         </div>
 
         <!-- Статус верификации email -->
         <div class="info-row verification-status">
-          <span class="info-label">Статус email</span>
+          <span class="info-label">{{ $t('profile.emailStatus') }}</span>
           <span class="info-value" :class="user.is_verified ? 'verified' : 'unverified'">
             <span class="status-icon">{{ user.is_verified ? '✅' : '⏳' }}</span>
-            {{ user.is_verified ? 'Подтвержден' : 'Ожидает подтверждения' }}
+            {{ user.is_verified ? $t('profile.verified') : $t('profile.unverified') }}
           </span>
         </div>
 
         <!-- Если email не подтвержден, показываем подсказку -->
         <div v-if="!user.is_verified" class="verification-hint">
-          <p>✉️ Для полного доступа к функциям подтвердите email</p>
+          <p>{{ $t('profile.verificationHint') }}</p>
           <button @click="resendVerification" class="resend-button" :disabled="resending">
-            {{ resending ? 'Отправка...' : 'Отправить код повторно' }}
+            {{ resending ? $t('common.sending') : $t('profile.resendCode') }}
           </button>
         </div>
       </div>
 
       <div v-else class="loading">
-        Загрузка данных...
+        {{ $t('common.loading') }}
       </div>
 
-      <button class="edit-button" @click="editProfile">Редактировать профиль</button>
-      <button class="logout-button" @click="logout">Выйти</button>
+      <button class="edit-button" @click="editProfile">{{ $t('profile.editProfile') }}</button>
+      <button class="logout-button" @click="logout">{{ $t('navigation.logout') }}</button>
     </div>
 
     <!-- Кнопка удаления аккаунта в правом нижнем углу экрана -->
     <button class="delete-account-button" @click="confirmDeleteAccount" :disabled="deleting">
-      {{ deleting ? 'Удаление...' : '🗑 Удалить аккаунт' }}
+      {{ deleting ? $t('common.sending') : $t('profile.deleteAccount') }}
     </button>
 
     <AvatarModal
@@ -96,11 +97,14 @@
 import { computed, ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import AvatarModal from '@/components/AvatarModal.vue';
 import axios from 'axios';
 import type { TeacherInfo } from '@/types';
 
+const { t } = useI18n();
 const authStore = useAuthStore();
 const router = useRouter();
 const user = computed(() => authStore.user);
@@ -139,7 +143,7 @@ const goToMain = () => {
 };
 
 const logout = () => {
-  if (confirm('Вы уверены, что хотите выйти?')) {
+  if (confirm(t('profile.confirmLogout'))) {
     authStore.logout();
     router.push('/login');
   }
@@ -147,9 +151,7 @@ const logout = () => {
 
 const confirmDeleteAccount = () => {
   if (!user.value) return;
-  const confirmed = confirm(
-    'Вы уверены, что хотите удалить свой аккаунт? Это действие необратимо. Все ваши проекты останутся, но вы будете удалены из списка авторов.'
-  );
+  const confirmed = confirm(t('profile.confirmDeleteAccount'));
   if (confirmed) {
     deleteAccount();
   }
@@ -162,15 +164,15 @@ const deleteAccount = async () => {
     await axios.delete(`/users/${user.value.id}`);
     authStore.logout();
     router.push('/login');
-    alert('Аккаунт успешно удалён');
+    alert(t('profile.deleteSuccess'));
   } catch (error: any) {
     console.error('Ошибка при удалении аккаунта:', error);
     if (error.response?.status === 401) {
-      alert('Сессия истекла. Пожалуйста, войдите снова.');
+      alert(t('profile.sessionExpired'));
       authStore.logout();
       router.push('/login');
     } else {
-      alert('Не удалось удалить аккаунт. Попробуйте позже.');
+      alert(t('profile.deleteError'));
     }
   } finally {
     deleting.value = false;
@@ -184,43 +186,43 @@ const resendVerification = async () => {
     await axios.post('/auth/resend-verification-code', {
       email: user.value.email
     });
-    alert('✅ Код подтверждения отправлен на вашу почту');
+    alert(t('profile.resendSuccess'));
   } catch (error: any) {
     console.error('Error resending code:', error);
     if (error.response) {
       switch (error.response.status) {
         case 400:
           if (error.response.data?.detail === 'Email already verified') {
-            alert('✅ Ваш email уже подтвержден');
+            alert(t('profile.emailAlreadyVerified'));
             await authStore.checkAuth();
           } else {
-            alert(`❌ ${error.response.data?.detail || 'Ошибка запроса'}`);
+            alert(`${t('profile.requestError')}: ${error.response.data?.detail || ''}`);
           }
           break;
         case 404:
-          alert('❌ Пользователь не найден');
+          alert(t('profile.userNotFound'));
           break;
         default:
-          alert(`❌ ${error.response.data?.detail || 'Ошибка сервера'}`);
+          alert(`${t('profile.serverError')}: ${error.response.data?.detail || ''}`);
       }
     } else if (error.code === 'ERR_NETWORK') {
-      alert('❌ Ошибка сети. Проверьте подключение к серверу.');
+      alert(t('profile.networkError'));
     } else {
-      alert('❌ Не удалось отправить код. Попробуйте позже.');
+      alert(t('profile.unknownError'));
     }
   } finally {
     resending.value = false;
   }
 };
 
-// Вспомогательная функция для форматирования ролей учителя
+// Вспомогательная функция для форматирования ролей учителя (с использованием переводов)
 function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   const roleNames: string[] = [];
-  if (teacherInfo.roles.includes('supervisor')) roleNames.push('Научный руководитель');
-  if (teacherInfo.roles.includes('expert')) roleNames.push('Эксперт');
-  if (teacherInfo.roles.includes('customer')) roleNames.push('Заказчик');
-  if (teacherInfo.curator) roleNames.push('Куратор');
-  return roleNames.join(', ') || 'Роли не назначены';
+  if (teacherInfo.roles.includes('supervisor')) roleNames.push(t('roles.supervisor'));
+  if (teacherInfo.roles.includes('expert')) roleNames.push(t('roles.expert'));
+  if (teacherInfo.roles.includes('customer')) roleNames.push(t('roles.customer'));
+  if (teacherInfo.curator) roleNames.push(t('roles.curator'));
+  return roleNames.join(', ') || t('profile.noRoles');
 }
 </script>
 

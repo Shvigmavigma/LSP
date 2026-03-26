@@ -4,30 +4,30 @@
       <ThemeToggle />
     </div>
     <div class="invite-card">
-      <div v-if="loading" class="loading">Загрузка информации...</div>
+      <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
       <div v-else-if="error" class="error">
         <span class="error-icon">❌</span>
-        <h3>Ошибка</h3>
+        <h3>{{ $t('inviteAccept.errorTitle') }}</h3>
         <p>{{ error }}</p>
-        <button class="home-button" @click="goHome">На главную</button>
+        <button class="home-button" @click="goHome">{{ $t('common.home') }}</button>
       </div>
       <div v-else-if="invitation" class="invite-info">
         <div class="invite-icon">✉️</div>
-        <h2>Приглашение в проект</h2>
+        <h2>{{ $t('inviteAccept.title') }}</h2>
         <p class="project-title">{{ invitation.project_title }}</p>
         <div class="role-info">
-          <span class="role-label">Вам предлагается роль:</span>
+          <span class="role-label">{{ $t('inviteAccept.roleLabel') }}:</span>
           <span class="role-badge">{{ getRoleDisplay(invitation.role) }}</span>
         </div>
         <p class="invite-details">
-          Приглашение отправил пользователь ID {{ invitation.invited_by }}<br>
-          Срок действия: {{ formatDate(invitation.expires_at) }}
+          {{ $t('inviteAccept.invitedBy') }} {{ invitation.invited_by }}<br>
+          {{ $t('inviteAccept.expiresAt') }}: {{ formatDate(invitation.expires_at) }}
         </p>
         <div class="action-buttons">
           <button class="accept-button" @click="acceptInvite" :disabled="accepting">
-            {{ accepting ? 'Принятие...' : '✅ Принять приглашение' }}
+            {{ accepting ? $t('common.sending') : $t('inviteAccept.acceptButton') }}
           </button>
-          <button class="cancel-button" @click="goHome">Отмена</button>
+          <button class="cancel-button" @click="goHome">{{ $t('common.cancel') }}</button>
         </div>
       </div>
     </div>
@@ -37,10 +37,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import type { Invitation, ProjectRole } from '@/types';
 
+const { t, locale } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const token = route.params.token as string;
@@ -51,18 +53,18 @@ const error = ref('');
 const accepting = ref(false);
 
 function getRoleDisplay(role: ProjectRole): string {
-  const map: Record<ProjectRole, string> = {
-    customer: 'Заказчик',
-    supervisor: 'Научный руководитель',
-    expert: 'Эксперт',
-    executor: 'Исполнитель',
-    curator: 'Куратор',
-  };
-  return map[role];
+  return t(`roles.${role}`);
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('ru-RU');
+  const date = new Date(dateStr);
+  return date.toLocaleString(locale.value, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 
 async function loadInvitation() {
@@ -71,9 +73,9 @@ async function loadInvitation() {
     invitation.value = response.data;
   } catch (err: any) {
     if (err.response?.status === 404) {
-      error.value = 'Приглашение не найдено или истекло';
+      error.value = t('inviteAccept.errors.notFound');
     } else {
-      error.value = 'Ошибка загрузки приглашения';
+      error.value = t('inviteAccept.errors.generic');
     }
     console.error(err);
   } finally {
@@ -85,16 +87,15 @@ async function acceptInvite() {
   accepting.value = true;
   try {
     await axios.post(`/invite/${token}/accept`);
-    alert('Вы успешно присоединились к проекту!');
+    alert(t('inviteAccept.acceptSuccess'));
     router.push(`/project/${invitation.value?.project_id}`);
   } catch (err: any) {
     if (err.response?.status === 400) {
-      error.value = 'Вы уже являетесь участником этого проекта';
+      error.value = t('inviteAccept.errors.alreadyParticipant');
     } else if (err.response?.status === 401) {
-      error.value = 'Необходимо войти в систему';
-      // можно перенаправить на логин
+      error.value = t('inviteAccept.errors.unauthorized');
     } else {
-      error.value = 'Ошибка при принятии приглашения';
+      error.value = t('inviteAccept.errors.acceptFailed');
     }
     console.error(err);
   } finally {
@@ -110,6 +111,7 @@ onMounted(loadInvitation);
 </script>
 
 <style scoped>
+/* Стили остаются без изменений (копируем из исходного файла) */
 .invite-page {
   min-height: 100vh;
   background: var(--bg-page);

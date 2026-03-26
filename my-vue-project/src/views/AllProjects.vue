@@ -1,10 +1,10 @@
 <template>
   <div class="all-projects-page">
     <header class="projects-header">
-      <h1>Все проекты</h1>
+      <h1>{{ $t('allProjects.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
       </div>
     </header>
 
@@ -15,34 +15,36 @@
         :class="{ active: filterType === 'all' }"
         @click="filterType = 'all'"
       >
-        Все проекты
+        {{ $t('allProjects.filterAll') }}
       </button>
       <button
         class="tab-button"
         :class="{ active: filterType === 'free' }"
         @click="filterType = 'free'"
       >
-        Свободные
+        {{ $t('allProjects.filterFree') }}
       </button>
       <button
         class="tab-button"
         :class="{ active: filterType === 'taken' }"
         @click="filterType = 'taken'"
       >
-        Занятые
+        {{ $t('allProjects.filterTaken') }}
       </button>
     </div>
 
     <div class="search-container">
       <input
         v-model="search"
-        placeholder="Поиск по названию..."
+        :placeholder="$t('allProjects.searchPlaceholder')"
         @input="searchProjects"
       />
     </div>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
-    <div v-else-if="filteredProjects.length === 0" class="no-projects">Проекты не найдены</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
+    <div v-else-if="filteredProjects.length === 0" class="no-projects">
+      {{ $t('allProjects.noProjects') }}
+    </div>
     <div v-else class="projects-grid">
       <div
         v-for="project in filteredProjects"
@@ -53,7 +55,7 @@
         <h3 class="card-title">{{ project.title }}</h3>
         <p class="card-description">{{ project.body.slice(0, 150) }}...</p>
         <div class="card-footer">
-          <span class="participants-label">Участники:</span>
+          <span class="participants-label">{{ $t('allProjects.participantsLabel') }}:</span>
           <div class="participants-list">
             <div
               v-for="participant in project.participants"
@@ -69,7 +71,10 @@
                   @error="avatarError[participant.user_id] = true"
                 />
                 <span v-else>{{ getUserInitials(participant.user_id) }}</span>
-                <span class="role-badge" :title="getRoleDisplay(participant.role)">
+                <span
+                  class="role-badge"
+                  :title="$t('roles.' + participant.role)"
+                >
                   {{ getRoleIcon(participant.role) }}
                 </span>
               </div>
@@ -103,10 +108,8 @@ const baseUrl = 'http://localhost:8000';
 const filteredProjects = computed(() => {
   if (filterType.value === 'all') return projects.value;
   if (filterType.value === 'free') {
-    // Проекты без исполнителей (нет участников с ролью executor)
     return projects.value.filter(p => !p.participants.some(part => part.role === 'executor'));
   }
-  // taken – проекты, у которых есть хотя бы один исполнитель
   return projects.value.filter(p => p.participants.some(part => part.role === 'executor'));
 });
 
@@ -173,17 +176,6 @@ function getRoleIcon(role: ProjectRole): string {
     curator: '👑',
   };
   return icons[role] || '';
-}
-
-function getRoleDisplay(role: ProjectRole): string {
-  const map: Record<ProjectRole, string> = {
-    customer: 'Заказчик',
-    supervisor: 'Научный руководитель',
-    expert: 'Эксперт',
-    executor: 'Исполнитель',
-    curator: 'Куратор',
-  };
-  return map[role];
 }
 
 function goToProject(id: number) {
