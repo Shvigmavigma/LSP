@@ -3,27 +3,27 @@
     <header class="menu-header">
       <div class="header-left"></div>
       <h1 class="welcome-message">
-        Добро пожаловать, <span class="username">{{ authStore.user?.nickname }}</span>!
+        {{ $t('common.welcome') }}, <span class="username">{{ authStore.user?.nickname }}</span>!
       </h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="profile-button" @click="goTo('profile')">Личный кабинет</button>
+        <LanguageSwitcher />
+        <button class="profile-button" @click="goTo('profile')">{{ $t('navigation.profile') }}</button>
       </div>
     </header>
 
     <div class="menu-container">
       <nav class="menu-list">
-        <button class="menu-item" @click="goTo('my-projects')">Ваши проекты</button>
-        <button class="menu-item" @click="goTo('users')">Список пользователей</button>
-        <button class="menu-item" @click="goTo('projects')">Все проекты</button>
-        <!-- Кнопка админ-панели, видимая только админу -->
+        <button class="menu-item" @click="goTo('my-projects')">{{ $t('navigation.my_projects') }}</button>
+        <button class="menu-item" @click="goTo('users')">{{ $t('navigation.users') }}</button>
+        <button class="menu-item" @click="goTo('projects')">{{ $t('navigation.all_projects') }}</button>
         <button v-if="authStore.user?.is_admin" class="menu-item admin-button" @click="goTo('admin')">
-          ⚙️ Админ панель
+          ⚙️ {{ $t('navigation.admin_panel') }}
         </button>
       </nav>
     </div>
 
-    <button class="logout-button" @click="logout">Выйти</button>
+    <button class="logout-button" @click="logout">{{ $t('navigation.logout') }}</button>
   </div>
 </template>
 
@@ -31,6 +31,7 @@
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -48,7 +49,7 @@ const logout = () => {
 <style scoped>
 /* предыдущие стили + для admin-button */
 .admin-button {
-  background: var(--danger-color) !important; /* или другой цвет для отличия */
+  background: var(--danger-color) !important;
   color: white;
 }
 .admin-button:hover {
@@ -68,7 +69,6 @@ const logout = () => {
   transition: background 0.3s;
 }
 
-/* Шапка: сетка для центрирования приветствия */
 .menu-header {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -102,7 +102,6 @@ const logout = () => {
   align-items: center;
 }
 
-/* Кнопка личного кабинета */
 .profile-button {
   background: var(--accent-color);
   border: none;
@@ -123,7 +122,6 @@ const logout = () => {
   transform: translateY(-2px);
 }
 
-/* Контейнер для списка кнопок */
 .menu-container {
   flex: 1;
   display: flex;
@@ -140,7 +138,6 @@ const logout = () => {
   width: 100%;
 }
 
-/* Кнопки меню */
 .menu-item {
   background: var(--bg-card);
   backdrop-filter: blur(4px);
@@ -164,7 +161,6 @@ const logout = () => {
   color: var(--heading-color);
 }
 
-/* Кнопка выхода */
 .logout-button {
   background: var(--danger-bg);
   border: 1px solid var(--border-color);

@@ -1,14 +1,26 @@
 <template>
-  <button class="theme-toggle" @click="toggleTheme" :title="isDark ? 'Светлая тема' : 'Темная тема'">
+  <button
+    class="theme-toggle"
+    @click="toggleTheme"
+    :title="titleText"
+  >
     {{ isDark ? '☀️' : '🌙' }}
   </button>
 </template>
 
 <script setup lang="ts">
 import { useThemeStore } from '@/stores/theme';
+import { useI18n } from 'vue-i18n';
+import { computed } from 'vue';
 
 const themeStore = useThemeStore();
+const { t } = useI18n();
+
 const isDark = themeStore.isDark;
+
+const titleText = computed(() =>
+  isDark ? t('theme.light') : t('theme.dark')
+);
 
 const toggleTheme = () => {
   themeStore.toggleTheme();

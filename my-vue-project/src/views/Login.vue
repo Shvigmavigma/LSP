@@ -1,4 +1,3 @@
-<!-- src/views/Login.vue -->
 <template>
   <div class="login-page">
     <!-- Всплывающее уведомление об ошибке/успехе -->
@@ -11,18 +10,19 @@
 
     <div class="theme-toggle-container">
       <ThemeToggle />
+      <LanguageSwitcher />
     </div>
 
     <div class="login-card">
-      <h2>Вход в систему</h2>
+      <h2>{{ $t('login.title') }}</h2>
       <form @submit.prevent="handleLogin">
         <div class="form-group">
-          <label for="nickname">Никнейм или Email</label>
+          <label for="nickname">{{ $t('login.nicknameOrEmail') }}</label>
           <input
             id="nickname"
             v-model="nickname"
             type="text"
-            placeholder="Введите никнейм или почту"
+            :placeholder="$t('login.nicknamePlaceholder')"
             required
             :class="{ 'error-input': hasError }"
             @input="clearError"
@@ -30,12 +30,12 @@
         </div>
 
         <div class="form-group">
-          <label for="password">Пароль</label>
+          <label for="password">{{ $t('login.password') }}</label>
           <input
             id="password"
             v-model="password"
             type="password"
-            placeholder="Введите пароль"
+            :placeholder="$t('login.passwordPlaceholder')"
             required
             :class="{ 'error-input': hasError }"
             @input="clearError"
@@ -48,12 +48,12 @@
         </div>
 
         <button type="submit" class="login-button" :disabled="loading">
-          {{ loading ? 'Вход...' : 'Войти' }}
+          {{ loading ? $t('common.loading') : $t('login.loginButton') }}
         </button>
       </form>
 
       <p class="register-link">
-        Нет аккаунта? <router-link to="/register">Зарегистрироваться</router-link>
+        {{ $t('login.noAccount') }} <router-link to="/register">{{ $t('login.registerLink') }}</router-link>
       </p>
     </div>
   </div>
@@ -63,9 +63,12 @@
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import axios from 'axios';
 
+const { t } = useI18n();
 const authStore = useAuthStore();
 const router = useRouter();
 const nickname = ref('');
@@ -118,8 +121,8 @@ onMounted(() => {
 
 const handleLogin = async () => {
   if (!nickname.value || !password.value) {
-    errorMessage.value = 'Заполните все поля';
-    showNotification('Заполните все поля', 'info');
+    errorMessage.value = t('login.fillAllFields');
+    showNotification(t('login.fillAllFields'), 'info');
     return;
   }
 
@@ -143,21 +146,20 @@ const handleLogin = async () => {
     const userResponse = await axios.get('/users/me');
     authStore.user = userResponse.data;
 
-    showNotification('Вход выполнен успешно!', 'success');
+    showNotification(t('login.successMessage'), 'success');
     setTimeout(() => router.push('/main'), 1000);
 
   } catch (error: any) {
     console.error('Login error:', error);
     hasError.value = true;
 
-    let userMessage = 'Ошибка при входе';
+    let userMessage = t('login.genericError');
     if (error.response) {
-      // Используем сообщение от сервера (если оно есть)
-      userMessage = error.response.data?.detail || `Ошибка ${error.response.status}`;
+      userMessage = error.response.data?.detail || `${t('login.errorPrefix')} ${error.response.status}`;
     } else if (error.code === 'ERR_NETWORK') {
-      userMessage = 'Ошибка сети. Проверьте подключение к серверу.';
+      userMessage = t('login.networkError');
     } else {
-      userMessage = error.message || 'Произошла неизвестная ошибка';
+      userMessage = error.message || t('login.unknownError');
     }
 
     errorMessage.value = userMessage;

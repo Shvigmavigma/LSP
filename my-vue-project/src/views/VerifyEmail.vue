@@ -2,45 +2,46 @@
   <div class="verify-page">
     <div class="theme-toggle-container">
       <ThemeToggle />
+      <LanguageSwitcher />
     </div>
     <div class="verify-card">
-      <h2>Подтверждение email</h2>
+      <h2>{{ $t('verifyEmail.title') }}</h2>
       
       <div v-if="verifying" class="loading">
-        Подтверждение...
+        {{ $t('common.loading') }}
       </div>
       
       <div v-else-if="success" class="success">
-        ✅ Регистрация успешно завершена!
-        <p>Сейчас вы будете перенаправлены на страницу входа...</p>
+        ✅ {{ $t('verifyEmail.successTitle') }}
+        <p>{{ $t('verifyEmail.successMessage') }}</p>
       </div>
       
       <div v-else-if="error" class="error">
         ❌ {{ error }}
         <p v-if="errorDetails" class="error-details">{{ errorDetails }}</p>
-        <button @click="goBack" class="back-button">Вернуться к регистрации</button>
+        <button @click="goBack" class="back-button">{{ $t('verifyEmail.backToRegistration') }}</button>
       </div>
       
       <div v-else>
-        <p>Введите код подтверждения, отправленный на</p>
+        <p>{{ $t('verifyEmail.enterCodeInstruction') }}</p>
         <p class="email-highlight">{{ email }}</p>
         
         <div class="form-group">
           <input
             v-model="code"
             type="text"
-            placeholder="6-значный код"
+            :placeholder="$t('verifyEmail.codePlaceholder')"
             maxlength="6"
             @keyup.enter="verifyCode"
           />
         </div>
         
         <button @click="verifyCode" :disabled="verifying">
-          {{ verifying ? 'Проверка...' : 'Подтвердить и завершить регистрацию' }}
+          {{ verifying ? $t('common.sending') : $t('verifyEmail.verifyButton') }}
         </button>
         
         <p class="resend">
-          <a href="#" @click.prevent="resendCode">Отправить код повторно</a>
+          <a href="#" @click.prevent="resendCode">{{ $t('verifyEmail.resendCode') }}</a>
         </p>
       </div>
     </div>
@@ -50,9 +51,12 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const email = ref(route.query.email || '')
@@ -73,22 +77,20 @@ function checkPendingData() {
   console.log('Email из URL:', email.value)
   
   if (!pendingData) {
-    // Проверяем, есть ли email в URL, но нет данных
     if (email.value) {
-      error.value = 'Данные регистрации не найдены'
-      errorDetails.value = 'Возможно, сессия истекла. Пожалуйста, начните регистрацию заново.'
+      error.value = t('verifyEmail.errors.noRegistrationData')
+      errorDetails.value = t('verifyEmail.errors.sessionExpired')
     } else {
-      error.value = 'Отсутствует email для подтверждения'
-      errorDetails.value = 'Пожалуйста, начните регистрацию заново.'
+      error.value = t('verifyEmail.errors.missingEmail')
+      errorDetails.value = t('verifyEmail.errors.startOver')
     }
   } else {
-    // Проверяем, соответствует ли email в URL email в сохраненных данных
     try {
       const userData = JSON.parse(pendingData)
       if (userData.email !== email.value) {
         console.warn('Email в URL не совпадает с email в данных:', userData.email, email.value)
-        error.value = 'Несоответствие email'
-        errorDetails.value = 'Email в ссылке не совпадает с email при регистрации. Пожалуйста, начните заново.'
+        error.value = t('verifyEmail.errors.emailMismatch')
+        errorDetails.value = t('verifyEmail.errors.restart')
         sessionStorage.removeItem('pending_registration')
         sessionStorage.removeItem('pending_avatar')
       }
@@ -96,8 +98,8 @@ function checkPendingData() {
       console.error('Ошибка парсинга данных:', e)
       sessionStorage.removeItem('pending_registration')
       sessionStorage.removeItem('pending_avatar')
-      error.value = 'Ошибка данных'
-      errorDetails.value = 'Поврежденные данные регистрации. Пожалуйста, начните заново.'
+      error.value = t('verifyEmail.errors.dataCorrupted')
+      errorDetails.value = t('verifyEmail.errors.restart')
     }
   }
   
@@ -106,14 +108,14 @@ function checkPendingData() {
 
 async function verifyCode() {
   if (!code.value || code.value.length !== 6) {
-    error.value = 'Введите 6-значный код'
+    error.value = t('verifyEmail.errors.invalidCodeLength')
     return
   }
   
   const pendingData = sessionStorage.getItem('pending_registration')
   if (!pendingData) {
-    error.value = 'Данные регистрации не найдены'
-    errorDetails.value = 'Пожалуйста, вернитесь на страницу регистрации'
+    error.value = t('verifyEmail.errors.noRegistrationData')
+    errorDetails.value = t('verifyEmail.errors.goBack')
     return
   }
   
@@ -125,36 +127,31 @@ async function verifyCode() {
     const userData = JSON.parse(pendingData)
     console.log('Данные пользователя из sessionStorage:', userData)
     
-    // Формируем запрос к бэкенду
     const response = await axios.post(
       'http://localhost:8000/auth/register-with-verification',
       {
         email: email.value,
         code: code.value,
         user_data: userData,
-        is_teacher: userData.is_teacher || false // явно передаём флаг учителя
+        is_teacher: userData.is_teacher || false
       }
     )
     
     console.log('Пользователь успешно создан:', response.data)
     
-    // Если была аватарка - загружаем её
     const pendingAvatar = sessionStorage.getItem('pending_avatar')
     if (pendingAvatar && response.data.id) {
       try {
-        // Конвертируем base64 в Blob
         const base64Data = pendingAvatar.split(',')[1]
         const byteCharacters = atob(base64Data)
         const byteArrays = []
         
         for (let offset = 0; offset < byteCharacters.length; offset += 512) {
           const slice = byteCharacters.slice(offset, offset + 512)
-          
           const byteNumbers = new Array(slice.length)
           for (let i = 0; i < slice.length; i++) {
             byteNumbers[i] = slice.charCodeAt(i)
           }
-          
           const byteArray = new Uint8Array(byteNumbers)
           byteArrays.push(byteArray)
         }
@@ -173,11 +170,9 @@ async function verifyCode() {
         console.log('Аватарка загружена')
       } catch (avatarError) {
         console.error('Ошибка загрузки аватарки:', avatarError)
-        // Не прерываем регистрацию из-за ошибки аватарки
       }
     }
     
-    // Очищаем временные данные
     sessionStorage.removeItem('pending_registration')
     sessionStorage.removeItem('pending_avatar')
     
@@ -188,27 +183,26 @@ async function verifyCode() {
     console.error('Ошибка верификации:', err)
     
     if (err.code === 'ERR_NETWORK') {
-      error.value = 'Ошибка сети. Проверьте подключение к серверу.'
+      error.value = t('verifyEmail.errors.network')
     } else if (err.response) {
-      // Обработка конкретных ошибок от сервера
       if (err.response.status === 400) {
         if (err.response.data?.detail === 'Invalid or expired verification code') {
-          error.value = 'Неверный или истекший код подтверждения'
-          errorDetails.value = 'Попробуйте запросить код повторно'
+          error.value = t('verifyEmail.errors.invalidOrExpiredCode')
+          errorDetails.value = t('verifyEmail.errors.resendHint')
         } else if (err.response.data?.detail === 'Nickname or email already registered') {
-          error.value = 'Пользователь с таким никнеймом или email уже существует'
-          errorDetails.value = 'Попробуйте войти или используйте другие данные'
+          error.value = t('verifyEmail.errors.alreadyRegistered')
+          errorDetails.value = t('verifyEmail.errors.tryLogin')
         } else {
-          error.value = err.response.data?.detail || 'Ошибка при регистрации'
+          error.value = err.response.data?.detail || t('verifyEmail.errors.registrationFailed')
         }
       } else if (err.response.status === 403) {
-        error.value = 'Email не разрешен для регистрации учителя'
-        errorDetails.value = 'Пожалуйста, используйте email из списка разрешенных'
+        error.value = t('verifyEmail.errors.emailNotAllowed')
+        errorDetails.value = t('verifyEmail.errors.teacherEmailHint')
       } else {
-        error.value = err.response.data?.detail || 'Ошибка сервера'
+        error.value = err.response.data?.detail || t('verifyEmail.errors.serverError')
       }
     } else {
-      error.value = err.message || 'Неизвестная ошибка'
+      error.value = err.message || t('verifyEmail.errors.unknown')
     }
   } finally {
     verifying.value = false
@@ -217,7 +211,7 @@ async function verifyCode() {
 
 async function resendCode() {
   if (!email.value) {
-    error.value = 'Email не указан'
+    error.value = t('verifyEmail.errors.missingEmail')
     return
   }
   
@@ -228,21 +222,21 @@ async function resendCode() {
     const response = await axios.post('http://localhost:8000/auth/request-verification-code', {
       email: email.value
     })
-    alert('Код отправлен повторно')
+    alert(t('verifyEmail.resendSuccess'))
   } catch (err: any) {
     console.error('Ошибка при повторной отправке:', err)
     
     if (err.response?.status === 400) {
       if (err.response.data?.detail === 'Email already registered') {
-        error.value = 'Этот email уже зарегистрирован'
-        errorDetails.value = 'Попробуйте войти или восстановить пароль'
+        error.value = t('verifyEmail.errors.alreadyRegistered')
+        errorDetails.value = t('verifyEmail.errors.tryLogin')
       } else {
-        error.value = err.response.data?.detail || 'Ошибка при отправке кода'
+        error.value = err.response.data?.detail || t('verifyEmail.errors.resendFailed')
       }
     } else if (err.code === 'ERR_NETWORK') {
-      error.value = 'Ошибка сети. Проверьте подключение к серверу.'
+      error.value = t('verifyEmail.errors.network')
     } else {
-      error.value = err.message || 'Ошибка при отправке кода'
+      error.value = err.message || t('verifyEmail.errors.resendFailed')
     }
   } finally {
     verifying.value = false

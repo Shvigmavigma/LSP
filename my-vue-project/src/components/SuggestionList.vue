@@ -1,13 +1,15 @@
 <template>
   <div class="suggestions-section">
     <div class="suggestions-header">
-      <h3>Предложения по проекту</h3>
-      <span v-if="pendingCount > 0" class="pending-badge">{{ pendingCount }} новых</span>
+      <h3>{{ $t('suggestions.title') }}</h3>
+      <span v-if="pendingCount > 0" class="pending-badge">
+        {{ $t('suggestions.pendingCount', { count: pendingCount }) }}
+      </span>
     </div>
 
-    <div v-if="loading" class="loading">Загрузка предложений...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else-if="suggestions.length === 0" class="no-suggestions">
-      Пока нет предложений
+      {{ $t('suggestions.noSuggestions') }}
     </div>
     <div v-else class="suggestions-list">
       <div
@@ -38,7 +40,7 @@
         </div>
 
         <div class="suggestion-target">
-          <span class="target-label">Изменение:</span>
+          <span class="target-label">{{ $t('suggestions.change') }}:</span>
           <span class="target-value">{{ getTargetDisplay(suggestion) }}</span>
         </div>
 
@@ -51,12 +53,16 @@
             v-if="suggestion.status === 'pending'"
             class="accept-btn"
             @click="acceptSuggestion(suggestion.id)"
-          >✅ Принять</button>
+          >
+            ✅ {{ $t('suggestions.accept') }}
+          </button>
           <button
             v-if="suggestion.status === 'pending'"
             class="reject-btn"
             @click="rejectSuggestion(suggestion.id)"
-          >❌ Отклонить</button>
+          >
+            ❌ {{ $t('suggestions.reject') }}
+          </button>
         </div>
 
         <!-- Комментарии к предложению -->
@@ -65,7 +71,7 @@
             class="toggle-comments-btn"
             @click="toggleComments(suggestion.id)"
           >
-            💬 Комментарии ({{ suggestion.comments?.length || 0 }})
+            💬 {{ $t('suggestions.comments', { count: suggestion.comments?.length || 0 }) }}
           </button>
           <div v-if="expandedComments === suggestion.id" class="comments-container">
             <CommentsSection
@@ -73,10 +79,10 @@
               :can-comment="isProjectParticipant"
               :is-author="canEdit"
               :can-hide-comments="canHideComments"
-              :on-add-comment="(content) => addSuggestionComment(suggestion.id, content)"
-              :on-mark-as-read="(commentId) => markSuggestionCommentRead(suggestion.id, commentId)"
-              :on-delete-comment="(commentId) => deleteSuggestionComment(suggestion.id, commentId)"
-              :on-hide-comment="(commentId) => hideSuggestionComment(suggestion.id, commentId)"
+              :on-add-comment="(content: string) => addSuggestionComment(suggestion.id, content)"
+              :on-mark-as-read="(commentId: string) => markSuggestionCommentRead(suggestion.id, commentId)"
+              :on-delete-comment="(commentId: string) => deleteSuggestionComment(suggestion.id, commentId)"
+              :on-hide-comment="(commentId: string) => hideSuggestionComment(suggestion.id, commentId)"
             />
           </div>
         </div>
@@ -86,17 +92,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import type { Suggestion, ProjectRole } from '@/types';
+import { ref, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
+import type { Suggestion } from '@/types';
 import { useUsersStore } from '@/stores/users';
 import { useAuthStore } from '@/stores/auth';
 import CommentsSection from './CommentsSection.vue';
 
+const { t, locale } = useI18n();
+
 const props = defineProps<{
   suggestions: Suggestion[];
   isProjectParticipant: boolean;
-  canEdit: boolean; // true для заказчика
-  canHideComments: boolean; // true для научрука
+  canEdit: boolean;
+  canHideComments: boolean;
   onAccept?: (suggestionId: string) => Promise<void>;
   onReject?: (suggestionId: string) => Promise<void>;
   onAddComment?: (suggestionId: string, content: string) => Promise<void>;
@@ -121,16 +130,13 @@ const sortedSuggestions = computed(() => {
   );
 });
 
-// Проверка, может ли текущий пользователь принять/отклонить предложение
 const canActOnSuggestion = (suggestion: Suggestion) => {
   if (suggestion.status !== 'pending') return false;
-  // Автор предложения может отклонить своё, принять может заказчик
   if (authStore.user?.id === suggestion.author_id) return true;
-  if (props.canEdit) return true; // заказчик
+  if (props.canEdit) return true;
   return false;
 };
 
-// Получение данных автора
 const getAuthorNickname = (id: number): string => {
   const user = usersStore.users.find(u => u.id === id);
   return user ? user.nickname : `ID: ${id}`;
@@ -158,12 +164,13 @@ const formatDate = (dateStr: string) => {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'только что';
-  if (diffMins < 60) return `${diffMins} мин назад`;
-  if (diffHours < 24) return `${diffHours} ч назад`;
-  if (diffDays === 1) return 'вчера';
-  if (diffDays < 7) return `${diffDays} дн назад`;
-  return date.toLocaleDateString('ru-RU', {
+
+  if (diffMins < 1) return t('time.justNow');
+  if (diffMins < 60) return t('time.minutesAgo', { count: diffMins });
+  if (diffHours < 24) return t('time.hoursAgo', { count: diffHours });
+  if (diffDays === 1) return t('time.yesterday');
+  if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
+  return date.toLocaleDateString(locale.value, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -173,19 +180,19 @@ const formatDate = (dateStr: string) => {
 };
 
 const getStatusText = (status: string) => {
-  const map: Record<string, string> = {
-    pending: 'Ожидает',
-    accepted: 'Принято',
-    rejected: 'Отклонено',
-  };
-  return map[status] || status;
+  switch (status) {
+    case 'pending': return t('suggestions.status.pending');
+    case 'accepted': return t('suggestions.status.accepted');
+    case 'rejected': return t('suggestions.status.rejected');
+    default: return status;
+  }
 };
 
 const getTargetDisplay = (suggestion: Suggestion) => {
   switch (suggestion.target_type) {
-    case 'project': return 'Проект';
-    case 'task': return `Задача #${suggestion.target_id}`;
-    case 'link': return 'Ссылки';
+    case 'project': return t('suggestions.target.project');
+    case 'task': return t('suggestions.target.task', { id: suggestion.target_id });
+    case 'link': return t('suggestions.target.link');
     default: return suggestion.target_type;
   }
 };

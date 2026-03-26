@@ -1,37 +1,38 @@
 <template>
   <div class="admin-projects-page">
     <header class="page-header">
-      <h1>Управление проектами</h1>
+      <h1>{{ $t('adminProjects.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
-        <button class="back-button" @click="goBack" title="Назад">◀</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <button class="back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else>
       <div class="filters">
-        <input v-model="search" placeholder="Поиск по названию" />
+        <input v-model="search" :placeholder="$t('adminProjects.searchPlaceholder')" />
         <select v-model="statusFilter">
-          <option value="all">Все проекты</option>
-          <option value="active">Только активные</option>
-          <option value="hidden">Только скрытые</option>
+          <option value="all">{{ $t('adminProjects.filterAll') }}</option>
+          <option value="active">{{ $t('adminProjects.filterActive') }}</option>
+          <option value="hidden">{{ $t('adminProjects.filterHidden') }}</option>
         </select>
       </div>
 
       <table class="projects-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Название</th>
-            <th>Описание</th>
-            <th>Участники</th>
-            <th>Задачи</th>
-            <th>Статус</th>
-            <th>Скрыл</th>
-            <th>Действия</th>
-           </tr>
+            <th>{{ $t('adminProjects.table.id') }}</th>
+            <th>{{ $t('adminProjects.table.title') }}</th>
+            <th>{{ $t('adminProjects.table.description') }}</th>
+            <th>{{ $t('adminProjects.table.participants') }}</th>
+            <th>{{ $t('adminProjects.table.tasks') }}</th>
+            <th>{{ $t('adminProjects.table.status') }}</th>
+            <th>{{ $t('adminProjects.table.hiddenBy') }}</th>
+            <th>{{ $t('adminProjects.table.actions') }}</th>
+          </tr>
         </thead>
         <tbody>
           <tr v-for="project in filteredProjects" :key="project.id">
@@ -46,12 +47,12 @@
             <td>{{ project.tasks?.length || 0 }}</td>
             <td class="status-cell">
               <span :class="project.is_hidden ? 'hidden-status' : 'active-status'">
-                {{ project.is_hidden ? 'Скрыт' : 'Активен' }}
+                {{ project.is_hidden ? $t('adminProjects.status.hidden') : $t('adminProjects.status.active') }}
               </span>
               <button
                 class="toggle-visibility-btn"
                 @click="toggleHide(project)"
-                :title="project.is_hidden ? 'Показать проект' : 'Скрыть проект'"
+                :title="project.is_hidden ? $t('adminProjects.toggleShowTitle') : $t('adminProjects.toggleHideTitle')"
               >
                 {{ project.is_hidden ? '👁️‍🗨️' : '🙈' }}
               </button>
@@ -61,8 +62,8 @@
               <span v-else>—</span>
             </td>
             <td>
-              <button class="edit-btn" @click="editProject(project.id)">✎</button>
-              <button class="delete-btn" @click="confirmDelete(project.id)">🗑</button>
+              <button class="edit-btn" @click="editProject(project.id)" :title="$t('common.edit')">✎</button>
+              <button class="delete-btn" @click="confirmDelete(project.id)" :title="$t('common.delete')">🗑</button>
             </td>
           </tr>
         </tbody>
@@ -73,11 +74,11 @@
     <Teleport to="body">
       <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
         <div class="modal-content">
-          <h3>Удалить проект</h3>
-          <p>Вы уверены, что хотите удалить этот проект?</p>
+          <h3>{{ $t('adminProjects.deleteConfirmTitle') }}</h3>
+          <p>{{ $t('adminProjects.deleteConfirmMessage') }}</p>
           <div class="modal-actions">
-            <button class="confirm-btn" @click="deleteProject">Удалить</button>
-            <button class="cancel-btn" @click="closeDeleteModal">Отмена</button>
+            <button class="confirm-btn" @click="deleteProject">{{ $t('common.delete') }}</button>
+            <button class="cancel-btn" @click="closeDeleteModal">{{ $t('common.cancel') }}</button>
           </div>
         </div>
       </div>
@@ -88,11 +89,13 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import axios from 'axios';
 import type { Project } from '@/types';
-
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+const { t } = useI18n();
 const router = useRouter();
 const usersStore = useUsersStore();
 const projects = ref<Project[]>([]);
@@ -140,11 +143,8 @@ const filteredProjects = computed(() => {
 async function toggleHide(project: Project) {
   try {
     await axios.patch(`/projects/${project.id}/hide`);
-    // Обновляем локально статус
     project.is_hidden = !project.is_hidden;
     if (project.is_hidden) {
-      // Если скрыли, нужно получить информацию о том, кто скрыл
-      // Для простоты обновим проект из ответа сервера
       const response = await axios.get(`/admin/projects/${project.id}`);
       Object.assign(project, response.data);
     } else {
@@ -152,7 +152,7 @@ async function toggleHide(project: Project) {
     }
   } catch (error) {
     console.error('Failed to toggle hide', error);
-    alert('Ошибка при изменении статуса видимости');
+    alert(t('adminProjects.toggleError'));
   }
 }
 
@@ -178,7 +178,7 @@ async function deleteProject() {
     closeDeleteModal();
   } catch (error) {
     console.error('Failed to delete project', error);
-    alert('Ошибка при удалении');
+    alert(t('adminProjects.deleteError'));
   }
 }
 

@@ -2,9 +2,10 @@
   <div class="register-page">
     <div class="theme-toggle-container">
       <ThemeToggle />
+      <LanguageSwitcher />
     </div>
     <div class="register-card">
-      <h2>Регистрация</h2>
+      <h2>{{ $t('register.title') }}</h2>
       
       <!-- Выбор типа аккаунта -->
       <div class="account-type-selector">
@@ -15,7 +16,7 @@
           @click="accountType = 'student'"
         >
           <span class="type-icon">👨‍🎓</span>
-          <span class="type-label">Ученик</span>
+          <span class="type-label">{{ $t('register.student') }}</span>
         </button>
         <button 
           type="button"
@@ -24,14 +25,14 @@
           @click="accountType = 'teacher'"
         >
           <span class="type-icon">👨‍🏫</span>
-          <span class="type-label">Учитель / Внешний представитель</span>
+          <span class="type-label">{{ $t('register.teacher') }}</span>
         </button>
       </div>
 
       <form @submit.prevent="handleRegister">
         <!-- Поле для выбора аватарки -->
         <div class="form-group avatar-group">
-          <label>Аватар (необязательно)</label>
+          <label>{{ $t('register.avatarOptional') }}</label>
           <div class="avatar-preview">
             <img
               v-if="avatarPreview"
@@ -61,63 +62,61 @@
         </div>
 
         <div class="form-group">
-          <label for="nickname">Никнейм</label>
+          <label for="nickname">{{ $t('register.nickname') }}</label>
           <input
             id="nickname"
             v-model="form.nickname"
             type="text"
-            placeholder="Введите никнейм"
+            :placeholder="$t('register.nicknamePlaceholder')"
             required
             @input="clearErrors"
           />
         </div>
 
         <div class="form-group">
-          <label for="fullname">Полное имя</label>
+          <label for="fullname">{{ $t('register.fullname') }}</label>
           <input
             id="fullname"
             v-model="form.fullname"
             type="text"
-            placeholder="Введите полное имя"
+            :placeholder="$t('register.fullnamePlaceholder')"
             required
             @input="clearErrors"
           />
         </div>
 
         <div class="form-group">
-          <label for="email">Email</label>
+          <label for="email">{{ $t('register.email') }}</label>
           <input
             id="email"
             v-model="form.email"
             type="email"
-            placeholder="Введите email"
+            :placeholder="$t('register.emailPlaceholder')"
             required
             @blur="checkEmail"
             @input="clearErrors"
           />
           <small v-if="accountType === 'teacher'" class="email-note">
-            ✉️ Для учителей требуется подтверждение email. 
-            Используйте email из списка разрешенных.
+            ✉️ {{ $t('register.teacherEmailNote') }}
           </small>
           <small v-if="accountType === 'student'" class="email-note">
-            ✉️ Для учеников требуется подтверждение email. 
-            Используйте email с доменом lit1533.ru или из списка разрешённых.
+            ✉️ {{ $t('register.studentEmailNote') }}
           </small>
         </div>
 
         <!-- Поле класса только для учеников -->
         <div v-if="accountType === 'student'" class="form-group">
-          <label for="class">Класс</label>
+          <label for="class">{{ $t('register.class') }}</label>
           <ClassInput
             id="class"
             v-model="form.class_"
-            placeholder="3.1 – 11.6"
+            :placeholder="$t('register.classPlaceholder')"
           />
         </div>
 
         <!-- Поле выбора ролей для учителя -->
         <div v-if="accountType === 'teacher'" class="form-group">
-          <label>Роли (можно выбрать несколько) <span class="required-star">*</span></label>
+          <label>{{ $t('register.rolesLabel') }} <span class="required-star">*</span></label>
           <div class="roles-selector">
             <!-- Заказчик -->
             <button
@@ -130,8 +129,8 @@
                 <span v-if="selectedRoles.includes('customer')">✓</span>
               </span>
               <span class="role-icon">📋</span>
-              <span class="role-label">Заказчик</span>
-              <span class="role-desc">Формулирует задачи и требования</span>
+              <span class="role-label">{{ $t('roles.customer') }}</span>
+              <span class="role-desc">{{ $t('register.customerDesc') }}</span>
             </button>
             
             <!-- Эксперт -->
@@ -145,8 +144,8 @@
                 <span v-if="selectedRoles.includes('expert')">✓</span>
               </span>
               <span class="role-icon">🔍</span>
-              <span class="role-label">Эксперт</span>
-              <span class="role-desc">Оценивает и проверяет работы</span>
+              <span class="role-label">{{ $t('roles.expert') }}</span>
+              <span class="role-desc">{{ $t('register.expertDesc') }}</span>
             </button>
             
             <!-- Научный руководитель -->
@@ -160,14 +159,14 @@
                 <span v-if="selectedRoles.includes('supervisor')">✓</span>
               </span>
               <span class="role-icon">🎓</span>
-              <span class="role-label">Научный руководитель</span>
-              <span class="role-desc">Направляет и консультирует</span>
+              <span class="role-label">{{ $t('roles.supervisor') }}</span>
+              <span class="role-desc">{{ $t('register.supervisorDesc') }}</span>
             </button>
           </div>
           
           <!-- Отображение выбранных ролей -->
           <div v-if="selectedRoles.length > 0" class="selected-roles">
-            <span class="selected-roles-label">Выбрано:</span>
+            <span class="selected-roles-label">{{ $t('register.selected') }}:</span>
             <span class="selected-role-tag" v-for="role in selectedRoles" :key="role">
               {{ getRoleDisplay(role) }}
             </span>
@@ -175,34 +174,34 @@
         </div>
 
         <div class="form-group">
-          <label for="speciality">Специальность / Предмет</label>
+          <label for="speciality">{{ $t('register.speciality') }}</label>
           <input
             id="speciality"
             v-model="form.speciality"
             type="text"
-            :placeholder="accountType === 'teacher' ? 'Например, физика, математика' : 'Например, информатика'"
+            :placeholder="accountType === 'teacher' ? $t('register.teacherSpecialityPlaceholder') : $t('register.studentSpecialityPlaceholder')"
           />
         </div>
 
         <div class="form-group">
-          <label for="password">Пароль</label>
+          <label for="password">{{ $t('register.password') }}</label>
           <input
             id="password"
             v-model="form.password"
             type="password"
-            placeholder="Введите пароль"
+            :placeholder="$t('register.passwordPlaceholder')"
             required
             @input="clearErrors"
           />
         </div>
 
         <div class="form-group">
-          <label for="confirmPassword">Подтверждение пароля</label>
+          <label for="confirmPassword">{{ $t('register.confirmPassword') }}</label>
           <input
             id="confirmPassword"
             v-model="confirmPassword"
             type="password"
-            placeholder="Повторите пароль"
+            :placeholder="$t('register.confirmPasswordPlaceholder')"
             required
             @input="clearErrors"
           />
@@ -212,8 +211,8 @@
         <div class="verification-notice">
           <span class="notice-icon">🔐</span>
           <div class="notice-text">
-            <strong>Подтверждение email обязательно</strong>
-            <p>После отправки формы на указанный email придёт код подтверждения. Без подтверждения регистрация не завершится.</p>
+            <strong>{{ $t('register.verificationRequired') }}</strong>
+            <p>{{ $t('register.verificationInfo') }}</p>
           </div>
         </div>
 
@@ -222,22 +221,22 @@
           {{ emailError }}
         </div>
         <div v-if="passwordMatchError" class="error-message">
-          Пароли не совпадают
+          {{ $t('register.passwordsDoNotMatch') }}
         </div>
         <div v-if="accountType === 'teacher' && selectedRoles.length === 0 && showRoleError" class="error-message">
-          Пожалуйста, выберите хотя бы одну роль
+          {{ $t('register.selectAtLeastOneRole') }}
         </div>
         <div v-if="errorMessage" class="error-message">
           {{ errorMessage }}
         </div>
 
         <button type="submit" class="register-button" :disabled="loading">
-          {{ loading ? 'Регистрация...' : 'Зарегистрироваться' }}
+          {{ loading ? $t('common.sending') : $t('register.registerButton') }}
         </button>
       </form>
 
       <p class="login-link">
-        Уже есть аккаунт? <router-link to="/login">Войти</router-link>
+        {{ $t('register.haveAccount') }} <router-link to="/login">{{ $t('register.loginLink') }}</router-link>
       </p>
     </div>
   </div>
@@ -246,16 +245,20 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import ClassInput from '@/components/ClassInput.vue';
 import axios from 'axios';
+
+const { t } = useI18n();
 
 interface RegisterForm {
   nickname: string;
   fullname: string;
   email: string;
-  class_?: number;
+  class_: number | null;  // изменено с number | undefined
   speciality: string;
   password: string;
 }
@@ -275,7 +278,7 @@ const form = reactive<RegisterForm>({
   nickname: '',
   fullname: '',
   email: '',
-  class_: 3.1, // минимальное значение класса – 3.1
+  class_: 3.1,  // начальное значение
   speciality: '',
   password: '',
 });
@@ -304,12 +307,7 @@ const toggleRole = (role: TeacherRole) => {
 };
 
 const getRoleDisplay = (role: TeacherRole): string => {
-  const roles = {
-    customer: 'Заказчик',
-    expert: 'Эксперт',
-    supervisor: 'Научный руководитель'
-  };
-  return roles[role];
+  return t(`roles.${role}`);
 };
 
 const onFileChange = (event: Event) => {
@@ -321,7 +319,7 @@ const onFileChange = (event: Event) => {
 
   const file = input.files[0];
   if (file.size > 5 * 1024 * 1024) {
-    errorMessage.value = 'Файл слишком большой (макс. 5 МБ)';
+    errorMessage.value = t('register.avatarTooBig');
     clearAvatar();
     return;
   }
@@ -363,13 +361,12 @@ const checkEmail = async () => {
     if (error.response?.status === 403) {
       emailError.value = error.response.data.detail;
     } else {
-      emailError.value = 'Ошибка проверки email';
+      emailError.value = t('register.emailCheckError');
     }
   }
 };
 
 const handleRegister = async () => {
-  // Сбрасываем ошибки
   clearErrors();
 
   // Проверка совпадения паролей
@@ -380,7 +377,7 @@ const handleRegister = async () => {
 
   // Проверка email
   if (!form.email) {
-    emailError.value = 'Email обязателен для регистрации';
+    emailError.value = t('register.emailRequired');
     return;
   }
 
@@ -397,14 +394,14 @@ const handleRegister = async () => {
       : '/auth/check-student-email';
     const response = await axios.post(endpoint, { email: form.email });
     if (!response.data.accepted) {
-      emailError.value = response.data.detail || 'Email не разрешён';
+      emailError.value = response.data.detail || t('register.emailNotAllowed');
       return;
     }
   } catch (error: any) {
     if (error.response?.status === 403) {
       emailError.value = error.response.data.detail;
     } else {
-      emailError.value = 'Ошибка проверки email';
+      emailError.value = t('register.emailCheckError');
     }
     return;
   }
@@ -424,11 +421,11 @@ const handleRegister = async () => {
       const detail = error.response.data?.detail;
       errorMessage.value = typeof detail === 'string' 
         ? detail 
-        : 'Ошибка при отправке кода. Возможно, email уже зарегистрирован.';
+        : t('register.codeSendError');
     } else if (error.code === 'ERR_NETWORK') {
-      errorMessage.value = 'Ошибка сети. Проверьте подключение к серверу.';
+      errorMessage.value = t('register.networkError');
     } else {
-      errorMessage.value = error.response?.data?.detail || 'Произошла ошибка при регистрации';
+      errorMessage.value = error.response?.data?.detail || t('register.genericError');
     }
   } finally {
     loading.value = false;
@@ -452,7 +449,8 @@ const requestVerification = async (isTeacher: boolean) => {
       curator: false,
     };
   } else {
-    userData.class_ = form.class_ || 0;
+    // Для ученика: преобразуем null в 0
+    userData.class_ = form.class_ ?? 0;
   }
 
   // Запрашиваем код подтверждения
@@ -479,18 +477,6 @@ const requestVerification = async (isTeacher: boolean) => {
   } else {
     router.push(`/verify-email?email=${encodeURIComponent(form.email)}`);
   }
-};
-
-// Загрузка аватарки (используется при автоматическом входе после регистрации – больше не нужно, т.к. регистрация идёт через верификацию)
-const uploadAvatar = async (userId: number) => {
-  if (!avatarFile.value) return;
-  const formData = new FormData();
-  formData.append('file', avatarFile.value);
-  await axios.post(
-    `http://localhost:8000/users/${userId}/avatar`,
-    formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
-  );
 };
 </script>
 

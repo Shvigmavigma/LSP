@@ -1,14 +1,15 @@
-<!-- src/components/SuggestionsSection.vue (обновлённый) -->
 <template>
   <div class="suggestions-section">
     <div class="suggestions-header">
-      <h3>Предложения по проекту</h3>
-      <span v-if="pendingCount > 0" class="pending-badge">{{ pendingCount }} новых</span>
+      <h3>{{ $t('suggestions.title') }}</h3>
+      <span v-if="pendingCount > 0" class="pending-badge">
+        {{ $t('suggestions.pendingCount', { count: pendingCount }) }}
+      </span>
     </div>
 
-    <div v-if="loading" class="loading">Загрузка предложений...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else-if="pendingSuggestions.length === 0" class="no-suggestions">
-      Нет ожидающих предложений
+      {{ $t('suggestions.noPending') }}
     </div>
     <div v-else class="suggestions-list">
       <div
@@ -50,12 +51,16 @@
             class="accept-btn"
             @click="applySuggestion(suggestion)"
             :disabled="actionInProgress"
-          >✎ Редактировать и принять</button>
+          >
+            ✎ {{ $t('suggestions.editAndAccept') }}
+          </button>
           <button
             class="reject-btn"
             @click="rejectSuggestion(suggestion.id)"
             :disabled="actionInProgress"
-          >❌ Отклонить</button>
+          >
+            ❌ {{ $t('suggestions.reject') }}
+          </button>
         </div>
       </div>
     </div>
@@ -65,25 +70,25 @@
       <div v-if="selectedSuggestion" class="suggestion-modal-overlay" @click.self="closeModal">
         <div class="suggestion-modal">
           <div class="modal-header">
-            <h3>Детали предложения</h3>
+            <h3>{{ $t('suggestions.modalTitle') }}</h3>
             <button class="close-btn" @click="closeModal">✕</button>
           </div>
           <div class="modal-body">
             <div class="suggestion-info">
               <div class="info-row">
-                <span class="info-label">Автор:</span>
+                <span class="info-label">{{ $t('suggestions.author') }}:</span>
                 <span class="info-value">{{ getAuthorNickname(selectedSuggestion.author_id) }}</span>
               </div>
               <div class="info-row">
-                <span class="info-label">Дата:</span>
+                <span class="info-label">{{ $t('suggestions.date') }}:</span>
                 <span class="info-value">{{ formatDate(selectedSuggestion.created_at) }}</span>
               </div>
               <div class="info-row">
-                <span class="info-label">Тип:</span>
+                <span class="info-label">{{ $t('suggestions.type') }}:</span>
                 <span class="info-value">{{ getTargetTypeLabel(selectedSuggestion.target_type) }}</span>
               </div>
               <div v-if="selectedSuggestion.target_id" class="info-row">
-                <span class="info-label">Цель:</span>
+                <span class="info-label">{{ $t('suggestions.target') }}:</span>
                 <span class="info-value">
                   <router-link :to="getTargetLink(selectedSuggestion)" class="target-link">
                     {{ getTargetName(selectedSuggestion) }}
@@ -93,7 +98,7 @@
             </div>
 
             <div class="suggestion-changes-full">
-              <h4>Предлагаемые изменения</h4>
+              <h4>{{ $t('suggestions.proposedChanges') }}</h4>
               <div v-for="(value, key) in selectedSuggestion.changes" :key="key" class="change-item">
                 <div class="change-key">{{ formatKey(key) }}</div>
                 <div class="change-value">{{ formatValue(value) }}</div>
@@ -105,12 +110,16 @@
               class="accept-btn"
               @click="applySuggestion(selectedSuggestion)"
               :disabled="actionInProgress"
-            >✎ Редактировать и принять</button>
+            >
+              ✎ {{ $t('suggestions.editAndAccept') }}
+            </button>
             <button
               class="reject-btn"
               @click="rejectSuggestion(selectedSuggestion.id)"
               :disabled="actionInProgress"
-            >❌ Отклонить</button>
+            >
+              ❌ {{ $t('suggestions.reject') }}
+            </button>
           </div>
         </div>
       </div>
@@ -120,10 +129,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { Suggestion } from '@/types';
 import { useUsersStore } from '@/stores/users';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
+
+const { t, locale } = useI18n();
 
 const props = defineProps<{
   projectId: number;
@@ -186,12 +198,13 @@ const formatDate = (dateStr: string) => {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'только что';
-  if (diffMins < 60) return `${diffMins} мин назад`;
-  if (diffHours < 24) return `${diffHours} ч назад`;
-  if (diffDays === 1) return 'вчера';
-  if (diffDays < 7) return `${diffDays} дн назад`;
-  return date.toLocaleDateString('ru-RU', {
+
+  if (diffMins < 1) return t('time.justNow');
+  if (diffMins < 60) return t('time.minutesAgo', { count: diffMins });
+  if (diffHours < 24) return t('time.hoursAgo', { count: diffHours });
+  if (diffDays === 1) return t('time.yesterday');
+  if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
+  return date.toLocaleDateString(locale.value, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -201,12 +214,12 @@ const formatDate = (dateStr: string) => {
 };
 
 const getTargetTypeLabel = (type: string) => {
-  const map: Record<string, string> = {
-    project: 'Проект',
-    task: 'Задача',
-    link: 'Ссылки'
-  };
-  return map[type] || type;
+  switch (type) {
+    case 'project': return t('suggestions.target1.project');
+    case 'task': return t('suggestions.target1.task');
+    case 'link': return t('suggestions.target1.link');
+    default: return type;
+  }
 };
 
 const getTargetLink = (suggestion: Suggestion) => {
@@ -218,9 +231,9 @@ const getTargetLink = (suggestion: Suggestion) => {
 
 const getTargetName = (suggestion: Suggestion) => {
   if (suggestion.target_type === 'task') {
-    return `Задача #${suggestion.target_id}`;
+    return t('suggestions.target1.taskWithId', { id: suggestion.target_id });
   }
-  return 'Проект';
+  return t('suggestions.target1.project');
 };
 
 // Для предпросмотра показываем только первые 2-3 изменения
@@ -238,15 +251,15 @@ const formatPreviewValue = (val: any) => {
 };
 
 const formatKey = (key: string) => {
-  const map: Record<string, string> = {
-    title: 'Название',
-    body: 'Описание',
-    underbody: 'Дополнительно',
-    participants: 'Участники',
-    tasks: 'Задачи',
-    links: 'Ссылки',
+  const keyMap: Record<string, string> = {
+    title: t('fields.title'),
+    body: t('fields.description'),
+    underbody: t('fields.additional'),
+    participants: t('fields.participants'),
+    tasks: t('fields.tasks'),
+    links: t('fields.links'),
   };
-  return map[key] || key;
+  return keyMap[key] || key;
 };
 
 const formatValue = (val: any) => {
@@ -265,7 +278,6 @@ const closeModal = () => {
   selectedSuggestion.value = null;
 };
 
-// Вместо немедленного принятия переходим на страницу редактирования с query-параметром
 const applySuggestion = (suggestion: Suggestion) => {
   router.push({
     path: `/project/edit/${props.projectId}`,

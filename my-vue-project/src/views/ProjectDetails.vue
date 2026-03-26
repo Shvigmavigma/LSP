@@ -2,30 +2,31 @@
   <div class="project-details-page">
     <!-- Шапка -->
     <header class="details-header" :class="{ 'author-header': userRole }">
-      <h1 v-if="!userRole" class="page-title">{{ project?.title || 'Проект' }}</h1>
+      <h1 v-if="!userRole" class="page-title">{{ project?.title || $t('projectDetails.defaultTitle') }}</h1>
       <div class="header-buttons">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
       </div>
     </header>
 
     <!-- Состояния загрузки/ошибки -->
-    <div v-if="loading" class="loading">Загрузка...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="project">
       <!-- Макет для НЕ-участников -->
       <div v-if="!userRole && !isAdmin && !isCurator" class="non-author-layout">
         <div class="project-card">
           <div class="project-section">
-            <h3>Описание</h3>
+            <h3>{{ $t('projectDetails.description') }}</h3>
             <p>{{ project.body }}</p>
           </div>
           <div v-if="project.underbody" class="project-section">
-            <h3>Дополнительно</h3>
+            <h3>{{ $t('projectDetails.additional') }}</h3>
             <p>{{ project.underbody }}</p>
           </div>
           <div class="project-section">
-            <h3>Участники</h3>
+            <h3>{{ $t('projectDetails.participants') }}</h3>
             <div v-if="project.participants?.length" class="participants-list">
               <span
                 v-for="participant in project.participants"
@@ -37,16 +38,16 @@
                 <span class="role-badge">{{ getRoleDisplay(participant.role) }}</span>
               </span>
             </div>
-            <p v-else>Нет участников</p>
+            <p v-else>{{ $t('projectDetails.noParticipants') }}</p>
           </div>
 
           <!-- Кнопка отклика для учеников (не участников) -->
           <div v-if="isStudent && !hasExecutors" class="respond-project-section">
             <div v-if="userPendingRequest" class="already-responded">
-              <span class="responded-message">✅ Вы уже откликнулись</span>
+              <span class="responded-message">✅ {{ $t('projectDetails.alreadyResponded') }}</span>
             </div>
             <button v-else class="respond-project-btn" @click="respondToProject" :disabled="responding">
-              {{ responding ? 'Отправка...' : 'Откликнуться на проект' }}
+              {{ responding ? $t('common.sending') : $t('projectDetails.respondButton') }}
             </button>
           </div>
         </div>
@@ -60,17 +61,17 @@
           <!-- Левая колонка -->
           <div class="info-column">
             <div class="project-section">
-              <h3>Описание</h3>
+              <h3>{{ $t('projectDetails.description') }}</h3>
               <p>{{ project.body }}</p>
             </div>
             <div v-if="project.underbody" class="project-section">
-              <h3>Дополнительно</h3>
+              <h3>{{ $t('projectDetails.additional') }}</h3>
               <p>{{ project.underbody }}</p>
             </div>
 
             <!-- Ссылки проекта -->
             <div class="project-links">
-              <h3>Ссылки проекта</h3>
+              <h3>{{ $t('projectDetails.projectLinks') }}</h3>
               <div class="links-buttons">
                 <!-- GitHub -->
                 <template v-if="project.links?.github">
@@ -82,18 +83,18 @@
                       class="link-button github-link"
                     >
                       <img :src="githubIcon" alt="GitHub" class="icon" />
-                      GitHub репозиторий
+                      {{ $t('projectDetails.githubRepo') }}
                     </a>
                     <div class="link-actions">
-                      <button class="link-edit" @click="startEditGithub" title="Редактировать">✎</button>
-                      <button class="link-delete" @click="deleteGithubLink" title="Удалить">✖</button>
+                      <button class="link-edit" @click="startEditGithub" :title="$t('common.edit')">✎</button>
+                      <button class="link-delete" @click="deleteGithubLink" :title="$t('common.delete')">✖</button>
                     </div>
                   </div>
                   <div v-else class="link-input-wrapper">
                     <input
                       v-model="githubEditValue"
                       type="url"
-                      placeholder="https://github.com/..."
+                      :placeholder="$t('projectDetails.githubPlaceholder')"
                       class="link-input"
                       @keyup.enter="saveEditGithub"
                     />
@@ -106,7 +107,7 @@
                     <input
                       v-model="githubInput"
                       type="url"
-                      placeholder="https://github.com/..."
+                      :placeholder="$t('projectDetails.githubPlaceholder')"
                       class="link-input"
                       @keyup.enter="saveGithubLink"
                     />
@@ -115,7 +116,7 @@
                   </div>
                   <button v-else class="link-button add-github" @click="showGithubInput = true">
                     <img :src="githubIcon" alt="GitHub" class="icon" />
-                    + Добавить GitHub
+                    + {{ $t('projectDetails.addGithub') }}
                   </button>
                 </template>
 
@@ -129,18 +130,18 @@
                       class="link-button drive-link"
                     >
                       <img :src="driveIcon" alt="Google Drive" class="icon" />
-                      Google Диск
+                      {{ $t('projectDetails.googleDrive') }}
                     </a>
                     <div class="link-actions">
-                      <button class="link-edit" @click="startEditDrive" title="Редактировать">✎</button>
-                      <button class="link-delete" @click="deleteDriveLink" title="Удалить">✖</button>
+                      <button class="link-edit" @click="startEditDrive" :title="$t('common.edit')">✎</button>
+                      <button class="link-delete" @click="deleteDriveLink" :title="$t('common.delete')">✖</button>
                     </div>
                   </div>
                   <div v-else class="link-input-wrapper">
                     <input
                       v-model="driveEditValue"
                       type="url"
-                      placeholder="https://drive.google.com/..."
+                      :placeholder="$t('projectDetails.drivePlaceholder')"
                       class="link-input"
                       @keyup.enter="saveEditDrive"
                     />
@@ -153,7 +154,7 @@
                     <input
                       v-model="driveInput"
                       type="url"
-                      placeholder="https://drive.google.com/..."
+                      :placeholder="$t('projectDetails.drivePlaceholder')"
                       class="link-input"
                       @keyup.enter="saveDriveLink"
                     />
@@ -162,7 +163,7 @@
                   </div>
                   <button v-else class="link-button add-drive" @click="showDriveInput = true">
                     <img :src="driveIcon" alt="Google Drive" class="icon" />
-                    + Добавить Google Диск
+                    + {{ $t('projectDetails.addDrive') }}
                   </button>
                 </template>
               </div>
@@ -170,7 +171,7 @@
 
             <!-- Участники -->
             <div class="project-section">
-              <h3>Участники</h3>
+              <h3>{{ $t('projectDetails.participants') }}</h3>
               <div v-if="project.participants?.length" class="participants-list">
                 <span
                   v-for="participant in project.participants"
@@ -182,12 +183,12 @@
                   <span class="role-badge">{{ getRoleDisplay(participant.role) }}</span>
                 </span>
               </div>
-              <p v-else>Нет участников</p>
+              <p v-else>{{ $t('projectDetails.noParticipants') }}</p>
             </div>
 
             <!-- Выполненные задачи -->
             <div v-if="completedTasks.length" class="project-section">
-              <h3>Выполненные задачи</h3>
+              <h3>{{ $t('projectDetails.completedTasks') }}</h3>
               <div class="completed-tasks">
                 <div
                   v-for="task in completedTasks"
@@ -201,27 +202,25 @@
               </div>
             </div>
 
-            <!-- Кнопки управления проектом (единый блок) -->
+            <!-- Кнопки управления проектом -->
             <div class="project-actions" v-if="hasManagementRights">
-              <button class="edit-project-button" @click="goToEdit">✎ Редактировать проект</button>
+              <button class="edit-project-button" @click="goToEdit">✎ {{ $t('projectDetails.editProject') }}</button>
               <button 
                 class="delete-project-button" 
                 @click="handleProjectDelete" 
                 :disabled="deleteInProgress"
               >
-                {{ deleteInProgress ? 'Обработка...' : (isAdminOrCurator ? '🗑 Удалить проект' : '🗑 Скрыть проект') }}
+                {{ deleteInProgress ? $t('common.processing') : (isAdminOrCurator ? $t('projectDetails.deleteProject') : $t('projectDetails.hideProject')) }}
               </button>
             </div>
           </div>
 
           <!-- Правая колонка -->
           <div class="tasks-column">
-            <!-- Заголовок над кнопками -->
-            <h3 class="tasks-section-title">Активные задачи</h3>
+            <h3 class="tasks-section-title">{{ $t('projectDetails.activeTasks') }}</h3>
 
             <!-- Кнопки управления -->
             <div class="task-header-buttons">
-              <!-- Кнопка показа предложений -->
               <button 
                 v-if="hasFullAccess" 
                 class="suggestions-btn" 
@@ -229,40 +228,36 @@
               >
                 <span class="btn-content">
                   <span class="suggestions-icon">📋</span>
-                  {{ showSuggestions ? 'Скрыть' : 'Показать' }} предложения
+                  {{ showSuggestions ? $t('common.hide') : $t('suggestions.show') }} {{ $t('suggestions.title') }}
                   <span v-if="pendingSuggestionsCount > 0" class="header-unread-badge">
                     {{ pendingSuggestionsCount }}
                   </span>
                 </span>
               </button>
 
-              <!-- Для экспертов, научруков и исполнителей – ссылка на редактирование в режиме предложения -->
               <router-link
                 v-if="canSuggest"
                 :to="`/project/edit/${project.id}?mode=suggest`"
                 custom
                 v-slot="{ navigate }"
               >
-                <button class="suggest-btn" @click="navigate">💡 Предложить правку</button>
+                <button class="suggest-btn" @click="navigate">💡 {{ $t('projectDetails.suggestEdit') }}</button>
               </router-link>
 
-              <!-- Кнопка приглашения -->
               <button v-if="canInvite" class="invite-btn" @click="openInviteModal">
-                ✉️ Пригласить
+                ✉️ {{ $t('projectDetails.invite') }}
               </button>
 
-              <!-- Кнопка комментариев -->
               <button class="comments-header-btn" @click="showProjectComments = !showProjectComments">
                 <span class="btn-content">
                   <span class="comment-icon">💬</span>
-                  {{ showProjectComments ? 'Скрыть' : 'Показать' }} комментарии
+                  {{ showProjectComments ? $t('common.hide') : $t('common.show') }} {{ $t('commentsSection.title') }}
                   <span v-if="unreadProjectCommentsCount > 0" class="header-unread-badge">
                     {{ unreadProjectCommentsCount }}
                   </span>
                 </span>
               </button>
 
-              <!-- Кнопка: Запросы на вступление (для заказчика, куратора, администратора) -->
               <button 
                 v-if="canManageJoinRequests" 
                 class="requests-btn" 
@@ -270,7 +265,7 @@
               >
                 <span class="btn-content">
                   <span class="requests-icon">👥</span>
-                  {{ showJoinRequests ? 'Скрыть' : 'Запросы' }}
+                  {{ showJoinRequests ? $t('common.hide') : $t('projectDetails.requests') }}
                   <span v-if="pendingJoinRequestsCount > 0" class="header-unread-badge">
                     {{ pendingJoinRequestsCount }}
                   </span>
@@ -297,31 +292,31 @@
 
             <!-- Блок комментариев проекта -->
             <div v-if="showProjectComments" class="comments-container">
-            <CommentsSection
-              :comments="project.comments || []"
-              :can-comment="hasFullAccess"
-              :is-author="canEdit"
-              :can-hide-comments="canHideComments"
-              :is-admin="isAdmin"
-              :is-curator="isCurator"
-              :on-add-comment="addProjectComment"
-              :on-mark-as-read="markProjectCommentAsRead"
-              :on-hide-comment="hideProjectComment"
-              :on-restore-comment="restoreProjectComment"
-              :on-permanent-delete="permanentDeleteComment"
-            />
+              <CommentsSection
+                :comments="project.comments || []"
+                :can-comment="hasFullAccess"
+                :is-author="canEdit"
+                :can-hide-comments="canHideComments"
+                :is-admin="isAdmin"
+                :is-curator="isCurator"
+                :on-add-comment="addProjectComment"
+                :on-mark-as-read="markProjectCommentAsRead"
+                :on-hide-comment="hideProjectComment"
+                :on-restore-comment="restoreProjectComment"
+                :on-permanent-delete="permanentDeleteComment"
+              />
             </div>
 
             <!-- Блок запросов на вступление -->
             <div v-if="showJoinRequests" class="requests-container">
               <div class="requests-header">
-                <h3>Запросы на вступление</h3>
+                <h3>{{ $t('projectDetails.joinRequests') }}</h3>
                 <span v-if="pendingJoinRequestsCount > 0" class="pending-badge">{{ pendingJoinRequestsCount }}</span>
               </div>
 
-              <div v-if="project.join_requests === undefined" class="loading">Загрузка запросов...</div>
+              <div v-if="project.join_requests === undefined" class="loading">{{ $t('common.loading') }}</div>
               <div v-else-if="pendingJoinRequests.length === 0" class="no-requests">
-                Нет новых запросов
+                {{ $t('projectDetails.noRequests') }}
               </div>
               <div v-else class="requests-list">
                 <div
@@ -343,12 +338,12 @@
                       <span class="user-name">{{ getUserNickname(request.user_id) }}</span>
                     </div>
                     <div class="request-task">
-                      Хочет присоединиться к проекту как исполнитель
+                      {{ $t('projectDetails.requestMessage') }}
                     </div>
                   </div>
                   <div class="request-actions">
-                    <button class="accept-request-btn" @click="acceptJoinRequest(request.id)">✅ Принять</button>
-                    <button class="reject-request-btn" @click="rejectJoinRequest(request.id)">❌ Отклонить</button>
+                    <button class="accept-request-btn" @click="acceptJoinRequest(request.id)">✅ {{ $t('common.accept') }}</button>
+                    <button class="reject-request-btn" @click="rejectJoinRequest(request.id)">❌ {{ $t('common.reject') }}</button>
                   </div>
                 </div>
               </div>
@@ -356,7 +351,7 @@
 
             <!-- Задачи в работе -->
             <div v-if="inProgressTasks.length > 0" class="task-group">
-              <h4 class="task-group-title in-progress-title">В работе</h4>
+              <h4 class="task-group-title in-progress-title">{{ $t('projectDetails.inProgress') }}</h4>
               <div class="task-tree">
                 <div
                   v-for="task in inProgressTasks"
@@ -368,17 +363,17 @@
                   <span class="task-icon">📄</span>
                   <div class="task-content">
                     <strong>{{ task.title }}</strong>
-                    <span class="task-status">{{ task.status }}</span>
+                    <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
                     <p>{{ task.body }}</p>
                     <span v-if="task.status === 'в работе'" class="task-progress">
-                      Прогресс: {{ task.progress ?? 0 }}%
+                      {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
                     </span>
-                    <small>Срок: {{ formatTaskDates(task) }}</small>
-                    <span v-if="isTaskOverdue(task)" class="overdue-badge">Просрочено</span>
-                    <span v-if="isTaskInvalid(task)" class="invalid-badge">Некорректные даты</span>
-                    <span v-if="isTaskNotStarted(task)" class="not-started-badge">Не начато</span>
+                    <small>{{ $t('projectDetails.deadline') }}: {{ formatTaskDates(task) }}</small>
+                    <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
+                    <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
+                    <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
                     <span v-if="task.assigned_to" class="assigned-info">
-                      Исполнитель: {{ getUserNickname(task.assigned_to) }}
+                      {{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}
                     </span>
                   </div>
                 </div>
@@ -387,7 +382,7 @@
 
             <!-- Задачи в ожидании -->
             <div v-if="waitingTasks.length > 0" class="task-group">
-              <h4 class="task-group-title waiting-title">Ожидают</h4>
+              <h4 class="task-group-title waiting-title">{{ $t('projectDetails.waiting') }}</h4>
               <div class="task-tree">
                 <div
                   v-for="task in waitingTasks"
@@ -399,17 +394,17 @@
                   <span class="task-icon">📄</span>
                   <div class="task-content">
                     <strong>{{ task.title }}</strong>
-                    <span class="task-status">{{ task.status }}</span>
+                    <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
                     <p>{{ task.body }}</p>
                     <span v-if="task.status === 'в работе'" class="task-progress">
-                      Прогресс: {{ task.progress ?? 0 }}%
+                      {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
                     </span>
-                    <small>Срок: {{ formatTaskDates(task) }}</small>
-                    <span v-if="isTaskOverdue(task)" class="overdue-badge">Просрочено</span>
-                    <span v-if="isTaskInvalid(task)" class="invalid-badge">Некорректные даты</span>
-                    <span v-if="isTaskNotStarted(task)" class="not-started-badge">Не начато</span>
+                    <small>{{ $t('projectDetails.deadline') }}: {{ formatTaskDates(task) }}</small>
+                    <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
+                    <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
+                    <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
                     <span v-if="task.assigned_to" class="assigned-info">
-                      Исполнитель: {{ getUserNickname(task.assigned_to) }}
+                      {{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}
                     </span>
                   </div>
                 </div>
@@ -418,12 +413,12 @@
 
             <!-- Сообщение, если нет ни одной активной задачи -->
             <div v-if="inProgressTasks.length === 0 && waitingTasks.length === 0" class="no-tasks">
-              Нет активных задач
+              {{ $t('projectDetails.noActiveTasks') }}
             </div>
 
             <!-- Диаграмма Ганта -->
             <div v-if="activeTasks.length" class="gantt-section">
-              <h3>Таймлайн задач (прошедшее время)</h3>
+              <h3>{{ $t('projectDetails.timeline') }}</h3>
               <div class="gantt-chart">
                 <div v-for="(task, index) in activeTasksProgress" :key="index" class="gantt-row">
                   <div class="gantt-label">{{ task.title }}</div>
@@ -455,22 +450,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, watchEffect } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import CommentsSection from '@/components/CommentsSection.vue';
 import SuggestionsSection from '@/components/SuggestionsSection.vue';
 import InviteModal from '@/components/InviteModal.vue';
-import type { Project, User, Task, Comment, ProjectRole, Suggestion, JoinRequest } from '@/types';
+import type { Project, Task, Comment, ProjectRole, JoinRequest } from '@/types';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-
 import githubIcon from '@/assets/icons/icons8-github-30.png';
 import driveIcon from '@/assets/icons/icons8-google-drive-48.png';
 
+const { t, locale } = useI18n();
 const baseUrl = 'http://localhost:8000';
 
 const route = useRoute();
@@ -479,6 +476,7 @@ const projectsStore = useProjectsStore();
 const authStore = useAuthStore();
 const usersStore = useUsersStore();
 
+// ---- Реактивные переменные ----
 const project = ref<Project | null>(null);
 const loading = ref(true);
 const error = ref('');
@@ -497,87 +495,43 @@ const githubEditValue = ref('');
 const showEditDrive = ref(false);
 const driveEditValue = ref('');
 const deleteInProgress = ref(false);
-const isAdminOrCurator = computed(() => isAdmin.value || isCurator.value);
 
-const projectId = Number(route.params.projectId);
-const taskIndex = Number(route.params.taskIndex);
-
-// Роль текущего пользователя в проекте (только если он участник)
+// ---- Вычисляемые свойства с явным приведением к boolean ----
 const userRole = computed<ProjectRole | null>(() => {
   if (!authStore.userId || !project.value) return null;
   const participant = project.value.participants?.find(p => p.user_id === authStore.userId);
   return participant?.role || null;
 });
 
-// Глобальные роли
-const isAdmin = computed(() => authStore.user?.is_admin === true);
-const isCurator = computed(() => authStore.user?.is_teacher && authStore.user?.teacher_info?.curator === true);
+const isAdmin = computed(() => authStore.user?.is_admin ?? false);
+const isCurator = computed(() => {
+  const user = authStore.user;
+  if (!user) return false;
+  if (!user.is_teacher) return false;
+  return user.teacher_info?.curator ?? false;
+});
+const isAdminOrCurator = computed(() => isAdmin.value || isCurator.value);
 
-// Полный доступ (участник, админ или куратор)
 const hasFullAccess = computed(() => !!userRole.value || isAdmin.value || isCurator.value);
 
-// Права на управление проектом (редактирование, удаление)
 const canEdit = computed(() => 
   userRole.value === 'customer' || 
   isAdmin.value || 
   isCurator.value
 );
 
-// Право предлагать изменения
 const canSuggest = computed(() => 
-  ['expert', 'supervisor', 'executor'].includes(userRole.value) || 
+  ['expert', 'supervisor', 'executor'].includes(userRole.value || '') || 
   isAdmin.value || 
   isCurator.value
 );
-const handleProjectDelete = async () => {
-  if (!project.value) return;
-  
-  deleteInProgress.value = true;
-  
-  // Админ или куратор - полное удаление
-  if (isAdminOrCurator.value) {
-    if (confirm('Вы уверены, что хотите полностью удалить проект? Это действие необратимо.')) {
-      try {
-        await axios.delete(`${baseUrl}/projects/${project.value.id}`);
-        showNotification('Проект успешно удалён', 'success');
-        router.push('/main');
-      } catch (error) {
-        console.error('Ошибка при удалении проекта:', error);
-        showNotification('Не удалось удалить проект', 'error');
-      } finally {
-        deleteInProgress.value = false;
-      }
-    } else {
-      deleteInProgress.value = false;
-    }
-    return;
-  }
-  
-  // Заказчик или исполнитель - скрытие проекта
-  if (confirm('Скрыть проект из списка? Вы сможете снова его увидеть, если администратор или куратор вернёт его.')) {
-    try {
-      await axios.patch(`${baseUrl}/projects/${project.value.id}/hide`);
-      showNotification('Проект скрыт', 'success');
-      router.push('/main');
-    } catch (error) {
-      console.error('Failed to hide project', error);
-      showNotification('Ошибка при скрытии проекта', 'error');
-    } finally {
-      deleteInProgress.value = false;
-    }
-  } else {
-    deleteInProgress.value = false;
-  }
-};
 
-// Право скрывать комментарии (научрук, админ, куратор)
 const canHideComments = computed(() => 
   userRole.value === 'supervisor' || 
   isAdmin.value || 
   isCurator.value
 );
 
-// Право приглашать
 const canInvite = computed(() => 
   userRole.value === 'customer' || 
   userRole.value === 'supervisor' || 
@@ -585,7 +539,6 @@ const canInvite = computed(() =>
   isCurator.value
 );
 
-// Право управлять запросами на вступление
 const canManageJoinRequests = computed(() => 
   userRole.value === 'customer' || 
   userRole.value === 'curator' || 
@@ -593,7 +546,6 @@ const canManageJoinRequests = computed(() =>
   isCurator.value
 );
 
-// Право скрывать проект (исполнитель, куратор в проекте, админ, куратор)
 const canHide = computed(() => 
   userRole.value === 'executor' || 
   userRole.value === 'curator' || 
@@ -601,348 +553,57 @@ const canHide = computed(() =>
   isCurator.value
 );
 
-// Общее право на отображение блока управления проектом
-const hasManagementRights = computed(() => 
-  canEdit.value || canHide.value
-);
+const hasManagementRights = computed(() => canEdit.value || canHide.value);
 
-// Количество непрочитанных комментариев
 const unreadProjectCommentsCount = computed(() => {
   const comments = project.value?.comments || [];
-  if (canHideComments.value) {
-    return comments.filter(c => !c.isRead).length;
-  }
+  if (canHideComments.value) return comments.filter(c => !c.isRead).length;
   return comments.filter(c => !c.hidden && !c.isRead).length;
 });
 
-// Количество ожидающих предложений
-const pendingSuggestionsCount = computed(() => {
-  return (project.value?.suggestions || []).filter(s => s.status === 'pending').length;
-});
-
-// --- ЗАПРОСЫ НА ВСТУПЛЕНИЕ ---
-const pendingJoinRequests = computed<JoinRequest[]>(() => {
-  return (project.value?.join_requests?.filter(r => r.status === 'pending') || []) as JoinRequest[];
-});
+const pendingSuggestionsCount = computed(() => (project.value?.suggestions || []).filter(s => s.status === 'pending').length);
+const pendingJoinRequests = computed<JoinRequest[]>(() => (project.value?.join_requests?.filter(r => r.status === 'pending') || []) as JoinRequest[]);
 const pendingJoinRequestsCount = computed(() => pendingJoinRequests.value.length);
-
-// Есть ли исполнители в проекте
-const hasExecutors = computed(() => {
-  return project.value?.participants?.some(p => p.role === 'executor') || false;
+const hasExecutors = computed(() => project.value?.participants?.some(p => p.role === 'executor') || false);
+const isStudent = computed(() => {
+  const user = authStore.user;
+  return user && !(user.is_teacher ?? false);
 });
-
-// Является ли текущий пользователь учеником
-const isStudent = computed(() => authStore.user && !authStore.user.is_teacher);
-
-// Есть ли у текущего пользователя ожидающий запрос
 const userPendingRequest = computed(() => {
   if (!authStore.userId || !project.value?.join_requests) return false;
   return project.value.join_requests.some(r => r.user_id === authStore.userId && r.status === 'pending');
 });
-const restoreProjectComment = async (commentId: string) => {
-  if (!project.value) return;
-  try {
-    await axios.post(`${baseUrl}/projects/${project.value.id}/comments/${commentId}/restore`);
-    showNotification('Комментарий восстановлен', 'success');
-    await loadProject();
-  } catch (error) {
-    console.error('Failed to restore comment', error);
-    showNotification('Ошибка при восстановлении комментария', 'error');
-  }
-};
 
-const restoreTaskComment = async (commentId: string) => {
-  if (!project.value) return;
-  try {
-    await axios.post(`${baseUrl}/projects/${project.value.id}/tasks/${taskIndex}/comments/${commentId}/restore`);
-    showNotification('Комментарий восстановлен', 'success');
-    await loadProject();
-  } catch (error) {
-    console.error('Failed to restore comment', error);
-    showNotification('Ошибка при восстановлении комментария', 'error');
-  }
-};
-// Модальное окно приглашения
-const showInviteModal = ref(false);
+// Задачи
+const activeTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status !== 'выполнена') || []);
+const completedTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'выполнена') || []);
+const inProgressTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'в работе') || []);
+const waitingTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'ожидает') || []);
 
-// Загрузка данных пользователей
-async function loadParticipants() {
-  if (usersStore.users.length === 0) {
-    await usersStore.fetchAllUsers();
-  }
-}
-
-// Загрузка проекта
-async function loadProject() {
-  const id = Number(route.params.id);
-  if (isNaN(id)) {
-    error.value = 'Неверный ID проекта';
-    loading.value = false;
-    return;
-  }
-
-  try {
-    project.value = await projectsStore.fetchProjectById(id);
-    await loadParticipants();
-  } catch (err) {
-    error.value = 'Ошибка загрузки проекта';
-    console.error(err);
-  } finally {
-    loading.value = false;
-  }
-}
-
-// --- ДЕЙСТВИЯ С ЗАПРОСАМИ ---
-async function respondToProject() {
-  if (!project.value) return;
-  responding.value = true;
-  try {
-    await axios.post(`${baseUrl}/projects/${project.value.id}/join-requests`);
-    showNotification('Запрос отправлен!', 'success');
-    await loadProject();
-  } catch (err: any) {
-    console.error('Failed to respond to project', err);
-    const msg = err.response?.data?.detail || 'Ошибка при отправке запроса';
-    showNotification(msg, 'error');
-  } finally {
-    responding.value = false;
-  }
-}
-
-async function acceptJoinRequest(requestId: string) {
-  if (!project.value) return;
-  try {
-    await axios.put(`${baseUrl}/projects/${project.value.id}/join-requests/${requestId}/accept`);
-    showNotification('Запрос принят', 'success');
-    await loadProject();
-  } catch (err) {
-    console.error('Failed to accept request', err);
-    showNotification('Ошибка при принятии запроса', 'error');
-  }
-}
-
-async function rejectJoinRequest(requestId: string) {
-  if (!project.value) return;
-  try {
-    await axios.put(`${baseUrl}/projects/${project.value.id}/join-requests/${requestId}/reject`);
-    showNotification('Запрос отклонён', 'success');
-    await loadProject();
-  } catch (err) {
-    console.error('Failed to reject request', err);
-    showNotification('Ошибка при отклонении запроса', 'error');
-  }
-}
-
-onMounted(loadProject);
-watch(() => route.params.id, loadProject);
-
-// Вспомогательные функции для пользователей
+// ---- Вспомогательные функции ----
 function getUserNickname(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
   return user ? user.nickname : `ID: ${id}`;
 }
-
 function getUserAvatar(id: number): string | undefined {
   const user = usersStore.users.find(u => u.id === id);
   return user?.avatar ? `${baseUrl}/avatars/${user.avatar}` : undefined;
 }
-
 function getUserInitials(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
   return user?.nickname?.charAt(0).toUpperCase() || '?';
 }
-
 function getRoleDisplay(role: ProjectRole): string {
-  const map: Record<ProjectRole, string> = {
-    customer: 'Заказчик',
-    supervisor: 'Научный руководитель',
-    expert: 'Эксперт',
-    executor: 'Исполнитель',
-    curator: 'Куратор',
-  };
-  return map[role];
+  return t(`roles.${role}`);
 }
-
-// --- Функции для работы со ссылками ---
-async function updateProjectLinks(updates: Partial<NonNullable<Project['links']>>) {
-  if (!project.value) return;
-  try {
-    const newLinks = { ...(project.value.links || {}), ...updates };
-    await axios.put(`${baseUrl}/projects/${project.value.id}`, { links: newLinks });
-    project.value.links = newLinks;
-  } catch (err) {
-    console.error('Failed to update links', err);
-    alert('Ошибка при сохранении ссылки');
+function formatTaskDates(task: Task): string {
+  if (task.timelinend) return `${task.timeline || '?'} – ${task.timelinend}`;
+  if (task.timeline?.includes('-')) {
+    const parts = task.timeline.split('-');
+    return `${parts[0]} – ${parts[1]}`;
   }
+  return task.timeline || '?';
 }
-function saveGithubLink() {
-  if (githubInput.value.trim()) {
-    updateProjectLinks({ github: githubInput.value.trim() });
-  }
-  showGithubInput.value = false;
-  githubInput.value = '';
-}
-function cancelGithub() { showGithubInput.value = false; githubInput.value = ''; }
-function startEditGithub() {
-  githubEditValue.value = project.value?.links?.github || '';
-  showEditGithub.value = true;
-}
-function saveEditGithub() {
-  if (githubEditValue.value.trim()) {
-    updateProjectLinks({ github: githubEditValue.value.trim() });
-  }
-  showEditGithub.value = false;
-  githubEditValue.value = '';
-}
-function cancelEditGithub() { showEditGithub.value = false; githubEditValue.value = ''; }
-async function deleteGithubLink() {
-  if (!project.value?.links?.github) return;
-  if (confirm('Удалить ссылку на GitHub?')) {
-    const newLinks = { ...project.value.links };
-    delete newLinks.github;
-    await updateProjectLinks(newLinks as Partial<NonNullable<Project['links']>>);
-  }
-}
-function saveDriveLink() {
-  if (driveInput.value.trim()) {
-    updateProjectLinks({ google_drive: driveInput.value.trim() });
-  }
-  showDriveInput.value = false;
-  driveInput.value = '';
-}
-function cancelDrive() { showDriveInput.value = false; driveInput.value = ''; }
-function startEditDrive() {
-  driveEditValue.value = project.value?.links?.google_drive || '';
-  showEditDrive.value = true;
-}
-function saveEditDrive() {
-  if (driveEditValue.value.trim()) {
-    updateProjectLinks({ google_drive: driveEditValue.value.trim() });
-  }
-  showEditDrive.value = false;
-  driveEditValue.value = '';
-}
-function cancelEditDrive() { showEditDrive.value = false; driveEditValue.value = ''; }
-async function deleteDriveLink() {
-  if (!project.value?.links?.google_drive) return;
-  if (confirm('Удалить ссылку на Google Диск?')) {
-    const newLinks = { ...project.value.links };
-    delete newLinks.google_drive;
-    await updateProjectLinks(newLinks as Partial<NonNullable<Project['links']>>);
-  }
-}
-
-// --- Работа с комментариями проекта ---
-const addProjectComment = async (content: string) => {
-  if (!project.value || !authStore.user) return;
-  // Проверка прав уже выполнена через canComment в шаблоне, но для надёжности:
-  if (!hasFullAccess.value) {
-    showNotification('У вас нет прав для комментирования', 'info');
-    return;
-  }
-  const newComment: Comment = {
-    id: uuidv4(),
-    authorId: authStore.user.id,
-    content,
-    createdAt: new Date().toISOString(),
-    isRead: false,
-    hidden: false,
-  };
-  try {
-    const response = await axios.post(`${baseUrl}/projects/${project.value.id}/comments`, newComment);
-    project.value = response.data;
-    showProjectComments.value = true;
-  } catch (error) {
-    console.error('Failed to add comment:', error);
-    alert('Ошибка при добавлении комментария');
-  }
-};
-
-const markProjectCommentAsRead = async (commentId: string) => {
-  if (!project.value) return;
-  try {
-    await axios.put(`${baseUrl}/projects/${project.value.id}/comments/${commentId}/read`);
-    if (project.value.comments) {
-      const updatedComments = project.value.comments.map(c =>
-        c.id === commentId ? { ...c, isRead: true } : c
-      );
-      project.value.comments = updatedComments;
-    }
-  } catch (error) {
-    console.error('Failed to mark comment as read:', error);
-    alert('Ошибка при отметке комментария');
-  }
-};
-
-const hideProjectComment = async (commentId: string) => {
-  if (!project.value) return;
-  try {
-    const response = await axios.delete(`${baseUrl}/projects/${project.value.id}/comments/${commentId}`);
-    project.value = response.data;
-  } catch (error) {
-    console.error('Failed to hide comment:', error);
-    alert('Ошибка при скрытии комментария');
-  }
-};
-
-const permanentDeleteComment = async (commentId: string) => {
-  if (!project.value) return;
-  try {
-    await axios.delete(`${baseUrl}/admin/comments/${commentId}`);
-    showNotification('Комментарий удалён навсегда', 'success');
-    await loadProject();
-  } catch (error) {
-    console.error('Failed to delete comment permanently', error);
-    showNotification('Ошибка при удалении комментария', 'error');
-  }
-};
-
-// --- Работа с предложениями ---
-const suggestions = computed(() => project.value?.suggestions || []);
-
-const acceptSuggestion = async (suggestionId: string) => {
-  if (!project.value) return;
-  try {
-    const response = await axios.put(`${baseUrl}/projects/${project.value.id}/suggestions/${suggestionId}/accept`);
-    project.value = response.data;
-  } catch (error) {
-    console.error('Failed to accept suggestion:', error);
-    alert('Ошибка при принятии предложения');
-  }
-};
-
-const rejectSuggestion = async (suggestionId: string) => {
-  if (!project.value) return;
-  try {
-    const response = await axios.put(`${baseUrl}/projects/${project.value.id}/suggestions/${suggestionId}/reject`);
-    project.value = response.data;
-  } catch (error) {
-    console.error('Failed to reject suggestion:', error);
-    alert('Ошибка при отклонении предложения');
-  }
-};
-
-const addSuggestionComment = async (suggestionId: string, content: string) => {
-  alert('Функция комментариев к предложениям пока не реализована');
-};
-
-const markSuggestionCommentRead = async () => {};
-const deleteSuggestionComment = async () => {};
-const hideSuggestionComment = async () => {};
-
-// --- Приглашения ---
-const sendInvite = async (email: string, role: ProjectRole) => {
-  if (!project.value) return;
-  try {
-    const response = await axios.post(`${baseUrl}/projects/${project.value.id}/invite`, { email, role });
-    alert(`Приглашение создано, токен: ${response.data.token}`);
-  } catch (error) {
-    console.error('Failed to create invite:', error);
-    alert('Ошибка при создании приглашения');
-  }
-};
-
-// --- Функции для задач ---
 function parseDate(dateStr: string): Date | null {
   if (!dateStr) return null;
   const parts = dateStr.split('.');
@@ -950,20 +611,12 @@ function parseDate(dateStr: string): Date | null {
   const [day, month, year] = parts.map(Number);
   return new Date(year, month - 1, day);
 }
-function formatTaskDates(task: Task): string {
-  if (task.timelinend) return `${task.timeline || '?'} – ${task.timelinend}`;
-  else if (task.timeline && task.timeline.includes('-')) {
-    const parts = task.timeline.split('-');
-    return `${parts[0]} – ${parts[1]}`;
-  }
-  return task.timeline || '?';
-}
 function isTaskOverdue(task: Task): boolean {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   let endStr = task.timelinend;
-  if (!endStr && task.timeline && task.timeline.includes('-')) {
+  if (!endStr && task.timeline?.includes('-')) {
     const parts = task.timeline.split('-');
-    endStr = parts[1] || '';
+    endStr = parts[1];
   }
   const endDate = parseDate(endStr || '');
   if (!endDate) return false;
@@ -971,10 +624,10 @@ function isTaskOverdue(task: Task): boolean {
 }
 function isTaskInvalid(task: Task): boolean {
   let startStr = task.timeline, endStr = task.timelinend;
-  if (!endStr && startStr && startStr.includes('-')) {
+  if (!endStr && startStr?.includes('-')) {
     const parts = startStr.split('-');
-    startStr = parts[0] || '';
-    endStr = parts[1] || '';
+    startStr = parts[0];
+    endStr = parts[1];
   }
   const start = parseDate(startStr || '');
   const end = parseDate(endStr || '');
@@ -984,7 +637,7 @@ function isTaskInvalid(task: Task): boolean {
 function isTaskNotStarted(task: Task): boolean {
   if (isTaskInvalid(task) || isTaskOverdue(task)) return false;
   let startStr = task.timeline;
-  if (!task.timelinend && startStr && startStr.includes('-')) startStr = startStr.split('-')[0] || '';
+  if (!task.timelinend && startStr?.includes('-')) startStr = startStr.split('-')[0];
   const start = parseDate(startStr || '');
   if (!start) return false;
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -993,10 +646,10 @@ function isTaskNotStarted(task: Task): boolean {
 function isTaskUrgent(task: Task): boolean {
   if (isTaskInvalid(task) || isTaskOverdue(task) || isTaskNotStarted(task)) return false;
   let startStr = task.timeline, endStr = task.timelinend;
-  if (!endStr && startStr && startStr.includes('-')) {
+  if (!endStr && startStr?.includes('-')) {
     const parts = startStr.split('-');
-    startStr = parts[0] || '';
-    endStr = parts[1] || '';
+    startStr = parts[0];
+    endStr = parts[1];
   }
   const start = parseDate(startStr || '');
   const end = parseDate(endStr || '');
@@ -1015,22 +668,24 @@ function taskStatusClass(task: Task): string {
   if (isTaskUrgent(task)) return 'task-urgent';
   return '';
 }
-
-const activeTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status !== 'выполнена') || []);
-const completedTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'выполнена') || []);
-const inProgressTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'в работе') || []);
-const waitingTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'ожидает') || []);
-
+function getTaskStatusText(status: string): string {
+  switch (status) {
+    case 'в работе': return t('projectDetails.status.inProgress');
+    case 'ожидает': return t('projectDetails.status.waiting');
+    case 'выполнена': return t('projectDetails.status.completed');
+    default: return status;
+  }
+}
 const activeTasksProgress = computed(() => {
-  if (!project.value || !activeTasks.value) return [];
+  if (!project.value || !activeTasks.value.length) return [];
   const today = new Date(); today.setHours(0, 0, 0, 0);
   return activeTasks.value.map(task => {
     let startStr = task.timeline || '';
     let endStr = task.timelinend || '';
     if (!endStr && startStr.includes('-')) {
       const parts = startStr.split('-');
-      startStr = parts[0] || '';
-      endStr = parts[1] || '';
+      startStr = parts[0];
+      endStr = parts[1];
     }
     const startDate = parseDate(startStr);
     const endDate = parseDate(endStr);
@@ -1063,67 +718,7 @@ const activeTasksProgress = computed(() => {
   });
 });
 
-const goToTask = (task: Task) => {
-  if (!project.value || !project.value.tasks) return;
-  const index = project.value.tasks.findIndex(t => t === task);
-  if (index !== -1) router.push(`/project/${route.params.id}/task/${index}`);
-};
-
-const deleteProject = async () => {
-  if (!project.value) return;
-  if (confirm('Вы уверены, что хотите удалить проект? Это действие необратимо.')) {
-    try {
-      await projectsStore.deleteProject(project.value.id);
-      router.push('/main');
-    } catch (err) {
-      console.error('Ошибка при удалении проекта:', err);
-      alert('Не удалось удалить проект');
-    }
-  }
-};
-
-const hideProject = async () => {
-  if (!project.value) return;
-  if (confirm('Скрыть проект из списка? Вы сможете снова его увидеть, если заказчик или куратор вернёт его.')) {
-    try {
-      await axios.patch(`${baseUrl}/projects/${project.value.id}/hide`);
-      showNotification('Проект скрыт', 'success');
-      router.push('/main'); // или на список проектов
-    } catch (error) {
-      console.error('Failed to hide project', error);
-      showNotification('Ошибка при скрытии проекта', 'error');
-    }
-  }
-};
-
-const goToEdit = () => router.push(`/project/edit/${route.params.id}`);
-const goToSuggest = () => router.push(`/project/edit/${route.params.id}?mode=suggest`);
-const goHome = () => router.push('/main');
-const goToUser = (userId: number) => router.push(`/user/${userId}`);
-const openInviteModal = () => { showInviteModal.value = true; };
-
-const handleAuthorImageError = (id: number) => {
-  if (!avatarError.value) avatarError.value = {};
-  avatarError.value[id] = true;
-};
-
-const avatarError = ref<Record<number, boolean>>({});
-
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'только что';
-  if (diffMins < 60) return `${diffMins} мин назад`;
-  if (diffHours < 24) return `${diffHours} ч назад`;
-  if (diffDays === 1) return 'вчера';
-  if (diffDays < 7) return `${diffDays} дн назад`;
-  return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
+// ---- Функции уведомлений ----
 const notification = ref({ show: false, message: '', type: 'error' as 'error' | 'info' | 'success' });
 let notificationTimeout: number | null = null;
 function showNotification(message: string, type: 'error' | 'info' | 'success' = 'error', duration = 5000) {
@@ -1131,6 +726,273 @@ function showNotification(message: string, type: 'error' | 'info' | 'success' = 
   notification.value = { show: true, message, type };
   notificationTimeout = window.setTimeout(() => { notification.value.show = false; }, duration);
 }
+
+// ---- Загрузка данных ----
+async function loadProject() {
+  const id = Number(route.params.id);
+  if (isNaN(id)) {
+    error.value = t('projectDetails.invalidId');
+    loading.value = false;
+    return;
+  }
+  try {
+    project.value = await projectsStore.fetchProjectById(id);
+    if (usersStore.users.length === 0) await usersStore.fetchAllUsers();
+  } catch (err) {
+    error.value = t('projectDetails.loadError');
+    console.error(err);
+  } finally {
+    loading.value = false;
+  }
+}
+
+// ---- Действия с запросами на вступление ----
+async function respondToProject() {
+  if (!project.value) return;
+  responding.value = true;
+  try {
+    await axios.post(`${baseUrl}/projects/${project.value.id}/join-requests`);
+    showNotification(t('projectDetails.requestSent'), 'success');
+    await loadProject();
+  } catch (err: any) {
+    showNotification(err.response?.data?.detail || t('projectDetails.requestError'), 'error');
+  } finally {
+    responding.value = false;
+  }
+}
+async function acceptJoinRequest(requestId: string) {
+  if (!project.value) return;
+  try {
+    await axios.put(`${baseUrl}/projects/${project.value.id}/join-requests/${requestId}/accept`);
+    showNotification(t('projectDetails.requestAccepted'), 'success');
+    await loadProject();
+  } catch (err) {
+    showNotification(t('projectDetails.acceptError'), 'error');
+  }
+}
+async function rejectJoinRequest(requestId: string) {
+  if (!project.value) return;
+  try {
+    await axios.put(`${baseUrl}/projects/${project.value.id}/join-requests/${requestId}/reject`);
+    showNotification(t('projectDetails.requestRejected'), 'success');
+    await loadProject();
+  } catch (err) {
+    showNotification(t('projectDetails.rejectError'), 'error');
+  }
+}
+
+// ---- Работа с комментариями ----
+const addProjectComment = async (content: string) => {
+  if (!project.value || !authStore.user || !hasFullAccess.value) return;
+  const newComment: Comment = {
+    id: uuidv4(),
+    authorId: authStore.user.id,
+    content,
+    createdAt: new Date().toISOString(),
+    isRead: false,
+    hidden: false,
+  };
+  try {
+    const response = await axios.post(`${baseUrl}/projects/${project.value.id}/comments`, newComment);
+    project.value = response.data;
+    showProjectComments.value = true;
+  } catch (error) {
+    alert(t('commentsSection.saveError'));
+  }
+};
+const markProjectCommentAsRead = async (commentId: string) => {
+  if (!project.value || !commentId) return;
+  try {
+    await axios.put(`${baseUrl}/projects/${project.value.id}/comments/${commentId}/read`);
+    if (project.value.comments) {
+      project.value.comments = project.value.comments.map(c =>
+        c.id === commentId ? { ...c, isRead: true } : c
+      );
+    }
+  } catch (error) {
+    alert(t('commentsSection.markReadError'));
+  }
+};
+const hideProjectComment = async (commentId: string) => {
+  if (!project.value || !commentId) return;
+  try {
+    const response = await axios.delete(`${baseUrl}/projects/${project.value.id}/comments/${commentId}`);
+    project.value = response.data;
+  } catch (error) {
+    alert(t('commentsSection.hideError'));
+  }
+};
+const restoreProjectComment = async (commentId: string) => {
+  if (!project.value || !commentId) return;
+  try {
+    await axios.post(`${baseUrl}/projects/${project.value.id}/comments/${commentId}/restore`);
+    showNotification(t('commentsSection.restoreSuccess'), 'success');
+    await loadProject();
+  } catch (error) {
+    showNotification(t('commentsSection.restoreError'), 'error');
+  }
+};
+const permanentDeleteComment = async (commentId: string) => {
+  if (!project.value || !commentId) return;
+  try {
+    await axios.delete(`${baseUrl}/admin/comments/${commentId}`);
+    showNotification(t('commentsSection.permanentDeleteSuccess'), 'success');
+    await loadProject();
+  } catch (error) {
+    showNotification(t('commentsSection.permanentDeleteError'), 'error');
+  }
+};
+
+// ---- Работа с предложениями ----
+const suggestions = computed(() => project.value?.suggestions || []);
+const acceptSuggestion = async (suggestionId: string) => {
+  if (!project.value) return;
+  try {
+    const response = await axios.put(`${baseUrl}/projects/${project.value.id}/suggestions/${suggestionId}/accept`);
+    project.value = response.data;
+  } catch (error) {
+    alert(t('suggestions.acceptError'));
+  }
+};
+const rejectSuggestion = async (suggestionId: string) => {
+  if (!project.value) return;
+  try {
+    const response = await axios.put(`${baseUrl}/projects/${project.value.id}/suggestions/${suggestionId}/reject`);
+    project.value = response.data;
+  } catch (error) {
+    alert(t('suggestions.rejectError'));
+  }
+};
+const addSuggestionComment = async () => alert(t('suggestions.commentsNotImplemented'));
+const markSuggestionCommentRead = async () => {};
+const deleteSuggestionComment = async () => {};
+const hideSuggestionComment = async () => {};
+
+// ---- Приглашения ----
+const showInviteModal = ref(false);
+const sendInvite = async (email: string, role: ProjectRole) => {
+  if (!project.value) return;
+  try {
+    const response = await axios.post(`${baseUrl}/projects/${project.value.id}/invite`, { email, role });
+    alert(`${t('inviteModal.inviteCreated')} ${response.data.token}`);
+  } catch (error) {
+    alert(t('inviteModal.inviteError'));
+  }
+};
+
+// ---- Ссылки проекта ----
+async function updateProjectLinks(updates: Partial<NonNullable<Project['links']>>) {
+  if (!project.value) return;
+  try {
+    const newLinks = { ...(project.value.links || {}), ...updates };
+    await axios.put(`${baseUrl}/projects/${project.value.id}`, { links: newLinks });
+    project.value.links = newLinks;
+  } catch (err) {
+    alert(t('projectDetails.linkUpdateError'));
+  }
+}
+function saveGithubLink() {
+  if (githubInput.value.trim()) updateProjectLinks({ github: githubInput.value.trim() });
+  showGithubInput.value = false;
+  githubInput.value = '';
+}
+function cancelGithub() { showGithubInput.value = false; githubInput.value = ''; }
+function startEditGithub() {
+  githubEditValue.value = project.value?.links?.github || '';
+  showEditGithub.value = true;
+}
+function saveEditGithub() {
+  if (githubEditValue.value.trim()) updateProjectLinks({ github: githubEditValue.value.trim() });
+  showEditGithub.value = false;
+  githubEditValue.value = '';
+}
+function cancelEditGithub() { showEditGithub.value = false; githubEditValue.value = ''; }
+async function deleteGithubLink() {
+  if (!project.value?.links?.github) return;
+  if (confirm(t('projectDetails.confirmDeleteGithub'))) {
+    const newLinks = { ...project.value.links };
+    delete newLinks.github;
+    await updateProjectLinks(newLinks);
+  }
+}
+function saveDriveLink() {
+  if (driveInput.value.trim()) updateProjectLinks({ google_drive: driveInput.value.trim() });
+  showDriveInput.value = false;
+  driveInput.value = '';
+}
+function cancelDrive() { showDriveInput.value = false; driveInput.value = ''; }
+function startEditDrive() {
+  driveEditValue.value = project.value?.links?.google_drive || '';
+  showEditDrive.value = true;
+}
+function saveEditDrive() {
+  if (driveEditValue.value.trim()) updateProjectLinks({ google_drive: driveEditValue.value.trim() });
+  showEditDrive.value = false;
+  driveEditValue.value = '';
+}
+function cancelEditDrive() { showEditDrive.value = false; driveEditValue.value = ''; }
+async function deleteDriveLink() {
+  if (!project.value?.links?.google_drive) return;
+  if (confirm(t('projectDetails.confirmDeleteDrive'))) {
+    const newLinks = { ...project.value.links };
+    delete newLinks.google_drive;
+    await updateProjectLinks(newLinks);
+  }
+}
+
+// ---- Удаление/скрытие проекта ----
+const handleProjectDelete = async () => {
+  if (!project.value) return;
+  deleteInProgress.value = true;
+  if (isAdminOrCurator.value) {
+    if (confirm(t('projectDetails.confirmDeleteProject'))) {
+      try {
+        await axios.delete(`${baseUrl}/projects/${project.value.id}`);
+        showNotification(t('projectDetails.projectDeleted'), 'success');
+        router.push('/main');
+      } catch (error) {
+        showNotification(t('projectDetails.deleteError'), 'error');
+      }
+    }
+  } else {
+    if (confirm(t('projectDetails.confirmHideProject'))) {
+      try {
+        await axios.patch(`${baseUrl}/projects/${project.value.id}/hide`);
+        showNotification(t('projectDetails.projectHidden'), 'success');
+        router.push('/main');
+      } catch (error) {
+        showNotification(t('projectDetails.hideError'), 'error');
+      }
+    }
+  }
+  deleteInProgress.value = false;
+};
+
+// ---- Навигация ----
+const goToEdit = () => router.push(`/project/edit/${route.params.id}`);
+const goHome = () => router.push('/main');
+const goToUser = (userId: number) => router.push(`/user/${userId}`);
+const goToTask = (task: Task) => {
+  if (!project.value?.tasks) return;
+  const index = project.value.tasks.findIndex(t => t === task);
+  if (index !== -1) router.push(`/project/${route.params.id}/task/${index}`);
+};
+const openInviteModal = () => { showInviteModal.value = true; };
+
+// ---- Вспомогательные для аватаров ----
+const avatarError = ref<Record<number, boolean>>({});
+const handleAuthorImageError = (id: number) => {
+  if (!avatarError.value) avatarError.value = {};
+  avatarError.value[id] = true;
+};
+
+// ---- Жизненный цикл ----
+onMounted(() => {
+  loadProject();
+});
+watch(() => route.params.id, () => {
+  loadProject();
+});
 </script>
 
 <style scoped>

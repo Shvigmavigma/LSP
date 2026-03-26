@@ -1,10 +1,10 @@
 <template>
   <div class="all-users-page">
     <header class="users-header">
-      <h1>Пользователи</h1>
+      <h1>{{ $t('allUsers.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
       </div>
     </header>
 
@@ -14,21 +14,21 @@
         :class="{ active: filterType === 'all' }"
         @click="setFilter('all')"
       >
-        Все
+        {{ $t('allUsers.filterAll') }}
       </button>
       <button
         class="tab-button"
         :class="{ active: filterType === 'students' }"
         @click="setFilter('students')"
       >
-        Ученики
+        {{ $t('allUsers.filterStudents') }}
       </button>
       <button
         class="tab-button"
         :class="{ active: filterType === 'teachers' }"
         @click="setFilter('teachers')"
       >
-        Учителя
+        {{ $t('allUsers.filterTeachers') }}
       </button>
     </div>
 
@@ -40,8 +40,8 @@
       />
     </div>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
-    <div v-else-if="users.length === 0" class="no-users">Пользователи не найдены</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
+    <div v-else-if="users.length === 0" class="no-users">{{ $t('allUsers.noUsers') }}</div>
     <div v-else class="users-grid">
       <div
         v-for="user in users"
@@ -63,7 +63,7 @@
         <p class="user-email">{{ user.email }}</p>
 
         <template v-if="!user.is_teacher">
-          <div class="user-class">Класс: {{ user.class }}</div>
+          <div class="user-class">{{ $t('allUsers.classLabel') }}: {{ user.class }}</div>
           <div v-if="user.speciality" class="user-speciality">{{ user.speciality }}</div>
         </template>
 
@@ -71,7 +71,7 @@
           <div v-if="user.teacher_info" class="user-roles">
             {{ getRolesText(user) }}
           </div>
-          <div v-if="user.speciality" class="user-speciality">Предмет: {{ user.speciality }}</div>
+          <div v-if="user.speciality" class="user-speciality">{{ $t('allUsers.subjectLabel') }}: {{ user.speciality }}</div>
         </template>
       </div>
     </div>
@@ -82,9 +82,11 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUsersStore } from '@/stores/users';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import type { User } from '@/types';
 
+const { t } = useI18n();
 const router = useRouter();
 const usersStore = useUsersStore();
 const users = ref<User[]>([]);
@@ -101,9 +103,9 @@ const avatarUrl = (avatar: string) => `${baseUrl}/avatars/${avatar}`;
 
 const searchPlaceholder = computed(() => {
   switch (filterType.value) {
-    case 'students': return 'Поиск по ученикам...';
-    case 'teachers': return 'Поиск по учителям...';
-    default: return 'Поиск по всем пользователям...';
+    case 'students': return t('allUsers.searchStudents');
+    case 'teachers': return t('allUsers.searchTeachers');
+    default: return t('allUsers.searchAll');
   }
 });
 
@@ -154,19 +156,10 @@ function goHome() {
   router.push('/main');
 }
 
-function getRoleName(role: string): string {
-  switch (role) {
-    case 'supervisor': return 'Научный руководитель';
-    case 'expert': return 'Эксперт';
-    case 'customer': return 'Заказчик';
-    default: return role;
-  }
-}
-
 function getRolesText(user: User): string {
   if (!user.is_teacher || !user.teacher_info) return '';
-  const roles = user.teacher_info.roles.map(role => getRoleName(role));
-  if (user.teacher_info.curator) roles.push('Куратор');
+  const roles = user.teacher_info.roles.map(role => t(`roles.${role}`));
+  if (user.teacher_info.curator) roles.push(t('roles.curator'));
   return roles.join(', ');
 }
 </script>

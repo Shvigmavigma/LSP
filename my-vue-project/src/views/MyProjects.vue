@@ -1,26 +1,27 @@
 <template>
   <div class="my-projects-page">
     <header class="page-header">
-      <h1>Мои проекты</h1>
+      <h1>{{ $t('navigation.my_projects') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
       </div>
     </header>
 
     <!-- Кнопка создания проекта для заказчиков и кураторов (над списком) -->
     <div v-if="canCreateProject" class="create-section">
       <button class="create-button-top" @click="createProject">
-        + Создать новый проект
+        + {{ $t('myProjects.createProjectButton') }}
       </button>
     </div>
 
-    <div v-if="loading" class="loading">Загрузка проектов...</div>
+    <div v-if="loading" class="loading">{{ $t('myProjects.loadingProjects') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="projects.length === 0" class="no-projects">
-      <p>У вас пока нет проектов</p>
+      <p>{{ $t('myProjects.noProjects') }}</p>
       <button v-if="canCreateProject" class="create-button" @click="createProject">
-        Создать проект
+        {{ $t('myProjects.createProjectButton') }}
       </button>
     </div>
     <div v-else class="projects-grid">
@@ -33,7 +34,7 @@
         <h3 class="card-title">{{ project.title }}</h3>
         <p class="card-description">{{ project.body.slice(0, 150) }}...</p>
         <div class="card-footer">
-          <span class="participants-label">Участники:</span>
+          <span class="participants-label">{{ $t('myProjects.participantsLabel') }}:</span>
           <div class="participants-list">
             <div
               v-for="participant in project.participants"
@@ -49,7 +50,10 @@
                   @error="avatarError[participant.user_id] = true"
                 />
                 <span v-else>{{ getUserInitials(participant.user_id) }}</span>
-                <span class="role-badge" :title="getRoleDisplay(participant.role)">
+                <span
+                  class="role-badge"
+                  :title="$t('roles.' + participant.role)"
+                >
                   {{ getRoleIcon(participant.role) }}
                 </span>
               </div>
@@ -67,10 +71,13 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import axios from 'axios';
 import type { Project, ProjectRole } from '@/types';
 
+const { t } = useI18n();
 const router = useRouter();
 const authStore = useAuthStore();
 const usersStore = useUsersStore();
@@ -129,7 +136,7 @@ async function loadUserProjects() {
   console.log('Loading projects for user:', currentUserId.value);
   
   if (!currentUserId.value) {
-    error.value = 'Пользователь не авторизован';
+    error.value = t('myProjects.notAuthorized');
     loading.value = false;
     return;
   }
@@ -157,13 +164,13 @@ async function loadUserProjects() {
           const response = await axios.get(`/projects/?participant_id=${currentUserId.value}`);
           projects.value = response.data;
         } catch (retryErr) {
-          error.value = 'Ошибка загрузки проектов';
+          error.value = t('myProjects.errorLoad');
         }
       } else {
         router.push('/login');
       }
     } else {
-      error.value = err.response?.data?.detail || 'Ошибка загрузки проектов';
+      error.value = err.response?.data?.detail || t('myProjects.errorLoad');
     }
   } finally {
     loading.value = false;
@@ -195,17 +202,6 @@ function getRoleIcon(role: ProjectRole): string {
     curator: '👑',
   };
   return icons[role] || '';
-}
-
-function getRoleDisplay(role: ProjectRole): string {
-  const map: Record<ProjectRole, string> = {
-    customer: 'Заказчик',
-    supervisor: 'Научный руководитель',
-    expert: 'Эксперт',
-    executor: 'Исполнитель',
-    curator: 'Куратор',
-  };
-  return map[role];
 }
 
 function goToProject(id: number) {

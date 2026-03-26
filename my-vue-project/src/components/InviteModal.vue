@@ -2,35 +2,35 @@
   <Teleport to="body">
     <div v-if="show" class="modal-overlay" @click.self="close">
       <div class="modal-content">
-        <h3>Пригласить участника</h3>
+        <h3>{{ $t('inviteModal.title') }}</h3>
         <form @submit.prevent="submit">
           <div class="form-group">
-            <label for="email">Email пользователя</label>
+            <label for="email">{{ $t('inviteModal.emailLabel') }}</label>
             <input
               id="email"
               v-model="email"
               type="email"
-              placeholder="user@example.com"
+              :placeholder="$t('inviteModal.emailPlaceholder')"
               required
             />
           </div>
 
           <div class="form-group">
-            <label for="role">Роль</label>
+            <label for="role">{{ $t('inviteModal.roleLabel') }}</label>
             <select id="role" v-model="role" required>
-              <option value="executor">Исполнитель</option>
-              <option value="customer">Заказчик</option>
-              <option value="supervisor">Научный руководитель</option>
-              <option value="expert">Эксперт</option>
-              <option value="curator">Куратор</option>
+              <option value="executor">{{ $t('roles.executor') }}</option>
+              <option value="customer">{{ $t('roles.customer') }}</option>
+              <option value="supervisor">{{ $t('roles.supervisor') }}</option>
+              <option value="expert">{{ $t('roles.expert') }}</option>
+              <option value="curator">{{ $t('roles.curator') }}</option>
             </select>
           </div>
 
           <div class="modal-actions">
             <button type="submit" class="invite-btn" :disabled="sending">
-              {{ sending ? 'Отправка...' : 'Отправить приглашение' }}
+              {{ sending ? $t('common.sending') : $t('inviteModal.sendButton') }}
             </button>
-            <button type="button" class="cancel-btn" @click="close">Отмена</button>
+            <button type="button" class="cancel-btn" @click="close">{{ $t('common.cancel') }}</button>
           </div>
         </form>
       </div>
@@ -40,7 +40,10 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { ProjectRole } from '@/types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   show: boolean;

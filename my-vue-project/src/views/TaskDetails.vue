@@ -9,53 +9,57 @@
     </Transition>
 
     <header class="details-header">
-      <h1>Детали задачи</h1>
+      <h1>{{ $t('taskDetails.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <!-- Кнопка редактирования для заказчика, исполнителя, куратора, админа -->
+        <LanguageSwitcher />
         <router-link v-if="canEditTask" :to="`/project/${projectId}/task/${taskIndex}/edit`">
-          <button class="icon-button edit-task-button" title="Редактировать задачу">✎</button>
+          <button class="icon-button edit-task-button" :title="$t('common.edit')">✎</button>
         </router-link>
-        <button class="icon-button home-button" @click="goHome" title="На главную">🏠</button>
-        <button class="icon-button back-button" @click="goBack" title="Вернуться к проекту">◀</button>
+        <button class="icon-button home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <button class="icon-button back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
 
-    <div v-if="loading" class="loading">Загрузка...</div>
+    <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
 
     <div v-else-if="task" class="task-card" :class="taskStatusClass">
       <h2 class="task-title">{{ task.title }}</h2>
 
       <section class="task-section">
-        <h3>Статус</h3>
-        <p>{{ task.status }}</p>
+        <h3>{{ $t('taskDetails.status') }}</h3>
+        <p>{{ getTaskStatusText(task.status) }}</p>
       </section>
 
       <section class="task-section">
-        <h3>Описание</h3>
+        <h3>{{ $t('taskDetails.description') }}</h3>
         <p>{{ task.body }}</p>
       </section>
 
       <section class="task-section">
-        <h3>Период выполнения</h3>
+        <h3>{{ $t('taskDetails.period') }}</h3>
         <p>
           <span :class="{ 'invalid-date': !isValidDateFormat(task.timeline) }">{{ task.timeline || '?' }}</span>
           –
           <span :class="{ 'invalid-date': !isValidDateFormat(task.timelinend) }">{{ task.timelinend || '?' }}</span>
         </p>
-        <span v-if="!isValidDateFormat(task.timeline) && task.timeline" class="date-warning">⚠️ Неверный формат даты начала</span>
-        <span v-if="!isValidDateFormat(task.timelinend) && task.timelinend" class="date-warning">⚠️ Неверный формат даты окончания</span>
+        <span v-if="!isValidDateFormat(task.timeline) && task.timeline" class="date-warning">
+          ⚠️ {{ $t('taskDetails.invalidStartDateWarning') }}
+        </span>
+        <span v-if="!isValidDateFormat(task.timelinend) && task.timelinend" class="date-warning">
+          ⚠️ {{ $t('taskDetails.invalidEndDateWarning') }}
+        </span>
       </section>
 
       <!-- Комментарии к задаче -->
       <section class="task-section comments-main-section">
         <div class="section-header">
-          <h3>Комментарии к задаче</h3>
+          <h3>{{ $t('taskDetails.taskComments') }}</h3>
           <button v-if="hasFullAccess" class="comment-toggle-btn" @click="showTaskComments = !showTaskComments">
             <span class="btn-content">
               <span class="comment-icon">💬</span>
-              {{ showTaskComments ? 'Скрыть' : 'Показать' }}
+              {{ showTaskComments ? $t('common.hide') : $t('common.show') }}
               <span v-if="unreadTaskCommentsCount > 0" class="header-unread-badge">{{ unreadTaskCommentsCount }}</span>
             </span>
           </button>
@@ -79,27 +83,27 @@
 
       <!-- Диаграмма Ганта (общий прогресс) -->
       <section class="gantt-section">
-        <h3>Общий прогресс</h3>
+        <h3>{{ $t('taskDetails.totalProgress') }}</h3>
         <div class="gantt-container">
           <div class="gantt-bar-container">
             <div class="gantt-bar" :style="{ width: totalProgress + '%', backgroundColor: barColor }"
-                 :title="`Прогресс: ${totalProgress.toFixed(1)}%`"></div>
+                 :title="`${$t('taskDetails.progress')}: ${totalProgress.toFixed(1)}%`"></div>
             <span class="gantt-percent">{{ totalProgress.toFixed(1) }}%</span>
             <span class="gantt-dates">{{ task.timeline || '?' }} – {{ task.timelinend || '?' }}</span>
           </div>
           <div class="gantt-labels">
             <span>{{ task.timeline || '?' }}</span>
-            <span>Сегодня</span>
+            <span>{{ $t('taskDetails.today') }}</span>
             <span>{{ task.timelinend || '?' }}</span>
           </div>
         </div>
         <div class="progress-breakdown" v-if="subtasks.length > 0">
           <div class="breakdown-item">
-            <span class="breakdown-label">Подзадачи:</span>
+            <span class="breakdown-label">{{ $t('taskDetails.subtasks') }}:</span>
             <span class="breakdown-value">{{ completedSubtasksPercent.toFixed(1) }}%</span>
           </div>
           <div class="breakdown-item">
-            <span class="breakdown-label">Дополнительно:</span>
+            <span class="breakdown-label">{{ $t('taskDetails.extra') }}:</span>
             <span class="breakdown-value">{{ extraProgress }}%</span>
           </div>
         </div>
@@ -107,7 +111,7 @@
 
       <!-- Подзадачи -->
       <section v-if="subtasks.length > 0" class="subtasks-section">
-        <h3>Подзадачи</h3>
+        <h3>{{ $t('taskDetails.subtasks') }}</h3>
         <div class="subtasks-list">
           <div v-for="subtask in subtasks" :key="subtask.id" class="subtask-item" :class="{ completed: subtask.completed }">
             <div class="subtask-info">
@@ -120,68 +124,70 @@
           </div>
         </div>
         <div class="subtasks-summary">
-          Выполнено подзадач: {{ completedSubtasksPercent.toFixed(1) }}% / {{ totalSubtasksPercent.toFixed(1) }}%
+          {{ $t('taskDetails.subtasksCompleted') }}: {{ completedSubtasksPercent.toFixed(1) }}% / {{ totalSubtasksPercent.toFixed(1) }}%
         </div>
       </section>
 
       <!-- Ползунок дополнительного прогресса (только для редакторов, если задача в работе) -->
       <section v-if="showManualProgress && canEditTask" class="progress-section">
-        <h3>Дополнительный прогресс (вне подзадач)</h3>
+        <h3>{{ $t('taskDetails.extraProgress') }}</h3>
         <div class="progress-slider-container">
           <span class="progress-value">{{ sliderValue }}%</span>
           <span class="progress-max"> / {{ maxExtra.toFixed(1) }}%</span>
           <input type="range" v-model.number="sliderValue" class="progress-slider" :min="0" :max="maxExtra" step="1" />
         </div>
-        <button class="apply-progress-button" @click="openConfirmDialog">Применить дополнительный прогресс</button>
+        <button class="apply-progress-button" @click="openConfirmDialog">{{ $t('taskDetails.applyExtraProgress') }}</button>
       </section>
       <div v-else-if="showManualProgress && !canEditTask" class="progress-section-disabled">
-        <p class="disabled-message">🔒 Только заказчик, исполнитель или куратор могут изменять прогресс</p>
+        <p class="disabled-message">🔒 {{ $t('taskDetails.onlyEditorsCanChangeProgress') }}</p>
       </div>
 
       <!-- Кнопки действий -->
       <section class="action-buttons" v-if="hasFullAccess">
-        <!-- Задача не выполнена – показываем кнопку завершения для всех участников,
-             но если не редактор, кнопка не активна и при клике покажет уведомление -->
         <div v-if="task.status !== 'выполнена'">
           <button class="complete-button" @click="completeTask"
                   :disabled="actionInProgress || totalProgress < 100 || !canEditTask"
-                  :title="!canEditTask ? 'Только редакторы могут завершать задачу' : (totalProgress < 100 ? 'Завершить задачу можно только при 100% прогрессе' : '')">
-            {{ actionInProgress ? 'Завершение...' : '✓ Завершить задачу' }}
+                  :title="!canEditTask ? $t('taskDetails.onlyEditorsCanComplete') : (totalProgress < 100 ? $t('taskDetails.completeOnlyAt100') : '')">
+            {{ actionInProgress ? $t('common.sending') : $t('taskDetails.completeTask') }}
           </button>
         </div>
-
-        <!-- Задача выполнена – показываем возможность возобновить только редакторам -->
         <div v-else>
           <template v-if="canEditTask">
             <button v-if="!showRenewOptions" class="renew-button" @click="showRenewOptions = true" :disabled="actionInProgress">
-              🔄 Возобновить
+              🔄 {{ $t('taskDetails.renew') }}
             </button>
             <div v-else class="renew-options">
-              <button class="status-option work" @click="updateTaskStatus('в работе')" :disabled="actionInProgress">В работе</button>
-              <button class="status-option waiting" @click="updateTaskStatus('ожидает')" :disabled="actionInProgress">Ожидает</button>
-              <button class="status-option cancel" @click="showRenewOptions = false">Отмена</button>
+              <button class="status-option work" @click="updateTaskStatus('в работе')" :disabled="actionInProgress">
+                {{ $t('projectDetails.status.inProgress') }}
+              </button>
+              <button class="status-option waiting" @click="updateTaskStatus('ожидает')" :disabled="actionInProgress">
+                {{ $t('projectDetails.status.waiting') }}
+              </button>
+              <button class="status-option cancel" @click="showRenewOptions = false">
+                {{ $t('common.cancel') }}
+              </button>
             </div>
           </template>
-          <span v-else class="task-completed-info">Задача выполнена</span>
+          <span v-else class="task-completed-info">{{ $t('taskDetails.taskCompleted') }}</span>
         </div>
       </section>
 
       <!-- Бейджики состояния -->
       <section class="status-badges">
-        <span v-if="isInvalid" class="badge invalid">Невозможный дедлайн</span>
-        <span v-if="isOverdue" class="badge overdue">Просрочено</span>
-        <span v-if="isUrgent && !isOverdue && !isInvalid" class="badge urgent">Срочно</span>
+        <span v-if="isInvalid" class="badge invalid">{{ $t('taskDetails.impossibleDeadline') }}</span>
+        <span v-if="isOverdue" class="badge overdue">{{ $t('taskDetails.overdue') }}</span>
+        <span v-if="isUrgent && !isOverdue && !isInvalid" class="badge urgent">{{ $t('taskDetails.urgent') }}</span>
       </section>
     </div>
 
     <!-- Модальное окно подтверждения -->
     <div v-if="showConfirmDialog" class="modal-overlay" @click.self="closeConfirmDialog">
       <div class="modal-content">
-        <h3>Подтверждение</h3>
-        <p>Изменить дополнительный прогресс на {{ sliderValue }}%?</p>
+        <h3>{{ $t('common.confirm') }}</h3>
+        <p>{{ $t('taskDetails.confirmExtraProgress', { value: sliderValue }) }}</p>
         <div class="modal-actions">
-          <button class="modal-confirm" @click="confirmExtraChange">Да</button>
-          <button class="modal-cancel" @click="closeConfirmDialog">Нет</button>
+          <button class="modal-confirm" @click="confirmExtraChange">{{ $t('common.yes') }}</button>
+          <button class="modal-cancel" @click="closeConfirmDialog">{{ $t('common.no') }}</button>
         </div>
       </div>
     </div>
@@ -191,14 +197,17 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import CommentsSection from '@/components/CommentsSection.vue';
 import type { Task, SubTask, Comment, ProjectRole } from '@/types';
 import axios from 'axios';
 
+const { t } = useI18n();
 const baseUrl = 'http://localhost:8000';
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
@@ -251,9 +260,14 @@ const userRole = computed<ProjectRole | null>(() => {
   return participant?.role || null;
 });
 
-// Глобальные роли
-const isAdmin = computed(() => authStore.user?.is_admin === true);
-const isCurator = computed(() => authStore.user?.is_teacher && authStore.user?.teacher_info?.curator === true);
+// Глобальные роли (приводим к boolean)
+const isAdmin = computed(() => (authStore.user?.is_admin ?? false));
+const isCurator = computed(() => {
+  const user = authStore.user;
+  if (!user) return false;
+  if (!user.is_teacher) return false;
+  return user.teacher_info?.curator ?? false;
+});
 
 // Полный доступ (участник, админ или куратор)
 const hasFullAccess = computed(() => !!userRole.value || isAdmin.value || isCurator.value);
@@ -319,7 +333,7 @@ const showManualProgress = computed(() => task.value?.status === 'в работ�
 // Загрузка
 onMounted(async () => {
   if (isNaN(projectId) || isNaN(taskIndex) || taskIndex < 0) {
-    error.value = 'Некорректные параметры';
+    error.value = t('taskDetails.invalidParams');
     loading.value = false;
     return;
   }
@@ -327,7 +341,7 @@ onMounted(async () => {
   try {
     project.value = await projectsStore.fetchProjectById(projectId);
     if (!project.value || !project.value.tasks || !project.value.tasks[taskIndex]) {
-      error.value = 'Задача не найдена';
+      error.value = t('taskDetails.taskNotFound');
     } else {
       const loadedTask = project.value.tasks[taskIndex];
       task.value = loadedTask;
@@ -343,7 +357,7 @@ onMounted(async () => {
       }
     }
   } catch (err) {
-    error.value = 'Ошибка загрузки';
+    error.value = t('taskDetails.loadError');
     console.error(err);
   } finally {
     loading.value = false;
@@ -419,10 +433,19 @@ const taskStatusClass = computed(() => {
   return '';
 });
 
+function getTaskStatusText(status: string): string {
+  switch (status) {
+    case 'в работе': return t('projectDetails.status.inProgress');
+    case 'ожидает': return t('projectDetails.status.waiting');
+    case 'выполнена': return t('projectDetails.status.completed');
+    default: return status;
+  }
+}
+
 // --- Методы для задач ---
 const toggleSubtask = async (subtask: SubTask) => {
   if (!canEditTask.value) { 
-    showNotification('Только заказчик, исполнитель или куратор могут изменять подзадачи', 'info'); 
+    showNotification(t('taskDetails.onlyEditorsCanEditSubtasks'), 'info'); 
     return; 
   }
   const currentProject = project.value;
@@ -452,13 +475,13 @@ const toggleSubtask = async (subtask: SubTask) => {
     savedProgress.value = newTotal;
   } catch (err) {
     console.error('Ошибка при переключении подзадачи:', err);
-    showNotification('Не удалось обновить подзадачу', 'error');
+    showNotification(t('taskDetails.subtaskUpdateError'), 'error');
   } finally { actionInProgress.value = false; }
 };
 
 const completeTask = async () => {
   if (!canEditTask.value) { 
-    showNotification('Только заказчик, исполнитель или куратор могут завершать задачи', 'info'); 
+    showNotification(t('taskDetails.onlyEditorsCanComplete'), 'info'); 
     return; 
   }
   const currentProject = project.value;
@@ -472,13 +495,13 @@ const completeTask = async () => {
     router.push(`/project/${projectId}`);
   } catch (err) {
     console.error('Ошибка при завершении задачи:', err);
-    showNotification('Не удалось завершить задачу', 'error');
+    showNotification(t('taskDetails.completeError'), 'error');
   } finally { actionInProgress.value = false; }
 };
 
 const updateTaskStatus = async (newStatus: string) => {
   if (!canEditTask.value) { 
-    showNotification('Только заказчик, исполнитель или куратор могут изменять статус', 'info'); 
+    showNotification(t('taskDetails.onlyEditorsCanChangeStatus'), 'info'); 
     return; 
   }
   const currentProject = project.value;
@@ -494,14 +517,14 @@ const updateTaskStatus = async (newStatus: string) => {
     showRenewOptions.value = false;
   } catch (err) {
     console.error('Ошибка при обновлении статуса задачи:', err);
-    showNotification('Не удалось изменить статус задачи', 'error');
+    showNotification(t('taskDetails.statusUpdateError'), 'error');
   } finally { actionInProgress.value = false; }
 };
 
 // --- Функции для работы с комментариями ---
 const addTaskComment = async (content: string) => {
   if (!hasFullAccess.value) { 
-    showNotification('Только участники, администраторы и кураторы могут комментировать', 'info'); 
+    showNotification(t('taskDetails.onlyParticipantsCanComment'), 'info'); 
     return; 
   }
   if (!project.value || !task.value || !authStore.user) return;
@@ -522,7 +545,7 @@ const addTaskComment = async (content: string) => {
     showTaskComments.value = true;
   } catch (error) {
     console.error('Failed to add comment:', error);
-    showNotification('Ошибка при добавлении комментария', 'error');
+    showNotification(t('commentsSection.saveError'), 'error');
   }
 };
 
@@ -540,7 +563,7 @@ const markTaskCommentAsRead = async (commentId: string) => {
     }
   } catch (error) {
     console.error('Failed to mark comment as read:', error);
-    showNotification('Ошибка при отметке комментария', 'error');
+    showNotification(t('commentsSection.markReadError'), 'error');
   }
 };
 
@@ -552,17 +575,15 @@ const hideTaskComment = async (commentId: string) => {
     task.value = project.value.tasks[taskIndex];
   } catch (error) {
     console.error('Failed to hide comment:', error);
-    showNotification('Ошибка при скрытии комментария', 'error');
+    showNotification(t('commentsSection.hideError'), 'error');
   }
 };
 
-// Новый метод для окончательного удаления комментария (только админ/куратор)
 const permanentDeleteComment = async (commentId: string) => {
   if (!project.value) return;
   try {
     await axios.delete(`${baseUrl}/admin/comments/${commentId}`);
-    showNotification('Комментарий удалён навсегда', 'success');
-    // Перезагружаем задачу
+    showNotification(t('commentsSection.permanentDeleteSuccess'), 'success');
     const updatedProject = await projectsStore.fetchProjectById(projectId);
     project.value = updatedProject;
     if (updatedProject && updatedProject.tasks && updatedProject.tasks[taskIndex]) {
@@ -570,7 +591,23 @@ const permanentDeleteComment = async (commentId: string) => {
     }
   } catch (error) {
     console.error('Failed to delete comment permanently', error);
-    showNotification('Ошибка при удалении комментария', 'error');
+    showNotification(t('commentsSection.permanentDeleteError'), 'error');
+  }
+};
+
+const restoreTaskComment = async (commentId: string) => {
+  if (!project.value) return;
+  try {
+    await axios.post(`${baseUrl}/projects/${projectId}/tasks/${taskIndex}/comments/${commentId}/restore`);
+    showNotification(t('commentsSection.restoreSuccess'), 'success');
+    const updatedProject = await projectsStore.fetchProjectById(projectId);
+    project.value = updatedProject;
+    if (updatedProject && updatedProject.tasks && updatedProject.tasks[taskIndex]) {
+      task.value = updatedProject.tasks[taskIndex];
+    }
+  } catch (error) {
+    console.error('Failed to restore comment', error);
+    showNotification(t('commentsSection.restoreError'), 'error');
   }
 };
 
@@ -583,24 +620,10 @@ const openConfirmDialog = () => {
 const closeConfirmDialog = () => { 
   showConfirmDialog.value = false; 
 };
-const restoreTaskComment = async (commentId: string) => {
-  if (!project.value) return;
-  try {
-    await axios.post(`${baseUrl}/projects/${projectId}/tasks/${taskIndex}/comments/${commentId}/restore`);
-    showNotification('Комментарий восстановлен', 'success');
-    const updatedProject = await projectsStore.fetchProjectById(projectId);
-    project.value = updatedProject;
-    if (updatedProject && updatedProject.tasks && updatedProject.tasks[taskIndex]) {
-      task.value = updatedProject.tasks[taskIndex];
-    }
-  } catch (error) {
-    console.error('Failed to restore comment', error);
-    showNotification('Ошибка при восстановлении комментария', 'error');
-  }
-};
+
 const confirmExtraChange = async () => {
   if (!canEditTask.value) { 
-    showNotification('Только заказчик, исполнитель или куратор могут изменять прогресс', 'info'); 
+    showNotification(t('taskDetails.onlyEditorsCanChangeProgress'), 'info'); 
     closeConfirmDialog(); 
     return; 
   }
@@ -622,7 +645,7 @@ const confirmExtraChange = async () => {
     savedProgress.value = newTotal;
   } catch (err) {
     console.error('Ошибка при обновлении прогресса:', err);
-    showNotification('Не удалось изменить прогресс', 'error');
+    showNotification(t('taskDetails.progressUpdateError'), 'error');
     sliderValue.value = savedProgress.value - completedSubtasksPercent.value;
   } finally { 
     actionInProgress.value = false; 

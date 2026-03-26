@@ -19,7 +19,7 @@
           class="spinner-button up"
           @click="handleArrowUp"
           :disabled="!canGoUp"
-          title="Увеличить"
+          :title="$t('classInput.increment')"
         >
           ▲
         </button>
@@ -28,7 +28,7 @@
           class="spinner-button down"
           @click="handleArrowDown"
           :disabled="!canGoDown"
-          title="Уменьшить"
+          :title="$t('classInput.decrement')"
         >
           ▼
         </button>
@@ -42,6 +42,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   modelValue: number | null;
@@ -52,6 +53,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: number | null): void;
 }>();
+
+const { t } = useI18n();
 
 // Локальное состояние для отображения ввода
 const inputValue = ref(props.modelValue?.toFixed(1) || '');
@@ -129,7 +132,7 @@ const handleInput = (e: Event) => {
       showError.value = false;
     } else {
       showError.value = true;
-      errorMessage.value = 'Поле обязательно';
+      errorMessage.value = t('classInput.required');
     }
   } else if (isValidClassString(masked)) {
     const num = parseFloat(masked);
@@ -137,7 +140,7 @@ const handleInput = (e: Event) => {
     showError.value = false;
   } else {
     showError.value = true;
-    errorMessage.value = 'Недопустимое значение класса';
+    errorMessage.value = t('classInput.invalid');
   }
 };
 
@@ -175,7 +178,7 @@ const handleBlur = () => {
   if (inputValue.value === '') {
     if (props.required) {
       showError.value = true;
-      errorMessage.value = 'Поле обязательно';
+      errorMessage.value = t('classInput.required');
     } else {
       emit('update:modelValue', null);
       showError.value = false;
@@ -190,6 +193,7 @@ const handleBlur = () => {
 </script>
 
 <style scoped>
+/* стили остаются без изменений */
 .class-input-wrapper {
   width: 100%;
 }

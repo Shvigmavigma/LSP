@@ -1,14 +1,15 @@
 <template>
   <div class="user-details-page">
     <header class="details-header">
-      <h1>Профиль пользователя</h1>
+      <h1>{{ $t('userDetails.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
       </div>
     </header>
 
-    <div v-if="loadingUser" class="loading">Загрузка данных пользователя...</div>
+    <div v-if="loadingUser" class="loading">{{ $t('common.loading') }}</div>
     <div v-else-if="errorUser" class="error">{{ errorUser }}</div>
     <div v-else-if="user" class="user-info-card">
       <div class="user-avatar" @click="openAvatarModal" :class="{ clickable: user.avatar }">
@@ -23,17 +24,22 @@
       <h2 class="user-nickname">{{ user.nickname }}</h2>
       <p class="user-fullname">{{ user.fullname }}</p>
       <p class="user-email">{{ user.email }}</p>
-      <p class="user-class">{{ user.class==0? "Учитель" : "Класс " + user.class }}</p>
-      <p v-if="user.speciality" class="user-speciality">Специальность: {{ user.speciality }}</p>
+      <p class="user-class">
+        <template v-if="user.is_teacher">{{ $t('userDetails.teacher') }}</template>
+        <template v-else>{{ $t('userDetails.classLabel') }} {{ user.class }}</template>
+      </p>
+      <p v-if="user.speciality" class="user-speciality">
+        {{ $t('userDetails.specialityLabel') }} {{ user.speciality }}
+      </p>
       <div v-if="user.is_teacher && user.teacher_info" class="user-roles">
-        Роли: {{ formatTeacherRoles(user.teacher_info) }}
+        {{ $t('userDetails.rolesLabel') }} {{ formatTeacherRoles(user.teacher_info) }}
       </div>
     </div>
 
     <div class="projects-section">
-      <h2>Проекты пользователя</h2>
-      <div v-if="loadingProjects" class="loading">Загрузка проектов...</div>
-      <div v-else-if="projects.length === 0" class="no-projects">Нет проектов</div>
+      <h2>{{ $t('userDetails.projectsTitle') }}</h2>
+      <div v-if="loadingProjects" class="loading">{{ $t('common.loading') }}</div>
+      <div v-else-if="projects.length === 0" class="no-projects">{{ $t('userDetails.noProjects') }}</div>
       <div v-else class="projects-grid">
         <div
           v-for="project in projects"
@@ -44,7 +50,7 @@
           <h3 class="card-title">{{ project.title }}</h3>
           <p class="card-description">{{ project.body.slice(0, 100) }}...</p>
           <div class="card-footer">
-            <span class="participants-label">Участники:</span>
+            <span class="participants-label">{{ $t('userDetails.participantsLabel') }}:</span>
             <div class="participants-list">
               <div
                 v-for="participant in project.participants"
@@ -60,7 +66,7 @@
                     @error="avatarErrorMap[participant.user_id] = true"
                   />
                   <span v-else>{{ getUserInitials(participant.user_id) }}</span>
-                  <span class="role-badge" :title="getRoleDisplay(participant.role)">
+                  <span class="role-badge" :title="$t(`roles.${participant.role}`)">
                     {{ getRoleIcon(participant.role) }}
                   </span>
                 </div>
@@ -84,12 +90,15 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import AvatarModal from '@/components/AvatarModal.vue';
 import type { User, Project, TeacherInfo, ProjectRole } from '@/types';
 import axios from 'axios';
 
+const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const usersStore = useUsersStore();
@@ -134,14 +143,12 @@ const loadUserData = async (id: number) => {
     loadingUser.value = false;
   } else {
     try {
-      // Пытаемся получить пользователя через API
       const response = await axios.get(`/users/${id}`);
       user.value = response.data;
-      // Добавляем в стор, если хотим
       usersStore.users.push(response.data);
       loadingUser.value = false;
     } catch (err) {
-      errorUser.value = 'Пользователь не найден';
+      errorUser.value = t('userDetails.userNotFound');
       loadingUser.value = false;
       loadingProjects.value = false;
       return;
@@ -163,7 +170,7 @@ onMounted(async () => {
   if (!isNaN(id)) {
     await loadUserData(id);
   } else {
-    errorUser.value = 'Неверный ID пользователя';
+    errorUser.value = t('userDetails.invalidId');
     loadingUser.value = false;
   }
 });
@@ -173,7 +180,7 @@ watch(() => route.params.id, async (newId) => {
   if (!isNaN(id)) {
     await loadUserData(id);
   } else {
-    errorUser.value = 'Неверный ID пользователя';
+    errorUser.value = t('userDetails.invalidId');
     loadingUser.value = false;
   }
 });
@@ -204,24 +211,13 @@ function getRoleIcon(role: ProjectRole): string {
   return icons[role] || '';
 }
 
-function getRoleDisplay(role: ProjectRole): string {
-  const map: Record<ProjectRole, string> = {
-    customer: 'Заказчик',
-    supervisor: 'Научный руководитель',
-    expert: 'Эксперт',
-    executor: 'Исполнитель',
-    curator: 'Куратор',
-  };
-  return map[role];
-}
-
 function formatTeacherRoles(info: TeacherInfo): string {
   const roles: string[] = [];
-  if (info.roles.includes('supervisor')) roles.push('Научный руководитель');
-  if (info.roles.includes('expert')) roles.push('Эксперт');
-  if (info.roles.includes('customer')) roles.push('Заказчик');
-  if (info.curator) roles.push('Куратор');
-  return roles.join(', ') || 'Роли не назначены';
+  if (info.roles.includes('supervisor')) roles.push(t('roles.supervisor'));
+  if (info.roles.includes('expert')) roles.push(t('roles.expert'));
+  if (info.roles.includes('customer')) roles.push(t('roles.customer'));
+  if (info.curator) roles.push(t('roles.curator'));
+  return roles.join(', ') || t('userDetails.noRoles');
 }
 
 const goToProject = (projectId: number) => {

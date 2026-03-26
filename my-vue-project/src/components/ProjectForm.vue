@@ -1,24 +1,32 @@
 <template>
   <form @submit.prevent="onSubmit">
-    <label>Название</label>
+    <label>{{ $t('projectForm.titleLabel') }}</label>
     <input v-model="localForm.title" required />
 
-    <label>Описание (body)</label>
+    <label>{{ $t('projectForm.bodyLabel') }}</label>
     <textarea v-model="localForm.body" required></textarea>
 
-    <label>Дополнительно (underbody)</label>
+    <label>{{ $t('projectForm.underbodyLabel') }}</label>
     <textarea v-model="localForm.underbody"></textarea>
 
-    <label>Задачи (JSON)</label>
-    <textarea v-model="tasksText" placeholder='[{"title": "...", "status": "...", "body": "...", "timeline": "..."}]'></textarea>
+    <label>{{ $t('projectForm.tasksLabel') }}</label>
+    <textarea
+      v-model="tasksText"
+      :placeholder="$t('projectForm.tasksPlaceholder')"
+    ></textarea>
 
-    <button type="submit">{{ isEdit ? 'Сохранить' : 'Создать' }}</button>
+    <button type="submit">
+      {{ isEdit ? $t('common.save') : $t('common.create') }}
+    </button>
   </form>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import type { Project, Task } from '@/types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   initialData?: Project | null;
@@ -38,17 +46,16 @@ const localForm = ref<{
   title: '',
   body: '',
   underbody: '',
-  tasks: [], // теперь тип tasks — Task[], а не never[]
+  tasks: [],
 });
 
-// При редактировании заполняем форму данными проекта
 watch(() => props.initialData, (val) => {
   if (val) {
     localForm.value = {
       title: val.title,
       body: val.body,
       underbody: val.underbody,
-      tasks: val.tasks, // val.tasks имеет тип Task[]
+      tasks: val.tasks,
     };
     tasksText.value = JSON.stringify(val.tasks || [], null, 2);
   }
@@ -58,14 +65,14 @@ const tasksText = ref('[]');
 
 const onSubmit = () => {
   try {
-    const tasks = JSON.parse(tasksText.value) as Task[]; // Приводим к Task[]
+    const tasks = JSON.parse(tasksText.value) as Task[];
     const submitData = {
       ...localForm.value,
       tasks,
     };
     emit('submit', submitData);
   } catch (e) {
-    alert('Ошибка в JSON задач. Проверьте формат.');
+    alert(t('projectForm.jsonError'));
   }
 };
 </script>

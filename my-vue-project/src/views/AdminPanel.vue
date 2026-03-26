@@ -1,10 +1,11 @@
 <template>
   <div class="admin-panel">
     <header class="page-header">
-      <h1>Административная панель</h1>
+      <h1>{{ $t('adminPanel.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" title="На главную">🏠</button>
+        <LanguageSwitcher />
+        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
       </div>
     </header>
 
@@ -12,32 +13,33 @@
       <div class="menu-grid">
         <router-link to="/admin/users" class="menu-card">
           <span class="card-icon">👥</span>
-          <span class="card-title">Управление пользователями</span>
-          <span class="card-desc">Просмотр, редактирование, удаление, выдача прав</span>
+          <span class="card-title">{{ $t('adminPanel.userManagement.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.userManagement.desc') }}</span>
         </router-link>
 
         <router-link to="/admin/projects" class="menu-card">
           <span class="card-icon">📁</span>
-          <span class="card-title">Управление проектами</span>
-          <span class="card-desc">Просмотр, редактирование, удаление проектов и задач</span>
+          <span class="card-title">{{ $t('adminPanel.projectManagement.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.projectManagement.desc') }}</span>
         </router-link>
+
         <router-link to="/admin/emails" class="menu-card">
           <span class="card-icon">✉️</span>
-          <span class="card-title">Разрешённые email</span>
-          <span class="card-desc">Управление списками email для учителей и учеников</span>
+          <span class="card-title">{{ $t('adminPanel.allowedEmails.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.allowedEmails.desc') }}</span>
         </router-link>
+
         <div class="menu-card danger" @click="confirmDeleteAllUsers">
           <span class="card-icon">⚠️</span>
-          <span class="card-title">Удалить всех пользователей</span>
-          <span class="card-desc">Необратимое удаление всех аккаунтов</span>
+          <span class="card-title">{{ $t('adminPanel.deleteAllUsers.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.deleteAllUsers.desc') }}</span>
         </div>
 
         <div class="menu-card danger" @click="confirmDeleteAllProjects">
           <span class="card-icon">⚠️</span>
-          <span class="card-title">Удалить все проекты</span>
-          <span class="card-desc">Необратимое удаление всех проектов</span>
+          <span class="card-title">{{ $t('adminPanel.deleteAllProjects.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.deleteAllProjects.desc') }}</span>
         </div>
-        
       </div>
     </div>
 
@@ -48,8 +50,8 @@
           <h3>{{ confirmTitle }}</h3>
           <p>{{ confirmMessage }}</p>
           <div class="modal-actions">
-            <button class="confirm-btn" @click="executeAction">Подтвердить</button>
-            <button class="cancel-btn" @click="closeModal">Отмена</button>
+            <button class="confirm-btn" @click="executeAction">{{ $t('common.confirm') }}</button>
+            <button class="cancel-btn" @click="closeModal">{{ $t('common.cancel') }}</button>
           </div>
         </div>
       </div>
@@ -60,10 +62,14 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import axios from 'axios';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 
+const { t } = useI18n();
 const router = useRouter();
+
 const showConfirmModal = ref(false);
 const confirmTitle = ref('');
 const confirmMessage = ref('');
@@ -74,15 +80,15 @@ function goHome() {
 }
 
 function confirmDeleteAllUsers() {
-  confirmTitle.value = 'Удаление всех пользователей';
-  confirmMessage.value = 'Вы уверены, что хотите удалить ВСЕХ пользователей? Это действие необратимо.';
+  confirmTitle.value = t('adminPanel.deleteAllUsers.confirmTitle');
+  confirmMessage.value = t('adminPanel.deleteAllUsers.confirmMessage');
   action = 'deleteUsers';
   showConfirmModal.value = true;
 }
 
 function confirmDeleteAllProjects() {
-  confirmTitle.value = 'Удаление всех проектов';
-  confirmMessage.value = 'Вы уверены, что хотите удалить ВСЕ проекты? Это действие необратимо.';
+  confirmTitle.value = t('adminPanel.deleteAllProjects.confirmTitle');
+  confirmMessage.value = t('adminPanel.deleteAllProjects.confirmMessage');
   action = 'deleteProjects';
   showConfirmModal.value = true;
 }
@@ -96,18 +102,18 @@ async function executeAction() {
   if (action === 'deleteUsers') {
     try {
       await axios.delete('/admin/users/all');
-      alert('Все пользователи удалены');
+      alert(t('adminPanel.deleteAllUsers.success'));
     } catch (error) {
       console.error(error);
-      alert('Ошибка при удалении');
+      alert(t('adminPanel.deleteAllUsers.error'));
     }
   } else if (action === 'deleteProjects') {
     try {
       await axios.delete('/admin/projects/all');
-      alert('Все проекты удалены');
+      alert(t('adminPanel.deleteAllProjects.success'));
     } catch (error) {
       console.error(error);
-      alert('Ошибка при удалении');
+      alert(t('adminPanel.deleteAllProjects.error'));
     }
   }
   closeModal();
@@ -115,6 +121,7 @@ async function executeAction() {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений (копируем из исходного файла) */
 .admin-panel {
   min-height: 100vh;
   background: var(--bg-page);
