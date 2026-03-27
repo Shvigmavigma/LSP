@@ -29,25 +29,27 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useLanguageStore } from '@/stores/language'
 import { useI18n } from 'vue-i18n'
-import i18n from '@/i18n'  // импортируем сам экземпляр i18n
 
 const { t } = useI18n()
 const languageStore = useLanguageStore()
+// currentLocale – это ref (реактивная ссылка), его значение получаем через .value в скрипте
 const currentLocale = computed(() => languageStore.currentLocale)
 
 const isOpen = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
 
-type Locale = 'ru' | 'en' | 'zh'
+type Locale = 'ru' | 'en' | 'zh' | 'ua' | 'ar'
 
 const languages: { code: Locale; flag: string; name: string }[] = [
   { code: 'ru', flag: '🇷🇺', name: 'Русский' },
-  { code: 'en', flag: 'en', name: 'English' },
-  { code: 'zh', flag: '🇨🇳', name: '中文' }
+  { code: 'en', flag: '🇬🇧', name: 'English' },
+  { code: 'zh', flag: '🇨🇳', name: '中文' },
+  { code: 'ua', flag: '🇺🇦', name: 'Українська' },
+  { code: 'ar', flag: '🇸🇦', name: 'العربية' }
 ]
 
 const currentFlag = computed(() => {
-  const lang = languages.find(l => l.code === currentLocale.value)
+  const lang = languages.find(l => l.code === currentLocale.value) // currentLocale.value – строка
   return lang?.flag || '🌐'
 })
 
@@ -56,14 +58,7 @@ const toggleDropdown = () => {
 }
 
 const selectLanguage = (code: Locale) => {
-  // 1. Напрямую обновляем i18n
-  i18n.global.locale.value = code
-  // 2. Сохраняем в localStorage
-  localStorage.setItem('locale', code)
-  // 3. Обновляем стор (чтобы currentLocale тоже изменился)
-  //    Используем as any для обхода типов, если стор пока не знает 'zh'
-  languageStore.setLocale(code as any)
-  // 4. Закрываем дропдаун
+  languageStore.setLocale(code)
   isOpen.value = false
 }
 
@@ -83,7 +78,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* все стили остаются прежними */
+/* стили остаются без изменений */
 .language-switcher-container {
   position: relative;
   display: inline-block;
