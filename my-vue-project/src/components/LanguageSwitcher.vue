@@ -5,7 +5,9 @@
       @click.stop="toggleDropdown"
       :aria-label="$t('language.select')"
     >
-      <span class="current-flag">{{ currentFlag }}</span>
+      <div class="current-flag-wrapper">
+        <span :class="`fi fi-${flagCode[currentLocale]}`" class="current-flag"></span>
+      </div>
     </button>
 
     <Transition name="dropdown">
@@ -17,7 +19,9 @@
           :class="{ active: lang.code === currentLocale }"
           @click="selectLanguage(lang.code)"
         >
-          <span class="lang-flag">{{ lang.flag }}</span>
+          <div class="lang-flag-wrapper">
+            <span :class="`fi fi-${flagCode[lang.code]}`" class="lang-flag"></span>
+          </div>
           <span class="lang-name">{{ lang.name }}</span>
         </div>
       </div>
@@ -32,7 +36,6 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const languageStore = useLanguageStore()
-// currentLocale – это ref (реактивная ссылка), его значение получаем через .value в скрипте
 const currentLocale = computed(() => languageStore.currentLocale)
 
 const isOpen = ref(false)
@@ -40,18 +43,21 @@ const containerRef = ref<HTMLElement | null>(null)
 
 type Locale = 'ru' | 'en' | 'zh' | 'ua' | 'ar'
 
-const languages: { code: Locale; flag: string; name: string }[] = [
-  { code: 'ru', flag: '🇷🇺', name: 'Русский' },
-  { code: 'en', flag: '🇬🇧', name: 'English' },
-  { code: 'zh', flag: '🇨🇳', name: '中文' },
-  { code: 'ua', flag: '🇺🇦', name: 'Українська' },
-  { code: 'ar', flag: '🇸🇦', name: 'العربية' }
-]
+const flagCode: Record<Locale, string> = {
+  ru: 'ru',
+  en: 'gb',
+  zh: 'cn',
+  ua: 'ua',
+  ar: 'sa'
+}
 
-const currentFlag = computed(() => {
-  const lang = languages.find(l => l.code === currentLocale.value) // currentLocale.value – строка
-  return lang?.flag || '🌐'
-})
+const languages: { code: Locale; name: string }[] = [
+  { code: 'ru', name: 'Русский' },
+  { code: 'en', name: 'English' },
+  { code: 'zh', name: '中文' },
+  { code: 'ua', name: 'Українська' },
+  { code: 'ar', name: 'العربية' }
+]
 
 const toggleDropdown = () => {
   isOpen.value = !isOpen.value
@@ -78,7 +84,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* стили остаются без изменений */
 .language-switcher-container {
   position: relative;
   display: inline-block;
@@ -90,7 +95,6 @@ onUnmounted(() => {
   border-radius: 50%;
   width: 44px;
   height: 44px;
-  font-size: 1.5rem;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -104,6 +108,30 @@ onUnmounted(() => {
 .language-switcher-button:hover {
   transform: scale(1.1);
   box-shadow: var(--shadow-strong);
+}
+
+.current-flag-wrapper {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05); /* тонкая рамка для чёткости */
+}
+
+.current-flag {
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.05); /* небольшое увеличение, чтобы заполнить круг */
 }
 
 .language-dropdown {
@@ -138,8 +166,29 @@ onUnmounted(() => {
   color: var(--accent-color);
 }
 
+.lang-flag-wrapper {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
 .lang-flag {
-  font-size: 1.3rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.05);
 }
 
 .lang-name {
