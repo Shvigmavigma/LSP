@@ -6,6 +6,7 @@ import router from './router'
 import axios from 'axios'
 import i18n from './i18n'
 // Настройка axios
+import 'flag-icons/css/flag-icons.min.css'
 axios.defaults.baseURL = 'http://localhost:8000'
 
 // Добавляем токен к каждому запросу, если он есть
