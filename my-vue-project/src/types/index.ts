@@ -50,6 +50,7 @@ export interface Task {
   subtasks?: SubTask[];
   comments?: Comment[];
   assigned_to?: number;
+  requires_file?: boolean;
 }
 
 export interface Comment {
@@ -60,6 +61,16 @@ export interface Comment {
   isRead: boolean;
   hidden?: boolean;
   authorRole?: string;
+}
+export interface ProjectFile {
+  id: number;
+  filename: string;          // оригинальное имя
+  original_filename: string;
+  file_size: number;
+  mime_type: string;
+  uploaded_at: string;
+  uploaded_by: number;
+  task_id?: number | null;   // если null – файл привязан к проекту, иначе к задаче
 }
 
 export interface SuggestionComment {

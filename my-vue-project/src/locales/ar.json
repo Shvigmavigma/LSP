@@ -663,6 +663,7 @@
     },
     "taskEdit": {
         "createTitle": "إنشاء مهمة",
+        "requiresFile": "مرفق مطلوب للإكمال",
         "editTitle": "تحرير المهمة",
         "adminHint": "لديك الصلاحيات الكاملة كمسؤول أو منسق.",
         "noEditPermission": "ليس لديك صلاحية لتحرير هذه المهمة",
@@ -684,6 +685,9 @@
         "noSubtasks": "لا توجد مهام فرعية. أضف مهام فرعية لتوزيع التقدم.",
         "subtaskTitlePlaceholder": "عنوان المهمة الفرعية",
         "subtaskDescriptionPlaceholder": "الوصف (اختياري)",
+        "files": "ملفات المهمة",
+        "fileRequiredForCompletion": "يرجى إرفاق ملف لإكمال هذه المهمة",
+        "fileCheckError": "خطأ في التحقق من الملفات",
         "percentOfTask": "النسبة المئوية من المهمة",
         "sum": "المجموع",
         "completed": "مكتمل",
@@ -751,5 +755,17 @@
             "unknown": "خطأ غير معروف",
             "resendFailed": "فشل إرسال الرمز"
         }
+    },
+    "fileUploader": {
+        "selectFile": "اختر ملفًا",
+        "uploadError": "خطأ في رفع الملف",
+        "confirmDelete": "حذف الملف؟",
+        "deleteError": "خطأ في حذف الملف",
+        "open": "فتح"
+    },
+    "filePreview": {
+        "title": "معاينة الملف",
+        "previewNotAvailable": "المعاينة غير متاحة",
+        "downloadFile": "تحميل الملف"
     }
 }

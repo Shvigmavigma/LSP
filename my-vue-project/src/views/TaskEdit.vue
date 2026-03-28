@@ -166,6 +166,16 @@
           </div>
         </div>
 
+        <!-- НОВОЕ: Требуется файл для завершения -->
+        <div class="form-section">
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="form.requires_file" />
+              {{ $t('taskEdit.requiresFile') }}
+            </label>
+          </div>
+        </div>
+
         <!-- Кнопки сохранения -->
         <div class="form-actions">
           <button type="submit" class="save-button" :disabled="saving || totalSubtasksPercent > 100">
@@ -218,6 +228,7 @@ const form = reactive({
   timelinend: '',
   status: 'ожидает' as Task['status'],
   progress: 0,
+  requires_file: false,
 });
 
 // Подзадачи
@@ -373,6 +384,7 @@ onMounted(async () => {
       form.timelinend = originalTask.value.timelinend || '';
       form.status = originalTask.value.status || 'ожидает';
       form.progress = originalTask.value.progress || 0;
+      form.requires_file = originalTask.value.requires_file || false;
 
       subtasks.value = originalTask.value.subtasks?.map(st => ({ ...st })) || [];
     }
@@ -452,6 +464,7 @@ async function handleSubmit() {
     status: form.status,
     subtasks: subtasks.value,
     progress: totalSubtasksPercent.value,
+    requires_file: form.requires_file,
   };
 
   const updatedTasks = [...project.value.tasks];

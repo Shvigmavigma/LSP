@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, JSON, Boolean, DateTime
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Float, JSON, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import declarative_base
 from datetime import datetime
 
 Base = declarative_base()
@@ -41,3 +41,17 @@ class Project(Base):
     is_hidden = Column(Boolean, default=False)
     hidden_by = Column(Integer, nullable=True)
     hidden_by_users = Column(JSON, default=list)
+    
+class ProjectFile(Base):
+    __tablename__ = "project_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    task_id = Column(Integer, nullable=True)          # индекс задачи в массиве tasks (0‑based)
+    filename = Column(String, nullable=False)         # уникальное имя файла на диске
+    original_filename = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)
+    mime_type = Column(String, nullable=False)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_deleted = Column(Boolean, default=False)

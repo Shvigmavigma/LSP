@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException, Query, Depends, File, UploadFile, Request, Body
+from fastapi import FastAPI, HTTPException, Query, Depends, File, UploadFile, Request, Body, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text, and_
@@ -20,7 +20,7 @@ from auth import get_current_admin
 
 load_dotenv()
 from sqlalchemy.orm.attributes import flag_modified
-from models import Base, User, Project
+from models import Base, User, Project, ProjectFile
 from database import engine, session_local
 from schemas import (
     StudentCreate, StudentResponse, StudentUpdate,
@@ -31,7 +31,8 @@ from schemas import (
     PasswordResetRequest, PasswordResetConfirm,
     TokenResponse,
     Suggestion, SuggestionCreate, SuggestionStatus,
-    InvitationCreate, InvitationInfo
+    InvitationCreate, InvitationInfo,
+    ProjectFileResponse
 )
 
 from willow import Image
@@ -83,7 +84,9 @@ app.add_middleware(
 
 # Создаем директории
 os.makedirs("avatars", exist_ok=True)
+os.makedirs("uploads", exist_ok=True)
 app.mount("/avatars", StaticFiles(directory="avatars"), name="avatars")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 AVATAR_DIR = "avatars"
 
 Base.metadata.create_all(bind=engine)
@@ -429,32 +432,18 @@ def load_accepted_student_emails():
         return {"accepted_emails": [], "domains": []}
 
 def is_student_email_accepted(email: str) -> bool:
-    """
-    Проверяет, разрешён ли email для регистрации ученика.
-    Разрешены:
-    - все email с доменом из списка domains (например, lit1533.ru)
-    - email, явно указанные в списке accepted_emails
-    """
     data = load_accepted_student_emails()
     email_lower = email.lower()
-
-    # Проверка по домену
     domain = email_lower.split('@')[-1]
     allowed_domains = [d.lower() for d in data.get("domains", [])]
     if domain in allowed_domains:
         return True
-
-    # Проверка по конкретным email
     if email_lower in [e.lower() for e in data.get("accepted_emails", [])]:
         return True
-
     return False
 
 @app.post("/auth/check-student-email", tags=["Auth"])
 async def check_student_email(request: dict):
-    """
-    Проверяет, разрешён ли email для регистрации ученика.
-    """
     email = request.get("email")
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
@@ -813,12 +802,8 @@ async def toggle_hide_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # Инициализируем hidden_by_users, если None
     if project.hidden_by_users is None:
         project.hidden_by_users = []
-
-    # Админ или куратор могут глобально скрывать/показывать
     if current_user.is_admin or is_curator(current_user):
         project.is_hidden = not project.is_hidden
         if project.is_hidden:
@@ -826,21 +811,18 @@ async def toggle_hide_project(
         else:
             project.hidden_by = None
     else:
-        # Обычные пользователи также скрывают проект глобально
         participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
         if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can hide/show projects")
-        
-        # Используем то же поле is_hidden для глобального скрытия
         project.is_hidden = not project.is_hidden
         if project.is_hidden:
             project.hidden_by = current_user.id
         else:
             project.hidden_by = None
-    
     db.commit()
     db.refresh(project)
     return project
+
 @app.put("/projects/{project_id}/join-requests/{request_id}/accept", response_model=ProjectResponse, tags=["Projects"])
 async def accept_join_request(
     project_id: int,
@@ -851,7 +833,6 @@ async def accept_join_request(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    # Админ и куратор могут принимать запросы
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if role not in [ProjectRole.CUSTOMER.value, ProjectRole.CURATOR.value]:
@@ -879,6 +860,7 @@ async def accept_join_request(
     db.commit()
     db.refresh(project)
     return project
+
 @app.post("/projects/{project_id}/comments/{comment_id}/restore", response_model=ProjectResponse, tags=["Projects"])
 async def restore_comment(
     project_id: int,
@@ -886,30 +868,18 @@ async def restore_comment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Восстановить скрытый комментарий. Доступно только администратору или куратору.
-    """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Только админ или куратор могут восстанавливать комментарии
     if not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(status_code=403, detail="Only admin or curator can restore comments")
-    
-    # Ищем комментарий
     comment = next((c for c in (project.comments or []) if c.get("id") == comment_id), None)
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    
-    # Если комментарий не скрыт, возвращаем ошибку
     if not comment.get("hidden"):
         raise HTTPException(status_code=400, detail="Comment is not hidden")
-    
-    # Восстанавливаем комментарий
     comment["hidden"] = False
     flag_modified(project, "comments")
-    
     db.commit()
     db.refresh(project)
     return project
@@ -922,33 +892,25 @@ async def restore_task_comment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Восстановить скрытый комментарий к задаче. Доступно только администратору или куратору.
-    """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
     if not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(status_code=403, detail="Only admin or curator can restore comments")
-    
     if not project.tasks or task_index < 0 or task_index >= len(project.tasks):
         raise HTTPException(status_code=404, detail="Task not found")
-    
     task = project.tasks[task_index]
     comment = next((c for c in (task.get("comments") or []) if c.get("id") == comment_id), None)
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    
     if not comment.get("hidden"):
         raise HTTPException(status_code=400, detail="Comment is not hidden")
-    
     comment["hidden"] = False
     flag_modified(project, "tasks")
-    
     db.commit()
     db.refresh(project)
     return project
+
 @app.put("/projects/{project_id}/join-requests/{request_id}/reject", response_model=ProjectResponse, tags=["Projects"])
 async def reject_join_request(
     project_id: int,
@@ -1027,12 +989,6 @@ async def get_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Получить список всех проектов.
-    - Администраторы и кураторы видят все проекты.
-    - Обычные пользователи не видят проекты, скрытые глобально (админом/куратором).
-    - Также пользователи не видят проекты, которые они сами скрыли (если скрыли для себя).
-    """
     if participant_id is not None:
         all_projects = db.query(Project).all()
         projects = [
@@ -1040,9 +996,6 @@ async def get_projects(
             if any(part.get("user_id") == participant_id for part in (p.participants or []))
         ]
         if not (current_user.is_admin or is_curator(current_user)):
-            # Обычные пользователи:
-            # 1. Не видят проекты, скрытые глобально (админом/куратором)
-            # 2. Не видят проекты, которые они сами скрыли (hidden_by_users)
             filtered_projects = []
             for p in projects:
                 if not p.is_hidden:
@@ -1054,9 +1007,6 @@ async def get_projects(
     else:
         query = db.query(Project)
         if not (current_user.is_admin or is_curator(current_user)):
-            # Обычные пользователи:
-            # 1. Не видят проекты, скрытые глобально
-            # 2. Не видят проекты, которые они сами скрыли
             all_projects = query.filter(Project.is_hidden == False).all()
             filtered_projects = []
             for p in all_projects:
@@ -1066,18 +1016,14 @@ async def get_projects(
             return filtered_projects
         return query.all()
 
-
 @app.get("/projects/{project_id}", response_model=ProjectResponse, tags=["Projects"])
 async def get_project_by_id(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Проверяем, видит ли пользователь этот проект
     if not (current_user.is_admin or is_curator(current_user)):
         if project.is_hidden or current_user.id in (project.hidden_by_users or []):
             raise HTTPException(status_code=403, detail="Project is hidden")
-    
     return project
 
 @app.put("/projects/{project_id}", response_model=ProjectResponse, tags=["Projects"])
@@ -1090,7 +1036,6 @@ async def update_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    # Админ и куратор могут обновлять любой проект
     if not (current_user.is_admin or is_curator(current_user)):
         participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
         if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
@@ -1102,7 +1047,24 @@ async def update_project(
     if project_update.underbody is not None:
         project.underbody = project_update.underbody
     if project_update.tasks is not None:
-        project.tasks = project_update.tasks
+        # Проверка на необходимость файлов при завершении задачи
+        old_tasks = project.tasks or []
+        new_tasks = project_update.tasks
+        for i, new_task in enumerate(new_tasks):
+            old_task = old_tasks[i] if i < len(old_tasks) else None
+            if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
+                if new_task.get("requires_file"):
+                    files_count = db.query(ProjectFile).filter(
+                        ProjectFile.project_id == project_id,
+                        ProjectFile.task_id == i,
+                        ProjectFile.is_deleted == False
+                    ).count()
+                    if files_count == 0:
+                        raise HTTPException(
+                            400,
+                            f"Task '{new_task.get('title')}' requires at least one file to complete"
+                        )
+        project.tasks = new_tasks
     if project_update.links is not None:
         project.links = project_update.links
     if project_update.comments is not None:
@@ -1158,35 +1120,23 @@ async def delete_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Инициализируем hidden_by_users, если None
     if project.hidden_by_users is None:
         project.hidden_by_users = []
-    
-    # Админ или куратор - полное удаление
     if current_user.is_admin or is_curator(current_user):
         db.delete(project)
         db.commit()
         return {"message": f"Project {project_id} permanently deleted successfully"}
-    
-    # Проверяем, что пользователь является заказчиком или исполнителем
     participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
     if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
         raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can delete/hide the project")
-    
-    # Добавляем пользователя в список скрывших (для персонального скрытия)
     if current_user.id not in project.hidden_by_users:
         project.hidden_by_users.append(current_user.id)
-    
-    # Делаем проект глобально скрытым (если он ещё не скрыт)
     if not project.is_hidden:
         project.is_hidden = True
         project.hidden_by = current_user.id
-    
     flag_modified(project, "hidden_by_users")
     db.commit()
     db.refresh(project)
-    
     return {"message": f"Project {project_id} hidden successfully"}
 
 @app.post("/projects/{project_id}/tasks/{task_index}/comments", response_model=ProjectResponse, tags=["Projects"])
@@ -1230,7 +1180,6 @@ async def create_suggestion(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    # Админ и куратор могут создавать предложения в любом проекте
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if not role or role not in [ProjectRole.EXPERT.value, ProjectRole.SUPERVISOR.value, ProjectRole.EXECUTOR.value]:
@@ -1272,7 +1221,6 @@ async def accept_suggestion(
             break
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found")
-    # Админ и куратор могут принимать любое предложение
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if not (suggestion.get("author_id") == current_user.id or role in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]):
@@ -1322,23 +1270,16 @@ async def hide_comment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Скрыть комментарий (только для научного руководителя, администратора или куратора).
-    """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # Проверка прав -  научный руководитель, админ или куратор
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if role != ProjectRole.SUPERVISOR.value:
             raise HTTPException(status_code=403, detail="Only supervisor, curator or admin can hide comments")
-
     comment = next((c for c in (project.comments or []) if c.get("id") == comment_id), None)
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-
     comment["hidden"] = True
     flag_modified(project, "comments")
     db.commit()
@@ -1356,7 +1297,6 @@ async def create_invitation(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    # Админ и куратор могут приглашать
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if role not in [ProjectRole.CUSTOMER.value, ProjectRole.SUPERVISOR.value]:
@@ -1418,6 +1358,113 @@ async def accept_invitation(
     db.refresh(project)
     return project
 
+# ==================== ФАЙЛЫ ПРОЕКТОВ ====================
+@app.post("/projects/{project_id}/files", response_model=ProjectFileResponse, tags=["Projects"])
+async def upload_project_file(
+    project_id: int,
+    file: UploadFile = File(...),
+    task_id: Optional[int] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(403, "Not enough permissions")
+
+    allowed_types = {
+        "text/plain": 5 * 1024 * 1024,
+        "application/pdf": 5 * 1024 * 1024,
+        "application/msword": 5 * 1024 * 1024,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": 5 * 1024 * 1024,
+        "application/vnd.ms-powerpoint": 30 * 1024 * 1024,
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": 30 * 1024 * 1024,
+    }
+    if file.content_type not in allowed_types:
+        raise HTTPException(400, f"File type {file.content_type} not allowed")
+    max_size = allowed_types[file.content_type]
+    contents = await file.read()
+    if len(contents) > max_size:
+        raise HTTPException(400, f"File too large (max {max_size // (1024*1024)} MB)")
+
+    ext = os.path.splitext(file.filename)[1]
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join("uploads", unique_name)
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    db_file = ProjectFile(
+        project_id=project_id,
+        task_id=task_id,
+        filename=unique_name,
+        original_filename=file.filename,
+        file_size=len(contents),
+        mime_type=file.content_type,
+        uploaded_by=current_user.id
+    )
+    db.add(db_file)
+    db.commit()
+    db.refresh(db_file)
+    return db_file
+
+@app.get("/projects/{project_id}/files", response_model=List[ProjectFileResponse], tags=["Projects"])
+async def get_project_files(
+    project_id: int,
+    task_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(403, "Not enough permissions")
+    query = db.query(ProjectFile).filter(
+        ProjectFile.project_id == project_id,
+        ProjectFile.is_deleted == False
+    )
+    if task_id is not None:
+        query = query.filter(ProjectFile.task_id == task_id)
+    files = query.all()
+    return files
+
+@app.get("/files/{file_id}", tags=["Projects"])
+async def download_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    file_record = db.query(ProjectFile).filter(ProjectFile.id == file_id).first()
+    if not file_record:
+        raise HTTPException(404, "File not found")
+    project = db.query(Project).filter(Project.id == file_record.project_id).first()
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(403, "Not enough permissions")
+    file_path = os.path.join("uploads", file_record.filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(404, "File not found on disk")
+    return FileResponse(file_path, filename=file_record.original_filename)
+
+@app.delete("/files/{file_id}", tags=["Projects"])
+async def delete_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    file_record = db.query(ProjectFile).filter(ProjectFile.id == file_id).first()
+    if not file_record:
+        raise HTTPException(404, "File not found")
+    project = db.query(Project).filter(Project.id == file_record.project_id).first()
+    if not (current_user.id == file_record.uploaded_by or current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(403, "Not enough permissions")
+    file_path = os.path.join("uploads", file_record.filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    db.delete(file_record)
+    db.commit()
+    return {"message": "File deleted"}
+
 # ==================== АУТЕНТИФИКАЦИЯ И ВЕРИФИКАЦИЯ ====================
 @app.post("/auth/request-verification-code", tags=["Auth"])
 async def request_verification_code(request: dict, db: Session = Depends(get_db)):
@@ -1425,20 +1472,15 @@ async def request_verification_code(request: dict, db: Session = Depends(get_db)
     is_teacher = request.get("is_teacher", False)
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
-
-    # Проверка для учителей
     if is_teacher:
         if not is_email_accepted(email):
             raise HTTPException(status_code=403, detail="Этот email не разрешен для регистрации учителя")
     else:
-        # Проверка для учеников
         if not is_student_email_accepted(email):
             raise HTTPException(status_code=403, detail="Этот email не разрешён для регистрации ученика. Используйте email с доменом lit1533.ru или из списка разрешённых.")
-
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-
     code = generate_verification_code()
     redis_client.setex(f"verify:{email}", 600, code)
     await send_verification_email(email, code)
@@ -1486,15 +1528,12 @@ async def register_with_verification(request: dict, db: Session = Depends(get_db
     if not stored_code or stored_code != code:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code")
     redis_client.delete(f"verify:{email}")
-
-    # Проверка email для учителей и учеников
     if is_teacher:
         if not is_email_accepted(email):
             raise HTTPException(status_code=403, detail="Этот email не разрешен для регистрации учителя")
     else:
         if not is_student_email_accepted(email):
             raise HTTPException(status_code=403, detail="Этот email не разрешён для регистрации ученика")
-
     existing_user = db.query(User).filter(
         (User.nickname == user_data.get('nickname')) |
         (User.email == email)
@@ -1592,7 +1631,6 @@ async def delete_project_comment(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    # Админ и куратор могут удалять комментарии
     if not (current_user.is_admin or is_curator(current_user) or any(p.get("user_id") == current_user.id for p in (project.participants or []))):
         raise HTTPException(status_code=403, detail="Only project participants, curator or admin can modify comments")
     comment = next((c for c in (project.comments or []) if c.get("id") == comment_id), None)
@@ -1685,19 +1723,17 @@ async def mark_task_comment_read(
     db.commit()
     db.refresh(project)
     return project
-# ==================== УПРАВЛЕНИЕ РАЗРЕШЁННЫМИ EMAIL ====================
 
+# ==================== УПРАВЛЕНИЕ РАЗРЕШЁННЫМИ EMAIL ====================
 @app.get("/admin/accepted-emails/teachers", tags=["Admin"])
 async def get_accepted_teacher_emails(
     admin: User = Depends(get_current_admin)
 ):
-    """Получить список разрешённых email для учителей."""
     try:
         with open(ACCEPTED_EMAILS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return data
     except FileNotFoundError:
-
         return {"accepted_emails": [], "domains": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка чтения файла: {str(e)}")
@@ -1707,8 +1743,6 @@ async def update_accepted_teacher_emails(
     data: dict,
     admin: User = Depends(get_current_admin)
 ):
-    """Обновить список разрешённых email для учителей."""
-    # Валидация структуры
     if "accepted_emails" not in data or "domains" not in data:
         raise HTTPException(status_code=400, detail="Неверная структура: требуется accepted_emails и domains")
     if not isinstance(data["accepted_emails"], list) or not isinstance(data["domains"], list):
@@ -1724,13 +1758,11 @@ async def update_accepted_teacher_emails(
 async def get_accepted_student_emails(
     admin: User = Depends(get_current_admin)
 ):
-    """Получить список разрешённых email для учеников."""
     try:
         with open(ACCEPTED_STUDENT_EMAILS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return data
     except FileNotFoundError:
-
         return {"accepted_emails": [], "domains": ["lit1533.ru"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка чтения файла: {str(e)}")
@@ -1740,7 +1772,6 @@ async def update_accepted_student_emails(
     data: dict,
     admin: User = Depends(get_current_admin)
 ):
-    """Обновить список разрешённых email для учеников."""
     if "accepted_emails" not in data or "domains" not in data:
         raise HTTPException(status_code=400, detail="Неверная структура: требуется accepted_emails и domains")
     if not isinstance(data["accepted_emails"], list) or not isinstance(data["domains"], list):

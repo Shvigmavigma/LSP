@@ -159,6 +159,16 @@ class Suggestion(BaseModel):
     created_at: datetime
     comments: List[Comment] = []
 # ---------- Проект ----------
+class ProjectFileResponse(BaseModel):
+    id: int
+    filename: str               # оригинальное имя
+    original_filename: str
+    file_size: int
+    mime_type: str
+    uploaded_at: datetime
+    uploaded_by: int
+    task_id: Optional[int] = None
+    model_config = ConfigDict(from_attributes=True)
 class ProjectBase(BaseModel):
     title: str = Field(..., min_length=1, json_schema_extra={"example": "Космическая программа"})
     body: str = Field(..., min_length=1, json_schema_extra={"example": "Подробное описание..."})
