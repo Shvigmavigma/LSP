@@ -16,14 +16,15 @@ import { computed } from 'vue';
 const themeStore = useThemeStore();
 const { t } = useI18n();
 
-const isDark = themeStore.isDark;
+// Используем computed для реактивности
+const isDark = computed(() => themeStore.isDark);
 
 const titleText = computed(() =>
-  isDark ? t('theme.light') : t('theme.dark')
+  isDark.value ? t('theme.light') : t('theme.dark')
 );
 
 const toggleTheme = () => {
-  themeStore.toggleTheme();
+  themeStore.toggleTheme(); // вызов метода стора, который изменит isDark
 };
 </script>
 
