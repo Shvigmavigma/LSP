@@ -627,6 +627,9 @@
     },
     "taskDetails": {
         "title": "Детали задачи",
+        "files": "Файлы задачи",
+        "fileRequiredForCompletion": "Для завершения задачи необходимо прикрепить файл",
+        "fileCheckError": "Ошибка проверки файлов",
         "status": "Статус",
         "description": "Описание",
         "period": "Период выполнения",
@@ -675,6 +678,7 @@
         "datePlaceholder": "01.01.2025",
         "taskStatus": "Статус задачи",
         "currentStatus": "Текущий статус",
+        "requiresFile": "Требуется прикрепить файл для завершения",
         "status": {
             "inProgress": "В работе",
             "waiting": "Ожидает",
@@ -752,6 +756,18 @@
             "unknown": "Неизвестная ошибка",
             "resendFailed": "Ошибка при отправке кода"
         }
+    },
+    "fileUploader": {
+        "selectFile": "Выбрать файл",
+        "uploadError": "Ошибка загрузки файла",
+        "confirmDelete": "Удалить файл?",
+        "open": "Открыть",
+        "deleteError": "Ошибка удаления файла"
+    },
+    "filePreview": {
+        "title": "Просмотр файла",
+        "previewNotAvailable": "Предварительный просмотр недоступен",
+        "downloadFile": "Скачать файл"
     }
 
 }

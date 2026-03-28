@@ -626,6 +626,9 @@
     },
     "taskDetails": {
         "title": "Task details",
+        "files": "Task files",
+        "fileRequiredForCompletion": "Please attach a file to complete this task",
+        "fileCheckError": "Error checking files",
         "status": "Status",
         "description": "Description",
         "period": "Execution period",
@@ -663,6 +666,7 @@
     },
     "taskEdit": {
         "createTitle": "Create task",
+        "requiresFile": "File attachment required for completion",
         "editTitle": "Edit task",
         "adminHint": "You have full rights as an administrator or curator.",
         "noEditPermission": "You do not have permission to edit this task",
@@ -751,6 +755,20 @@
             "unknown": "Unknown error",
             "resendFailed": "Error sending code"
         }
+    },
+    "fileUploader": {
+        "selectFile": "Select file",
+        "uploadError": "Error uploading file",
+        "confirmDelete": "Delete file?",
+        "open": "Open",
+        "deleteError": "Error deleting file"
+    },
+
+    "filePreview": {
+        "title": "File preview",
+        "previewNotAvailable": "Preview not available",
+        "downloadFile": "Download file"
     }
+
 
 }

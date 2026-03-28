@@ -626,6 +626,9 @@
     },
     "taskDetails": {
         "title": "任务详情",
+        "files": "任务文件",
+        "fileRequiredForCompletion": "完成此任务需要上传文件",
+        "fileCheckError": "检查文件时出错",
         "status": "状态",
         "description": "描述",
         "period": "执行周期",
@@ -663,6 +666,7 @@
     },
     "taskEdit": {
         "createTitle": "创建任务",
+        "requiresFile": "完成需要附件",
         "editTitle": "编辑任务",
         "adminHint": "您具有管理员或策展人的全部权限。",
         "noEditPermission": "您没有编辑此任务的权限",
@@ -751,5 +755,17 @@
             "unknown": "未知错误",
             "resendFailed": "发送验证码时出错"
         }
+    },
+    "fileUploader": {
+        "selectFile": "选择文件",
+        "uploadError": "上传文件出错",
+        "confirmDelete": "删除文件？",
+        "deleteError": "删除文件出错",
+        "open": "打开"
+    },
+    "filePreview": {
+        "title": "文件预览",
+        "previewNotAvailable": "无法预览",
+        "downloadFile": "下载文件"
     }
 }

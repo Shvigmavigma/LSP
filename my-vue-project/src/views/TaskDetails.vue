@@ -81,6 +81,17 @@
         />
       </section>
 
+      <!-- ФАЙЛЫ ЗАДАЧИ (новый блок) -->
+      <section class="task-section">
+        <h3>{{ $t('taskDetails.files') }}</h3>
+        <FileUploader
+          :project-id="projectId"
+          :task-index="taskIndex"
+          @upload="refreshTaskFiles"
+          @delete="refreshTaskFiles"
+        />
+      </section>
+
       <!-- Диаграмма Ганта (общий прогресс) -->
       <section class="gantt-section">
         <h3>{{ $t('taskDetails.totalProgress') }}</h3>
@@ -204,6 +215,7 @@ import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import CommentsSection from '@/components/CommentsSection.vue';
+import FileUploader from '@/components/FileUploader.vue';
 import type { Task, SubTask, Comment, ProjectRole } from '@/types';
 import axios from 'axios';
 
@@ -484,6 +496,22 @@ const completeTask = async () => {
     showNotification(t('taskDetails.onlyEditorsCanComplete'), 'info'); 
     return; 
   }
+
+  // Проверка на наличие файлов, если задача требует
+  if (task.value?.requires_file) {
+    try {
+      const filesRes = await axios.get(`/projects/${projectId}/files?task_id=${taskIndex}`);
+      if (filesRes.data.length === 0) {
+        showNotification(t('taskDetails.fileRequiredForCompletion'), 'info');
+        return;
+      }
+    } catch (err) {
+      console.error('Failed to check files', err);
+      showNotification(t('taskDetails.fileCheckError'), 'error');
+      return;
+    }
+  }
+
   const currentProject = project.value;
   const currentTask = task.value;
   if (!currentProject || !currentTask || actionInProgress.value) return;
@@ -611,6 +639,11 @@ const restoreTaskComment = async (commentId: string) => {
   }
 };
 
+// Функция для обновления после загрузки/удаления файлов (опционально)
+const refreshTaskFiles = () => {
+  // Можно ничего не делать, компонент сам обновит список
+};
+
 // Диалог подтверждения изменения дополнительного прогресса
 const openConfirmDialog = () => { 
   oldSliderValue.value = sliderValue.value; 
@@ -657,7 +690,6 @@ const confirmExtraChange = async () => {
 const goBack = () => router.push(`/project/${projectId}`);
 const goHome = () => router.push('/main');
 </script>
-
 <style scoped>
 /* ---------- Общие стили ---------- */
 .task-details-page {
