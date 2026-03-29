@@ -1,6 +1,7 @@
 {
     "common": {
         "welcome": "欢迎",
+        "download": "下载",
         "save": "保存",
         "cancel": "取消",
         "delete": "删除",
@@ -761,7 +762,9 @@
         "uploadError": "上传文件出错",
         "confirmDelete": "删除文件？",
         "deleteError": "删除文件出错",
-        "open": "打开"
+        "open": "打开",
+        "deleteConfirmTitle": "删除文件",
+        "deleteConfirmMessage": "您确定要删除此文件吗？"
     },
     "filePreview": {
         "title": "文件预览",

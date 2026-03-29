@@ -22,7 +22,7 @@
           {{ file.original_filename }}
         </a>
         <span class="file-size">{{ formatSize(file.file_size) }}</span>
-        <button class="delete-file" @click="deleteFile(file.id)" :title="$t('common.delete')">
+        <button class="delete-file" @click="confirmDelete(file)" :title="$t('common.delete')">
           🗑
         </button>
       </div>
@@ -34,6 +34,17 @@
       :base-url="baseUrl"
       @close="closePreview"
     />
+
+    <ConfirmModal
+      :show="showDeleteModal"
+      :title="$t('fileUploader.deleteConfirmTitle')"
+      :message="$t('fileUploader.deleteConfirmMessage')"
+      :confirm-text="$t('common.delete')"
+      :cancel-text="$t('common.cancel')"
+      icon="🗑️"
+      @confirm="deleteFileConfirmed"
+      @close="closeDeleteModal"
+    />
   </div>
 </template>
 
@@ -42,6 +53,7 @@ import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import FilePreviewModal from './FilePreviewModal.vue';
+import ConfirmModal from './ConfirmModal.vue';
 
 const { t } = useI18n();
 const baseUrl = 'http://localhost:8000';
@@ -51,13 +63,18 @@ const props = defineProps<{
   taskIndex?: number;
 }>();
 
-const emit = defineEmits(['upload', 'delete']);
+const emit = defineEmits<{
+  (e: 'upload'): void;
+  (e: 'delete'): void;
+}>();
 
 const files = ref<any[]>([]);
 const uploading = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 const showPreview = ref(false);
 const selectedFile = ref<any>(null);
+const showDeleteModal = ref(false);
+const fileToDelete = ref<any>(null);
 
 const acceptedTypes = [
   'text/plain',
@@ -84,10 +101,76 @@ const triggerFileInput = () => {
   fileInput.value?.click();
 };
 
+const compressImage = async (file: File): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      resolve(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const result = event.target?.result;
+      if (typeof result !== 'string') {
+        reject(new Error('Failed to read image'));
+        return;
+      }
+      const img = new Image();
+      img.src = result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDimension = 1200;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = (height * maxDimension) / width;
+            width = maxDimension;
+          } else {
+            width = (width * maxDimension) / height;
+            height = maxDimension;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Compression failed'));
+              return;
+            }
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          },
+          'image/jpeg',
+          0.8
+        );
+      };
+      img.onerror = () => reject(new Error('Image loading failed'));
+    };
+    reader.onerror = () => reject(new Error('File reading failed'));
+  });
+};
+
 const uploadFile = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (!input.files?.length) return;
-  const file = input.files[0];
+  let file = input.files[0];
+
+  if (file.type.startsWith('image/')) {
+    try {
+      file = await compressImage(file);
+    } catch (err) {
+      console.warn('Compression failed, uploading original:', err);
+    }
+  }
+
   const formData = new FormData();
   formData.append('file', file);
   if (props.taskIndex !== undefined) {
@@ -109,16 +192,27 @@ const uploadFile = async (event: Event) => {
   }
 };
 
-const deleteFile = async (fileId: number) => {
-  if (confirm(t('fileUploader.confirmDelete'))) {
-    try {
-      await axios.delete(`/files/${fileId}`);
-      await fetchFiles();
-      emit('delete');
-    } catch (err: any) {
-      console.error(err);
-      alert(err.response?.data?.detail || t('fileUploader.deleteError'));
-    }
+const confirmDelete = (file: any) => {
+  fileToDelete.value = file;
+  showDeleteModal.value = true;
+};
+
+const closeDeleteModal = () => {
+  showDeleteModal.value = false;
+  fileToDelete.value = null;
+};
+
+const deleteFileConfirmed = async () => {
+  if (!fileToDelete.value) return;
+  try {
+    await axios.delete(`/files/${fileToDelete.value.id}`);
+    await fetchFiles();
+    emit('delete');
+  } catch (err: any) {
+    console.error(err);
+    alert(err.response?.data?.detail || t('fileUploader.deleteError'));
+  } finally {
+    closeDeleteModal();
   }
 };
 
@@ -140,7 +234,6 @@ const formatSize = (bytes: number) => {
 
 onMounted(fetchFiles);
 </script>
-
 
 <style scoped>
 .file-uploader {
@@ -180,36 +273,27 @@ onMounted(fetchFiles);
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--border-color);
+  gap: 12px;
 }
-.file-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  overflow: hidden;
-}
-.file-icon {
-  font-size: 1.2rem;
-  min-width: 24px;
-}
-.file-name {
+.file-link {
+  color: var(--link-color);
+  text-decoration: none;
   font-size: 0.9rem;
-  color: var(--text-primary);
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+}
+.file-link:hover {
+  text-decoration: underline;
 }
 .file-size {
   font-size: 0.8rem;
   color: var(--text-secondary);
-  margin-left: auto;
   white-space: nowrap;
 }
-.file-actions {
-  display: flex;
-  gap: 8px;
-}
-.open-file, .delete-file {
+.delete-file {
   background: none;
   border: none;
   cursor: pointer;
@@ -217,17 +301,9 @@ onMounted(fetchFiles);
   padding: 4px;
   border-radius: 4px;
   transition: background 0.2s;
-}
-.open-file {
-  color: var(--accent-color);
-}
-.open-file:hover {
-  background: rgba(66, 185, 131, 0.2);
-}
-.delete-file {
   color: var(--danger-color);
 }
 .delete-file:hover {
   background: var(--danger-bg);
 }
-</style>
+</style>  
