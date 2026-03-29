@@ -212,7 +212,56 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* все стили остаются как в предыдущей версии – они не изменились */
+/* ... существующие стили ... */
+
+/* Расширяем модальное окно для PDF */
+.file-preview-modal:has(.pdf-container) {
+  width: 90vw;
+  max-width: none;
+  height: 90vh;
+  max-height: none;
+}
+
+/* Контейнер PDF занимает всё доступное пространство */
+.pdf-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  min-height: 70vh;
+}
+
+/* Если нужен встроенный просмотрщик через embed, то увеличиваем его размеры */
+.pdf-container embed {
+  width: 100%;
+  height: 100%;
+  min-height: 70vh;
+  border: none;
+  border-radius: 8px;
+}
+
+/* Также увеличиваем контейнер для офисных документов, если нужно */
+.office-container {
+  width: 100%;
+  height: 100%;
+  min-height: 70vh;
+}
+.office-viewer {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
+}
+
+/* Убираем лишние отступы в теле модального окна для PDF/Office */
+.modal-body:has(.pdf-container),
+.modal-body:has(.office-container) {
+  padding: 0;
+}
+
+/* Остальные стили без изменений */
 </style>
 
 
