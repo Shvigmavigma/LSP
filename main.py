@@ -12,6 +12,7 @@ import os
 import io
 import uuid
 import random
+import gzip
 import string
 from dotenv import load_dotenv
 import json
@@ -1390,18 +1391,40 @@ async def upload_project_file(
 
     ext = os.path.splitext(file.filename)[1]
     unique_name = f"{uuid.uuid4().hex}{ext}"
-    file_path = os.path.join("uploads", unique_name)
+
+    # Сжимаемые типы (текстовые и офисные документы)
+    compressible_types = [
+        "text/plain",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ]
+    compress = file.content_type in compressible_types
+
+    compressed = False
+    final_content = contents
+    final_filename = unique_name
+    if compress:
+        compressed_content = gzip.compress(contents)
+        if len(compressed_content) < len(contents):
+            final_content = compressed_content
+            final_filename = unique_name + ".gz"
+            compressed = True
+
+    file_path = os.path.join("uploads", final_filename)
     with open(file_path, "wb") as f:
-        f.write(contents)
+        f.write(final_content)
 
     db_file = ProjectFile(
         project_id=project_id,
         task_id=task_id,
-        filename=unique_name,
+        filename=final_filename,
         original_filename=file.filename,
-        file_size=len(contents),
+        file_size=len(contents),  # оригинальный размер
         mime_type=file.content_type,
-        uploaded_by=current_user.id
+        uploaded_by=current_user.id,
+        compressed=compressed
     )
     db.add(db_file)
     db.commit()
@@ -1444,7 +1467,14 @@ async def download_file(
     file_path = os.path.join("uploads", file_record.filename)
     if not os.path.exists(file_path):
         raise HTTPException(404, "File not found on disk")
-    return FileResponse(file_path, filename=file_record.original_filename)
+    headers = {"Content-Disposition": "inline"}
+    if file_record.compressed:
+        headers["Content-Encoding"] = "gzip"
+    return FileResponse(
+        file_path,
+        filename=file_record.original_filename,
+        headers=headers
+    )
 
 @app.delete("/files/{file_id}", tags=["Projects"])
 async def delete_file(

@@ -55,3 +55,4 @@ class ProjectFile(Base):
     uploaded_at = Column(DateTime, default=datetime.utcnow)
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     is_deleted = Column(Boolean, default=False)
+    compressed = Column(Boolean, default=False)

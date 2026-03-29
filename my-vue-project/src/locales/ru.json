@@ -1,6 +1,7 @@
 {
     "common": {
         "welcome": "Добро пожаловать",
+        "download": "Скачать",
         "save": "Сохранить",
         "cancel": "Отмена",
         "delete": "Удалить",
@@ -762,7 +763,9 @@
         "uploadError": "Ошибка загрузки файла",
         "confirmDelete": "Удалить файл?",
         "open": "Открыть",
-        "deleteError": "Ошибка удаления файла"
+        "deleteError": "Ошибка удаления файла",
+        "deleteConfirmTitle": "Удалить файл",
+        "deleteConfirmMessage": "Вы уверены, что хотите удалить этот файл?"
     },
     "filePreview": {
         "title": "Просмотр файла",
