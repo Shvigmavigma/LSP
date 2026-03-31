@@ -1,6 +1,6 @@
+<!-- LoginPage.vue (изменённый) -->
 <template>
   <div class="login-page">
-    <!-- Всплывающее уведомление об ошибке/успехе -->
     <Transition name="fade">
       <div v-if="notification.show" class="notification" :class="notification.type">
         <span class="notification-message">{{ notification.message }}</span>
@@ -8,8 +8,11 @@
       </div>
     </Transition>
 
-    <div class="theme-toggle-container">
+    <!-- Переключатели разнесены по углам -->
+    <div class="theme-toggle-left">
       <ThemeToggle />
+    </div>
+    <div class="language-switcher-right">
       <LanguageSwitcher />
     </div>
 
@@ -42,7 +45,6 @@
           />
         </div>
 
-        <!-- Текстовое сообщение об ошибке (можно оставить для совместимости) -->
         <div v-if="errorMessage" class="error-message">
           {{ errorMessage }}
         </div>
@@ -77,7 +79,6 @@ const loading = ref(false);
 const errorMessage = ref('');
 const hasError = ref(false);
 
-// Уведомления
 const notification = ref({
   show: false,
   message: '',
@@ -112,7 +113,6 @@ function clearError() {
   errorMessage.value = '';
 }
 
-// При монтировании страницы логина очищаем старые токены (на всякий случай)
 onMounted(() => {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
@@ -184,13 +184,23 @@ const handleLogin = async () => {
   transition: background 0.3s;
 }
 
-.theme-toggle-container {
+/* Тема слева */
+.theme-toggle-left {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  z-index: 10;
+}
+
+/* Язык справа */
+.language-switcher-right {
   position: absolute;
   top: 20px;
   right: 20px;
   z-index: 10;
 }
 
+/* Стили для карточки без изменений */
 .login-card {
   background: var(--bg-card);
   border-radius: 16px;
@@ -198,11 +208,7 @@ const handleLogin = async () => {
   padding: 40px 32px;
   width: 100%;
   max-width: 400px;
-  transition: transform 0.2s ease, background 0.3s;
-}
-
-.login-card:hover {
-  transform: translateY(-4px);
+  transition: background 0.3s;
 }
 
 h2 {
@@ -272,16 +278,12 @@ input.error-input {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
+  transition: background-color 0.2s;
   margin-top: 8px;
 }
 
 .login-button:hover:not(:disabled) {
   background-color: var(--accent-hover);
-}
-
-.login-button:active:not(:disabled) {
-  transform: scale(0.98);
 }
 
 .login-button:disabled {

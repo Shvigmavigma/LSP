@@ -1041,31 +1041,41 @@ async def update_project(
         participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
         if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can update the project")
+
     if project_update.title is not None:
         project.title = project_update.title
     if project_update.body is not None:
         project.body = project_update.body
     if project_update.underbody is not None:
         project.underbody = project_update.underbody
+
     if project_update.tasks is not None:
-        # Проверка на необходимость файлов при завершении задачи
         old_tasks = project.tasks or []
         new_tasks = project_update.tasks
         for i, new_task in enumerate(new_tasks):
             old_task = old_tasks[i] if i < len(old_tasks) else None
+            # Если задача переходит в статус "выполнена"
             if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
-                if new_task.get("requires_file"):
-                    files_count = db.query(ProjectFile).filter(
-                        ProjectFile.project_id == project_id,
-                        ProjectFile.task_id == i,
-                        ProjectFile.is_deleted == False
-                    ).count()
-                    if files_count == 0:
-                        raise HTTPException(
-                            400,
-                            f"Task '{new_task.get('title')}' requires at least one file to complete"
-                        )
+                required_files = new_task.get("required_files", [])
+                if required_files:
+                    for req in required_files:
+                        req_id = req.get("id")
+                        if not req_id:
+                            continue
+                        # Проверяем, прикреплён ли хотя бы один файл с таким required_file_id
+                        attached = db.query(ProjectFile).filter(
+                            ProjectFile.project_id == project_id,
+                            ProjectFile.task_id == i,
+                            ProjectFile.required_file_id == req_id,
+                            ProjectFile.is_deleted == False
+                        ).first()
+                        if not attached:
+                            raise HTTPException(
+                                400,
+                                f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}"
+                            )
         project.tasks = new_tasks
+
     if project_update.links is not None:
         project.links = project_update.links
     if project_update.comments is not None:
@@ -1076,9 +1086,61 @@ async def update_project(
         if len(users) != len(new_ids):
             raise HTTPException(404, "One or more users not found")
         project.participants = [p.model_dump(mode='json') for p in project_update.participants]
+
     db.commit()
     db.refresh(project)
     return project
+
+@app.delete("/files/{file_id}", tags=["Projects"])
+async def delete_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    file_record = db.query(ProjectFile).filter(ProjectFile.id == file_id).first()
+    if not file_record:
+        raise HTTPException(404, "File not found")
+    project = db.query(Project).filter(Project.id == file_record.project_id).first()
+    if not (current_user.id == file_record.uploaded_by or current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(403, "Not enough permissions")
+
+    # Удаляем attachment из задачи (если файл привязан к задаче)
+    if file_record.task_id is not None:
+        task = project.tasks[file_record.task_id]
+        if "attachments" in task:
+            task["attachments"] = [att for att in task["attachments"] if att.get("file_id") != file_id]
+            flag_modified(project, "tasks")
+
+    # Удаляем физический файл и запись в БД
+    file_path = os.path.join("uploads", file_record.filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    db.delete(file_record)
+    db.commit()
+    return {"message": "File deleted"}
+
+@app.get("/projects/{project_id}/files/required/{required_file_id}", response_model=List[ProjectFileResponse], tags=["Projects"])
+async def get_files_by_required_id(
+    project_id: int,
+    required_file_id: str,
+    task_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(403, "Not enough permissions")
+    query = db.query(ProjectFile).filter(
+        ProjectFile.project_id == project_id,
+        ProjectFile.required_file_id == required_file_id,
+        ProjectFile.is_deleted == False
+    )
+    if task_id is not None:
+        query = query.filter(ProjectFile.task_id == task_id)
+    files = query.all()
+    return files
 
 @app.post("/projects/{project_id}/comments", response_model=ProjectResponse, tags=["Projects"])
 async def add_comment(
@@ -1365,6 +1427,7 @@ async def upload_project_file(
     project_id: int,
     file: UploadFile = File(...),
     task_id: Optional[int] = Form(None),
+    required_file_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -1420,6 +1483,7 @@ async def upload_project_file(
         project_id=project_id,
         task_id=task_id,
         filename=final_filename,
+        required_file_id=required_file_id,
         original_filename=file.filename,
         file_size=len(contents),  # оригинальный размер
         mime_type=file.content_type,
@@ -1429,6 +1493,20 @@ async def upload_project_file(
     db.add(db_file)
     db.commit()
     db.refresh(db_file)
+    task = project.tasks[task_id]
+    if "attachments" not in task:
+        task["attachments"] = []
+    attachment = {
+        "id": str(uuid.uuid4()),
+        "file_id": db_file.id,
+        "required_file_id": required_file_id,
+        "uploaded_at": datetime.utcnow().isoformat(),
+        "original_filename": file.filename,
+        "size": len(contents)
+    }
+    task["attachments"].append(attachment)
+    flag_modified(project, "tasks")
+    db.commit()
     return db_file
 
 @app.get("/projects/{project_id}/files", response_model=List[ProjectFileResponse], tags=["Projects"])
@@ -1476,7 +1554,6 @@ async def download_file(
         headers=headers
     )
 
-@app.delete("/files/{file_id}", tags=["Projects"])
 async def delete_file(
     file_id: int,
     db: Session = Depends(get_db),
@@ -1488,6 +1565,13 @@ async def delete_file(
     project = db.query(Project).filter(Project.id == file_record.project_id).first()
     if not (current_user.id == file_record.uploaded_by or current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
         raise HTTPException(403, "Not enough permissions")
+
+    if file_record.task_id is not None:
+        task = project.tasks[file_record.task_id]
+        if "attachments" in task:
+            task["attachments"] = [att for att in task["attachments"] if att.get("file_id") != file_id]
+            flag_modified(project, "tasks")
+
     file_path = os.path.join("uploads", file_record.filename)
     if os.path.exists(file_path):
         os.remove(file_path)

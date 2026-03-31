@@ -166,15 +166,52 @@
           </div>
         </div>
 
-        <!-- НОВОЕ: Требуется файл для завершения -->
+        <!-- НОВОЕ: Обязательные файлы для завершения задачи -->
         <div class="form-section">
+          <div class="required-files-header">
+            <h2>{{ $t('taskEdit.requiredFiles') }}</h2>
+            <button type="button" class="add-required-file" @click="addRequiredFile">
+              + {{ $t('common.add') }}
+            </button>
+          </div>
+
+          <div v-if="requiredFiles.length === 0" class="no-required-files">
+            {{ $t('taskEdit.noRequiredFiles') }}
+          </div>
+
+          <div v-else class="required-files-list">
+            <div v-for="(rf, idx) in requiredFiles" :key="rf.id" class="required-file-item">
+              <div class="required-file-header">
+                <input
+                  v-model="rf.name"
+                  :placeholder="$t('taskEdit.requiredFileName')"
+                  class="required-file-name"
+                />
+                <button
+                  type="button"
+                  class="remove-required-file"
+                  @click="removeRequiredFile(idx)"
+                  :title="$t('common.delete')"
+                >✕</button>
+              </div>
+              <textarea
+                v-model="rf.description"
+                :placeholder="$t('taskEdit.requiredFileDescription')"
+                rows="2"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Старое поле "требуется файл" – скрыто, но оставлено для совместимости (можно удалить) -->
+        <!-- <div class="form-section">
           <div class="form-group">
             <label class="checkbox-label">
               <input type="checkbox" v-model="form.requires_file" />
               {{ $t('taskEdit.requiresFile') }}
             </label>
           </div>
-        </div>
+        </div> -->
 
         <!-- Кнопки сохранения -->
         <div class="form-actions">
@@ -197,8 +234,9 @@ import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
-import type { Project, Task, SubTask, ProjectRole } from '@/types';
+import type { Project, Task, SubTask, ProjectRole, RequiredFile } from '@/types';
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 
 const { t } = useI18n();
 const baseUrl = 'http://localhost:8000';
@@ -228,12 +266,15 @@ const form = reactive({
   timelinend: '',
   status: 'ожидает' as Task['status'],
   progress: 0,
-  requires_file: false,
+  // requires_file: false,  // оставлено для совместимости, но не используется
 });
 
 // Подзадачи
 interface EditableSubTask extends SubTask {}
 const subtasks = ref<EditableSubTask[]>([]);
+
+// Обязательные файлы
+const requiredFiles = ref<RequiredFile[]>([]);
 
 // Ошибки дат
 const timelineError = ref('');
@@ -352,6 +393,19 @@ function getStatusText(status: string): string {
   return map[status] || status;
 }
 
+// --- Работа с обязательными файлами ---
+function addRequiredFile() {
+  requiredFiles.value.push({
+    id: uuidv4(),
+    name: '',
+    description: '',
+  });
+}
+
+function removeRequiredFile(index: number) {
+  requiredFiles.value.splice(index, 1);
+}
+
 // Загрузка данных
 onMounted(async () => {
   if (isNaN(projectId)) {
@@ -384,9 +438,10 @@ onMounted(async () => {
       form.timelinend = originalTask.value.timelinend || '';
       form.status = originalTask.value.status || 'ожидает';
       form.progress = originalTask.value.progress || 0;
-      form.requires_file = originalTask.value.requires_file || false;
+      // form.requires_file = originalTask.value.requires_file || false; // не используется
 
       subtasks.value = originalTask.value.subtasks?.map(st => ({ ...st })) || [];
+      requiredFiles.value = originalTask.value.required_files ? [...originalTask.value.required_files] : [];
     }
   } catch (err) {
     console.error('Ошибка загрузки:', err);
@@ -464,7 +519,8 @@ async function handleSubmit() {
     status: form.status,
     subtasks: subtasks.value,
     progress: totalSubtasksPercent.value,
-    requires_file: form.requires_file,
+    required_files: requiredFiles.value,   // отправляем список обязательных файлов
+    // requires_file: form.requires_file, // не используется
   };
 
   const updatedTasks = [...project.value.tasks];
@@ -805,6 +861,77 @@ textarea {
   accent-color: var(--accent-color);
 }
 
+/* НОВЫЕ СТИЛИ ДЛЯ ОБЯЗАТЕЛЬНЫХ ФАЙЛОВ */
+.required-files-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.add-required-file {
+  background: var(--accent-color);
+  color: var(--button-text);
+  border: none;
+  border-radius: 30px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.add-required-file:hover {
+  background: var(--accent-hover);
+}
+
+.no-required-files {
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 20px;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+}
+
+.required-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.required-file-item {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--bg-card);
+}
+
+.required-file-header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.required-file-name {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.remove-required-file {
+  background: none;
+  border: none;
+  color: var(--danger-color);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+/* Кнопки действий */
 .form-actions {
   display: flex;
   gap: 12px;

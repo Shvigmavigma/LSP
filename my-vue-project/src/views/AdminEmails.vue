@@ -358,7 +358,6 @@ function goBack() {
   border-color: var(--accent-color);
   background: rgba(66, 185, 131, 0.1);
   color: var(--accent-color);
-  transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(66, 185, 131, 0.2);
 }
 .edit-card {
@@ -426,7 +425,6 @@ function goBack() {
 }
 .add-button:hover {
   background: var(--accent-hover);
-  transform: translateY(-1px);
 }
 .empty-list {
   text-align: center;
@@ -515,7 +513,6 @@ function goBack() {
 }
 .save-button:hover:not(:disabled) {
   background-color: var(--accent-hover);
-  transform: translateY(-2px);
   box-shadow: var(--shadow-strong);
 }
 .save-button:disabled {
@@ -529,7 +526,6 @@ function goBack() {
 }
 .cancel-button:hover {
   background-color: var(--bg-card);
-  transform: translateY(-2px);
 }
 .save-message {
   margin-top: 15px;
@@ -615,7 +611,6 @@ function goBack() {
 }
 .modal-confirm:hover:not(:disabled) {
   background: var(--accent-hover);
-  transform: scale(1.02);
 }
 .modal-confirm:disabled {
   opacity: 0.5;

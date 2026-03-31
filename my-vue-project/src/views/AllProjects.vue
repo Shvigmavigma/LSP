@@ -264,15 +264,15 @@ function goHome() {
   border-radius: 16px;
   padding: 20px;
   box-shadow: var(--shadow);
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  transition: all 0.2s;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
 }
 .project-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-strong);
+  outline: 1px solid var(--accent-color);
+  outline-offset: 1px;
   border-color: var(--accent-color);
 }
 .card-title {
@@ -402,7 +402,15 @@ function goHome() {
   border-color: var(--accent-color);
   background: rgba(66, 185, 131, 0.1);
   color: var(--accent-color);
-  transform: scale(1.05);
   box-shadow: 0 4px 12px rgba(66, 185, 131, 0.2);
+}
+.tab-button:hover {
+  background: rgba(66, 185, 131, 0.15);
+  color: var(--accent-color);
+  border-color: rgba(66, 185, 131, 0.3);
+}
+.tab-button.active:hover {
+  background: rgba(66, 185, 131, 0.2);
+  box-shadow: 0 4px 12px rgba(66, 185, 131, 0.3);
 }
 </style>

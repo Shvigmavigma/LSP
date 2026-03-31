@@ -1,6 +1,8 @@
 {
     "common": {
         "welcome": "Welcome",
+          "confirmDelete": "Are you sure you want to delete this file?",
+        "upload": "Upload",
         "download": "Download",
         "save": "Save",
         "cancel": "Cancel",
@@ -627,6 +629,17 @@
     },
     "taskDetails": {
         "title": "Task details",
+        "confirmDeleteFile": "Are you sure you want to delete this file?",
+        "requiredFilesLabel": "Required files",
+        "requiredFiles": "Required files",
+        "attachments": "Attachments",
+        "uploadFile": "Upload file",
+        "attached": "Attached",
+        "fileUploaded": "File uploaded",
+        "uploadError": "File upload error",
+        "fileDeleted": "File deleted",
+        "deleteError": "File deletion error",
+        "missingRequiredFiles": "Not all required files are attached",
         "files": "Task files",
         "fileRequiredForCompletion": "Please attach a file to complete this task",
         "fileCheckError": "Error checking files",
@@ -667,6 +680,10 @@
     },
     "taskEdit": {
         "createTitle": "Create task",
+        "requiredFiles": "Required files for completion",
+        "noRequiredFiles": "No required files. Add requirements.",
+        "requiredFileName": "File name",
+        "requiredFileDescription": "Description (optional)",
         "requiresFile": "File attachment required for completion",
         "editTitle": "Edit task",
         "adminHint": "You have full rights as an administrator or curator.",

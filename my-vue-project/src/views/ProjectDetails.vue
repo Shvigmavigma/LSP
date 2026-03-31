@@ -365,6 +365,22 @@
                     <strong>{{ task.title }}</strong>
                     <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
                     <p>{{ task.body }}</p>
+
+                    <!-- Обязательные файлы для задачи -->
+                    <div v-if="task.required_files && task.required_files.length" class="task-required-files">
+                      <div class="required-files-label">{{ $t('taskDetails.requiredFilesLabel') }}:</div>
+                      <div class="required-files-list">
+                        <div
+                          v-for="req in task.required_files"
+                          :key="req.id"
+                          class="required-file-item"
+                          :class="{ satisfied: isTaskRequiredFileAttached(task, req.id) }"
+                        >
+                          {{ req.name }}
+                        </div>
+                      </div>
+                    </div>
+
                     <span v-if="task.status === 'в работе'" class="task-progress">
                       {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
                     </span>
@@ -396,6 +412,22 @@
                     <strong>{{ task.title }}</strong>
                     <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
                     <p>{{ task.body }}</p>
+
+                    <!-- Обязательные файлы для задачи -->
+                    <div v-if="task.required_files && task.required_files.length" class="task-required-files">
+                      <div class="required-files-label">{{ $t('taskDetails.requiredFilesLabel') }}:</div>
+                      <div class="required-files-list">
+                        <div
+                          v-for="req in task.required_files"
+                          :key="req.id"
+                          class="required-file-item"
+                          :class="{ satisfied: isTaskRequiredFileAttached(task, req.id) }"
+                        >
+                          {{ req.name }}
+                        </div>
+                      </div>
+                    </div>
+
                     <span v-if="task.status === 'в работе'" class="task-progress">
                       {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
                     </span>
@@ -675,6 +707,9 @@ function getTaskStatusText(status: string): string {
     case 'выполнена': return t('projectDetails.status.completed');
     default: return status;
   }
+}
+function isTaskRequiredFileAttached(task: Task, requiredFileId: string): boolean {
+  return task.attachments?.some(att => att.required_file_id === requiredFileId) ?? false;
 }
 const activeTasksProgress = computed(() => {
   if (!project.value || !activeTasks.value.length) return [];
@@ -1157,7 +1192,7 @@ watch(() => route.params.id, () => {
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
   box-shadow: var(--shadow);
   display: inline-flex;
   align-items: center;
@@ -1168,7 +1203,6 @@ watch(() => route.params.id, () => {
 .comments-header-btn:hover,
 .requests-btn:hover {
   background: var(--accent-hover);
-  transform: translateY(-2px);
   box-shadow: var(--shadow-strong);
 }
 .btn-content {
@@ -1293,7 +1327,7 @@ watch(() => route.params.id, () => {
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s;
 }
 .accept-request-btn {
   background: #4caf50;
@@ -1329,12 +1363,11 @@ watch(() => route.params.id, () => {
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
   box-shadow: var(--shadow);
 }
 .respond-project-btn:hover:not(:disabled) {
   background: var(--accent-hover);
-  transform: translateY(-2px);
   box-shadow: var(--shadow-strong);
 }
 .respond-project-btn:disabled {
@@ -1420,6 +1453,35 @@ watch(() => route.params.id, () => {
   color: var(--text-primary);
   margin: 8px 0 4px;
 }
+/* НОВЫЕ СТИЛИ ДЛЯ ОБЯЗАТЕЛЬНЫХ ФАЙЛОВ В ЗАДАЧЕ */
+.task-required-files {
+  margin-top: 8px;
+  font-size: 0.8rem;
+}
+.required-files-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.required-files-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.required-file-item {
+  font-size: 0.75rem;
+  color: #888;
+  background: var(--bg-page);
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-block;
+}
+.required-file-item.satisfied {
+  color: #4caf50;
+  background: rgba(76, 175, 80, 0.1);
+  font-weight: 500;
+}
+/* Остальные стили */
 .task-progress {
   display: inline-block;
   margin-top: 4px;
@@ -1559,10 +1621,10 @@ watch(() => route.params.id, () => {
   padding: 10px;
   border-radius: 8px;
   border-left: 4px solid var(--accent-color);
-  transition: transform 0.1s, box-shadow 0.1s;
+  transition: background 0.2s, box-shadow 0.2s;
 }
 .completed-task:hover {
-  transform: translateX(4px);
+  background: var(--bg-card);
   box-shadow: var(--shadow);
 }
 .completed-task-title {
@@ -1591,7 +1653,7 @@ watch(() => route.params.id, () => {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1602,18 +1664,18 @@ watch(() => route.params.id, () => {
   color: var(--button-text);
 }
 .edit-project-button:hover {
-  background: var(--accent-hover);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-strong);
+  background: transparent;
+  color: var(--accent-color);
+  border: 1px solid var(--accent-color);
 }
 .delete-project-button {
   background: var(--danger-bg);
   color: var(--danger-color);
 }
 .delete-project-button:hover {
-  background: var(--danger-hover);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-strong);
+  background: transparent;
+  color: var(--danger-color);
+  border: 1px solid var(--danger-color);
 }
 /* Ссылки проекта */
 .project-links {
@@ -1639,7 +1701,7 @@ watch(() => route.params.id, () => {
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
   border: 1px solid transparent;
 }
 .link-button .icon {
@@ -1657,7 +1719,6 @@ watch(() => route.params.id, () => {
 .add-github:hover,
 .add-drive:hover {
   background: var(--bg-page);
-  transform: translateY(-2px);
   box-shadow: var(--shadow);
 }
 .link-input-wrapper {
@@ -1732,7 +1793,6 @@ watch(() => route.params.id, () => {
 }
 .github-link:hover {
   background: #2c3e50;
-  transform: translateY(-2px);
   box-shadow: var(--shadow-strong);
 }
 .drive-link {
@@ -1741,7 +1801,6 @@ watch(() => route.params.id, () => {
 }
 .drive-link:hover {
   background: #3367d6;
-  transform: translateY(-2px);
   box-shadow: var(--shadow-strong);
 }
 .loading,

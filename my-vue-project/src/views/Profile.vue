@@ -260,13 +260,12 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background 0.2s, box-shadow 0.2s;
   color: var(--text-primary);
 }
 
 .home-button:hover {
   background: var(--bg-card);
-  transform: scale(1.1) translateY(-2px);
   box-shadow: var(--shadow-strong);
 }
 
@@ -277,12 +276,8 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   padding: 40px;
   width: 100%;
   max-width: 500px;
-  transition: transform 0.2s, background 0.3s;
+  transition: background 0.3s;
   overflow: hidden;
-}
-
-.profile-card:hover {
-  transform: translateY(-5px);
 }
 
 .profile-header {
@@ -313,7 +308,6 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
 
 .avatar.clickable:hover {
   opacity: 0.8;
-  transform: scale(1.05);
 }
 
 .avatar img {
@@ -463,16 +457,12 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
+  transition: background-color 0.2s;
   margin-top: 8px;
 }
 
 .edit-button:hover {
   background-color: var(--accent-hover);
-}
-
-.edit-button:active {
-  transform: scale(0.98);
 }
 
 .logout-button {
@@ -485,16 +475,12 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
+  transition: background-color 0.2s;
   margin-top: 12px;
 }
 
 .logout-button:hover {
   background-color: var(--danger-hover);
-}
-
-.logout-button:active {
-  transform: scale(0.98);
 }
 
 .delete-account-button {
@@ -510,18 +496,13 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
+  transition: background-color 0.2s;
   box-shadow: var(--shadow-strong);
 }
 
 .delete-account-button:hover:not(:disabled) {
   background-color: #b71c1c;
-  transform: translateY(-2px);
   box-shadow: var(--shadow-strong);
-}
-
-.delete-account-button:active:not(:disabled) {
-  transform: scale(0.98);
 }
 
 .delete-account-button:disabled {

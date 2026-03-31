@@ -265,6 +265,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import type { Project, Task, User, Participant, ProjectRole, Suggestion } from '@/types';
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 
 const { t } = useI18n();
 const baseUrl = 'http://localhost:8000';
@@ -380,26 +381,41 @@ const tasks = ref<EditableTask[]>([]);
 // --- Дефолтные задачи (пользователь может отредактировать этот массив) ---
 const defaultTasks = ref<Partial<Task>[]>([
   {
-    title: 'Исследование',
-    body: 'Провести предварительное исследование',
+    title: 'Предзащита 1',
+    body: 'Подготовить тему и техническое задание',
     status: 'ожидает',
-    timeline: '01.01.2025',
-    timelinend: '15.01.2025',
+    timeline: '01.09.2025',
+    timelinend: '20.11.2025',
+    required_files: [
+      { id: uuidv4(), name: 'Техническое задание', description: 'Документ с требованиями' },
+      { id: uuidv4(), name: 'Презентация', description: 'Презентация по теме' }
+    ]
   },
   {
-    title: 'Прототипирование',
-    body: 'Создать прототип',
+    title: 'Предзащита 2',
+    body: 'Подготовить ТЗ, начальный фрагмент кода и начать пояснительную записку',
     status: 'ожидает',
-    timeline: '16.01.2025',
-    timelinend: '31.01.2025',
+    timeline: '21.11.2025',
+    timelinend: '20.02.2026',
+    required_files: [
+      { id: uuidv4(), name: 'Техническое задание', description: 'Уточнённое ТЗ' },
+      { id: uuidv4(), name: 'Фрагмент кода', description: 'Рабочий прототип' },
+      { id: uuidv4(), name: 'Презентация', description: 'Презентация к предзащите 2' }
+    ]
   },
   {
-    title: 'Тестирование',
-    body: 'Провести тестирование',
+    title: 'Защита',
+    body: 'Полностью подготовить проект к защите',
     status: 'ожидает',
-    timeline: '01.02.2025',
-    timelinend: '15.02.2025',
-  },
+    timeline: '21.02.2026',
+    timelinend: '14.06.2026',
+    required_files: [
+      { id: uuidv4(), name: 'Техническое задание', description: 'Финальное ТЗ' },
+      { id: uuidv4(), name: 'Пояснительная записка', description: 'Полная ПЗ' },
+      { id: uuidv4(), name: 'Презентация', description: 'Итоговая презентация' },
+      { id: uuidv4(), name: 'Код проекта', description: 'Исходный код' }
+    ]
+  }
 ]);
 
 // Роль текущего пользователя в проекте
@@ -704,9 +720,14 @@ function addTask() {
 }
 
 function addDefaultTasks() {
-  defaultTasks.value.forEach(task => {
-    const newTask: EditableTask = {
-      title: task.title || t('projectEdit.defaultTaskTitle'),
+  const newTasks = defaultTasks.value.map(task => {
+    const requiredFiles = (task.required_files || []).map(rf => ({
+      id: uuidv4(),
+      name: rf.name,
+      description: rf.description || ''
+    }));
+    return {
+      title: task.title || 'Новая задача',
       body: task.body || '',
       status: task.status || 'ожидает',
       timeline: task.timeline || '',
@@ -719,10 +740,11 @@ function addDefaultTasks() {
       expanded: false,
       startError: undefined,
       endError: undefined,
+      required_files: requiredFiles,
     };
-    tasks.value.push(newTask);
   });
-  showNotification(t('projectEdit.defaultTasksAdded', { count: defaultTasks.value.length }), 'success');
+  tasks.value.push(...newTasks);
+  showNotification(t('taskEdit.defaultTasksAdded', { count: defaultTasks.value.length }), 'success');
 }
 
 function saveTask(index: number) {
