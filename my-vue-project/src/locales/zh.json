@@ -1,6 +1,9 @@
 {
     "common": {
         "welcome": "欢迎",
+  "confirmDelete": "您确定要删除此文件吗？",
+
+        "upload": "上传",
         "download": "下载",
         "save": "保存",
         "cancel": "取消",
@@ -626,7 +629,21 @@
         "genericError": "注册时发生错误"
     },
     "taskDetails": {
+        "confirmDeleteFile": "您确定要删除此文件吗？",
+        "requiredFilesLabel": "所需文件",
+        "noRequiredFiles": "没有必需的文件。请添加要求。",
+        "requiredFileName": "文件名",
+        "requiredFileDescription": "描述（可选）",
         "title": "任务详情",
+        "requiredFiles": "必需文件",
+        "attachments": "附件",
+        "uploadFile": "上传文件",
+        "attached": "已附加",
+        "fileUploaded": "文件已上传",
+        "uploadError": "文件上传错误",
+        "fileDeleted": "文件已删除",
+        "deleteError": "文件删除错误",
+        "missingRequiredFiles": "并非所有必需文件都已附加",
         "files": "任务文件",
         "fileRequiredForCompletion": "完成此任务需要上传文件",
         "fileCheckError": "检查文件时出错",

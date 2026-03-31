@@ -81,18 +81,61 @@
         />
       </section>
 
-      <!-- ФАЙЛЫ ЗАДАЧИ (новый блок) -->
-      <section class="task-section">
-        <h3>{{ $t('taskDetails.files') }}</h3>
-        <FileUploader
-          :project-id="projectId"
-          :task-index="taskIndex"
-          @upload="refreshTaskFiles"
-          @delete="refreshTaskFiles"
-        />
+      <!-- ========== ОБЯЗАТЕЛЬНЫЕ ФАЙЛЫ ========== -->
+      <section v-if="requiredFiles.length" class="task-section required-files-section">
+        <h3>{{ $t('taskDetails.requiredFiles') }}</h3>
+        <div class="required-files-list">
+          <div
+            v-for="req in requiredFiles"
+            :key="req.id"
+            class="required-file-status"
+            :class="{ satisfied: isRequiredFileSatisfied(req.id) }"
+          >
+            <div class="rf-info">
+              <span class="rf-name">{{ req.name }}</span>
+              <span v-if="req.description" class="rf-desc">{{ req.description }}</span>
+            </div>
+            <div class="rf-actions">
+              <button
+                v-if="!isRequiredFileSatisfied(req.id)"
+                class="upload-file-btn"
+                @click="uploadFileForRequired(req.id)"
+                :disabled="uploadingFiles[req.id]"
+              >
+                {{ uploadingFiles[req.id] ? $t('common.sending') : '📎 ' + $t('common.upload') }}
+              </button>
+              <span v-else class="satisfied-badge">✅ {{ $t('taskDetails.attached') }}</span>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <!-- Диаграмма Ганта (общий прогресс) -->
+      <!-- ========== ПРИКРЕПЛЁННЫЕ ФАЙЛЫ ========== -->
+      <section v-if="attachments.length" class="task-section attachments-section">
+        <h3>{{ $t('taskDetails.attachments') }}</h3>
+        <div class="attachments-list">
+          <div v-for="att in attachments" :key="att.id" class="attachment-item">
+            <a href="#" @click.prevent="previewAttachment(att)">{{ att.original_filename }}</a>
+            <span class="attachment-meta">({{ formatFileSize(att.size) }})</span>
+            <button
+              v-if="canEditTask"
+              class="delete-attachment"
+              @click="openDeleteFileModal(att.file_id)"
+              :disabled="deletingAttachment"
+              :title="$t('common.delete')"
+            >🗑</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Кнопка загрузки любого файла -->
+      <div class="upload-generic-btn-wrapper">
+        <button class="upload-generic-btn" @click="uploadGenericFile" :disabled="uploadingFiles['generic']">
+          {{ uploadingFiles['generic'] ? $t('common.sending') : '📁 ' + $t('taskDetails.uploadFile') }}
+        </button>
+      </div>
+
+      <!-- Диаграмма Ганта, подзадачи, прогресс -->
       <section class="gantt-section">
         <h3>{{ $t('taskDetails.totalProgress') }}</h3>
         <div class="gantt-container">
@@ -120,7 +163,6 @@
         </div>
       </section>
 
-      <!-- Подзадачи -->
       <section v-if="subtasks.length > 0" class="subtasks-section">
         <h3>{{ $t('taskDetails.subtasks') }}</h3>
         <div class="subtasks-list">
@@ -139,13 +181,20 @@
         </div>
       </section>
 
-      <!-- Ползунок дополнительного прогресса (только для редакторов, если задача в работе) -->
       <section v-if="showManualProgress && canEditTask" class="progress-section">
         <h3>{{ $t('taskDetails.extraProgress') }}</h3>
         <div class="progress-slider-container">
           <span class="progress-value">{{ sliderValue }}%</span>
           <span class="progress-max"> / {{ maxExtra.toFixed(1) }}%</span>
-          <input type="range" v-model.number="sliderValue" class="progress-slider" :min="0" :max="maxExtra" step="1" />
+          <input
+            type="range"
+            :value="sliderValue"
+            @input="updateSliderValue"
+            class="progress-slider"
+            :min="0"
+            :max="maxExtra"
+            step="1"
+          />
         </div>
         <button class="apply-progress-button" @click="openConfirmDialog">{{ $t('taskDetails.applyExtraProgress') }}</button>
       </section>
@@ -153,12 +202,11 @@
         <p class="disabled-message">🔒 {{ $t('taskDetails.onlyEditorsCanChangeProgress') }}</p>
       </div>
 
-      <!-- Кнопки действий -->
       <section class="action-buttons" v-if="hasFullAccess">
         <div v-if="task.status !== 'выполнена'">
           <button class="complete-button" @click="completeTask"
-                  :disabled="actionInProgress || totalProgress < 100 || !canEditTask"
-                  :title="!canEditTask ? $t('taskDetails.onlyEditorsCanComplete') : (totalProgress < 100 ? $t('taskDetails.completeOnlyAt100') : '')">
+                  :disabled="actionInProgress || totalProgress < 100 || !canEditTask || !areAllRequiredFilesAttached"
+                  :title="getCompleteButtonTitle()">
             {{ actionInProgress ? $t('common.sending') : $t('taskDetails.completeTask') }}
           </button>
         </div>
@@ -183,7 +231,6 @@
         </div>
       </section>
 
-      <!-- Бейджики состояния -->
       <section class="status-badges">
         <span v-if="isInvalid" class="badge invalid">{{ $t('taskDetails.impossibleDeadline') }}</span>
         <span v-if="isOverdue" class="badge overdue">{{ $t('taskDetails.overdue') }}</span>
@@ -191,7 +238,7 @@
       </section>
     </div>
 
-    <!-- Модальное окно подтверждения -->
+    <!-- Модальное окно подтверждения (общий прогресс) -->
     <div v-if="showConfirmDialog" class="modal-overlay" @click.self="closeConfirmDialog">
       <div class="modal-content">
         <h3>{{ $t('common.confirm') }}</h3>
@@ -202,11 +249,31 @@
         </div>
       </div>
     </div>
+
+    <!-- Модальное окно предпросмотра файла -->
+    <FilePreviewModal
+      :show="previewModalVisible"
+      :file="previewFile"
+      :base-url="baseUrl"
+      @close="previewModalVisible = false"
+    />
+
+    <!-- Модальное окно подтверждения удаления файла -->
+    <div v-if="showDeleteFileModal" class="modal-overlay" @click.self="closeDeleteFileModal">
+      <div class="modal-content">
+        <h3>{{ $t('common.confirm') }}</h3>
+        <p>{{ $t('taskDetails.confirmDeleteFile') }}</p>
+        <div class="modal-actions">
+          <button class="modal-confirm" @click="confirmDeleteFile">{{ $t('common.yes') }}</button>
+          <button class="modal-cancel" @click="closeDeleteFileModal">{{ $t('common.no') }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
@@ -215,8 +282,8 @@ import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import CommentsSection from '@/components/CommentsSection.vue';
-import FileUploader from '@/components/FileUploader.vue';
-import type { Task, SubTask, Comment, ProjectRole } from '@/types';
+import FilePreviewModal from '@/components/FilePreviewModal.vue';
+import type { Task, SubTask, Comment, ProjectRole, RequiredFile, TaskAttachment } from '@/types';
 import axios from 'axios';
 
 const { t } = useI18n();
@@ -239,11 +306,31 @@ const error = ref('');
 const actionInProgress = ref(false);
 const showRenewOptions = ref(false);
 const showTaskComments = ref(false);
+const previewModalVisible = ref(false);
+const previewFile = ref<any>(null);
 
 const savedProgress = ref(0);
 const sliderValue = ref(0);
 const oldSliderValue = ref(0);
 const showConfirmDialog = ref(false);
+
+// === Состояния для модального окна удаления файла ===
+const showDeleteFileModal = ref(false);
+const fileToDelete = ref<number | null>(null);
+
+// === Файловая часть с состояниями загрузки ===
+const requiredFiles = computed<RequiredFile[]>(() => task.value?.required_files || []);
+const attachments = computed<TaskAttachment[]>(() => task.value?.attachments || []);
+
+const areAllRequiredFilesAttached = computed(() => {
+  if (!requiredFiles.value.length) return true;
+  return requiredFiles.value.every(req =>
+    attachments.value.some(att => att.required_file_id === req.id)
+  );
+});
+
+const uploadingFiles = ref<Record<string, boolean>>({});
+const deletingAttachment = ref(false);
 
 const extraProgress = computed(() => sliderValue.value);
 
@@ -272,7 +359,6 @@ const userRole = computed<ProjectRole | null>(() => {
   return participant?.role || null;
 });
 
-// Глобальные роли (приводим к boolean)
 const isAdmin = computed(() => (authStore.user?.is_admin ?? false));
 const isCurator = computed(() => {
   const user = authStore.user;
@@ -281,10 +367,7 @@ const isCurator = computed(() => {
   return user.teacher_info?.curator ?? false;
 });
 
-// Полный доступ (участник, админ или куратор)
 const hasFullAccess = computed(() => !!userRole.value || isAdmin.value || isCurator.value);
-
-// Может ли редактировать задачу (заказчик, исполнитель, куратор, админ)
 const canEditTask = computed(() => 
   userRole.value === 'customer' || 
   userRole.value === 'executor' || 
@@ -292,8 +375,6 @@ const canEditTask = computed(() =>
   isAdmin.value || 
   isCurator.value
 );
-
-// Может ли скрывать комментарии (научный руководитель, админ, куратор)
 const canHideComments = computed(() => 
   userRole.value === 'supervisor' || 
   isAdmin.value || 
@@ -301,13 +382,9 @@ const canHideComments = computed(() =>
 );
 
 const taskComments = computed(() => task.value?.comments || []);
-
-// Количество непрочитанных комментариев (исключая скрытые для обычных участников)
 const unreadTaskCommentsCount = computed(() => {
   const comments = task.value?.comments || [];
-  if (canHideComments.value) {
-    return comments.filter(c => !c.isRead).length;
-  }
+  if (canHideComments.value) return comments.filter(c => !c.isRead).length;
   return comments.filter(c => !c.hidden && !c.isRead).length;
 });
 
@@ -332,33 +409,39 @@ function isValidDateFormat(dateStr?: string): boolean {
   return date.getDate() === day && date.getMonth() === month - 1 && date.getFullYear() === year;
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 // Подзадачи
 const subtasks = computed(() => task.value?.subtasks || []);
 const totalSubtasksPercent = computed(() => subtasks.value.reduce((sum, st) => sum + (st.progressPercent || 0), 0));
 const completedSubtasksPercent = computed(() => subtasks.value.filter(st => st.completed).reduce((sum, st) => sum + (st.progressPercent || 0), 0));
-
-const maxExtra = computed(() => 100 - completedSubtasksPercent.value);
+const maxExtra = computed(() => {
+  const val = 100 - completedSubtasksPercent.value;
+  return (isNaN(val) || val < 0) ? 0 : val;
+});
 const totalProgress = computed(() => completedSubtasksPercent.value + sliderValue.value);
-
 const showManualProgress = computed(() => task.value?.status === 'в работе' && maxExtra.value > 0);
 
-// Загрузка
-onMounted(async () => {
+// Загрузка задачи
+async function loadTask() {
   if (isNaN(projectId) || isNaN(taskIndex) || taskIndex < 0) {
     error.value = t('taskDetails.invalidParams');
     loading.value = false;
     return;
   }
-
   try {
-    project.value = await projectsStore.fetchProjectById(projectId);
+    const response = await axios.get(`${baseUrl}/projects/${projectId}`);
+    project.value = response.data;
     if (!project.value || !project.value.tasks || !project.value.tasks[taskIndex]) {
       error.value = t('taskDetails.taskNotFound');
     } else {
       const loadedTask = project.value.tasks[taskIndex];
       task.value = loadedTask;
       savedProgress.value = loadedTask.progress ?? 0;
-
       if (loadedTask.subtasks && loadedTask.subtasks.length > 0) {
         const completedSum = loadedTask.subtasks
           .filter((st: SubTask) => st.completed)
@@ -374,14 +457,16 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+}
+onMounted(loadTask);
+watch(() => route.params.id, loadTask);
 
 // Статусы задачи
 const isInvalid = computed(() => {
-  const t = task.value;
-  if (!t) return false;
-  let startStr = t.timeline;
-  let endStr = t.timelinend;
+  const tsk = task.value;
+  if (!tsk) return false;
+  let startStr = tsk.timeline;
+  let endStr = tsk.timelinend;
   if (!endStr && startStr && startStr.includes('-')) {
     const parts = startStr.split('-');
     startStr = parts[0] || '';
@@ -396,24 +481,24 @@ const isInvalid = computed(() => {
 });
 
 const isOverdue = computed(() => {
-  const t = task.value;
-  if (!t || isInvalid.value) return false;
-  let endStr = t.timelinend;
-  if (!endStr && t.timeline && t.timeline.includes('-')) {
-    const parts = t.timeline.split('-');
+  const tsk = task.value;
+  if (!tsk || isInvalid.value) return false;
+  let endStr = tsk.timelinend;
+  if (!endStr && tsk.timeline && tsk.timeline.includes('-')) {
+    const parts = tsk.timeline.split('-');
     endStr = parts[1] || '';
   }
   const end = parseDate(endStr || '');
   if (!end) return false;
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  return today > end && t.status !== 'выполнена';
+  return today > end && tsk.status !== 'выполнена';
 });
 
 const isUrgent = computed(() => {
-  const t = task.value;
-  if (!t || isInvalid.value || isOverdue.value) return false;
-  let startStr = t.timeline;
-  let endStr = t.timelinend;
+  const tsk = task.value;
+  if (!tsk || isInvalid.value || isOverdue.value) return false;
+  let startStr = tsk.timeline;
+  let endStr = tsk.timelinend;
   if (!endStr && startStr && startStr.includes('-')) {
     const parts = startStr.split('-');
     startStr = parts[0] || '';
@@ -428,7 +513,7 @@ const isUrgent = computed(() => {
   const elapsed = (today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
   if (elapsed < 0) return false;
   const prog = elapsed / totalDuration;
-  return prog > 2 / 3 && t.status !== 'выполнена';
+  return prog > 2 / 3 && tsk.status !== 'выполнена';
 });
 
 const barColor = computed(() => {
@@ -452,6 +537,13 @@ function getTaskStatusText(status: string): string {
     case 'выполнена': return t('projectDetails.status.completed');
     default: return status;
   }
+}
+
+function getCompleteButtonTitle(): string {
+  if (!canEditTask.value) return t('taskDetails.onlyEditorsCanComplete');
+  if (totalProgress.value < 100) return t('taskDetails.completeOnlyAt100');
+  if (!areAllRequiredFilesAttached.value) return t('taskDetails.missingRequiredFiles');
+  return '';
 }
 
 // --- Методы для задач ---
@@ -496,20 +588,13 @@ const completeTask = async () => {
     showNotification(t('taskDetails.onlyEditorsCanComplete'), 'info'); 
     return; 
   }
-
-  // Проверка на наличие файлов, если задача требует
-  if (task.value?.requires_file) {
-    try {
-      const filesRes = await axios.get(`/projects/${projectId}/files?task_id=${taskIndex}`);
-      if (filesRes.data.length === 0) {
-        showNotification(t('taskDetails.fileRequiredForCompletion'), 'info');
-        return;
-      }
-    } catch (err) {
-      console.error('Failed to check files', err);
-      showNotification(t('taskDetails.fileCheckError'), 'error');
-      return;
-    }
+  if (totalProgress.value < 100) {
+    showNotification(t('taskDetails.completeOnlyAt100'), 'info');
+    return;
+  }
+  if (!areAllRequiredFilesAttached.value) {
+    showNotification(t('taskDetails.missingRequiredFiles'), 'info');
+    return;
   }
 
   const currentProject = project.value;
@@ -639,21 +724,109 @@ const restoreTaskComment = async (commentId: string) => {
   }
 };
 
-// Функция для обновления после загрузки/удаления файлов (опционально)
-const refreshTaskFiles = () => {
-  // Можно ничего не делать, компонент сам обновит список
+// === Файловые методы с кастомным модальным окном ===
+function isRequiredFileSatisfied(requiredId: string): boolean {
+  return attachments.value.some(att => att.required_file_id === requiredId);
+}
+
+function uploadFileForRequired(requiredId: string) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const key = requiredId || 'generic';
+    uploadingFiles.value[key] = true;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('task_id', String(taskIndex));
+    if (requiredId) formData.append('required_file_id', requiredId);
+    try {
+      await axios.post(`${baseUrl}/projects/${projectId}/files`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      await loadTask();
+      showNotification(t('taskDetails.fileUploaded'), 'success');
+    } catch (err: any) {
+      console.error(err);
+      showNotification(err.response?.data?.detail || t('taskDetails.uploadError'), 'error');
+    } finally {
+      uploadingFiles.value[key] = false;
+    }
+  };
+  input.click();
+}
+
+function uploadGenericFile() {
+  uploadFileForRequired('');
+}
+
+// Открытие модального окна удаления
+function openDeleteFileModal(fileId: number) {
+  fileToDelete.value = fileId;
+  showDeleteFileModal.value = true;
+}
+
+function closeDeleteFileModal() {
+  showDeleteFileModal.value = false;
+  fileToDelete.value = null;
+}
+
+// Подтверждение удаления
+async function confirmDeleteFile() {
+  if (!fileToDelete.value) return;
+  await deleteAttachment(fileToDelete.value);
+  closeDeleteFileModal();
+}
+
+// Основная функция удаления (без confirm)
+async function deleteAttachment(fileId: number) {
+  deletingAttachment.value = true;
+  try {
+    await axios.delete(`${baseUrl}/files/${fileId}`);
+    // Принудительная перезагрузка задачи
+    const response = await axios.get(`${baseUrl}/projects/${projectId}`);
+    project.value = response.data;
+    task.value = project.value.tasks[taskIndex];
+    savedProgress.value = task.value?.progress ?? 0;
+    if (task.value?.subtasks && task.value.subtasks.length > 0) {
+      const completedSum = task.value.subtasks
+        .filter(st => st.completed)
+        .reduce((sum, st) => sum + (st.progressPercent || 0), 0);
+      sliderValue.value = Math.max(0, savedProgress.value - completedSum);
+    } else {
+      sliderValue.value = savedProgress.value;
+    }
+    showNotification(t('taskDetails.fileDeleted'), 'success');
+  } catch (err: any) {
+    console.error(err);
+    showNotification(err.response?.data?.detail || t('taskDetails.deleteError'), 'error');
+  } finally {
+    deletingAttachment.value = false;
+  }
+}
+
+function previewAttachment(att: TaskAttachment) {
+  previewFile.value = { id: att.file_id, original_filename: att.original_filename };
+  previewModalVisible.value = true;
+}
+
+// Метод для обновления ползунка
+const updateSliderValue = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target) {
+    sliderValue.value = parseFloat(target.value);
+  }
 };
 
-// Диалог подтверждения изменения дополнительного прогресса
+// Диалог подтверждения изменения прогресса
 const openConfirmDialog = () => { 
   oldSliderValue.value = sliderValue.value; 
   showConfirmDialog.value = true; 
 };
-
 const closeConfirmDialog = () => { 
   showConfirmDialog.value = false; 
 };
-
 const confirmExtraChange = async () => {
   if (!canEditTask.value) { 
     showNotification(t('taskDetails.onlyEditorsCanChangeProgress'), 'info'); 
@@ -686,10 +859,101 @@ const confirmExtraChange = async () => {
   }
 };
 
-// Навигация
 const goBack = () => router.push(`/project/${projectId}`);
 const goHome = () => router.push('/main');
 </script>
+
+<style scoped>
+/* Все стили из оригинального файла остаются без изменений */
+.required-files-section, .attachments-section {
+  margin-bottom: 28px;
+}
+.required-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.required-file-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--bg-page);
+  border-left: 4px solid #ff9800;
+}
+.required-file-status.satisfied {
+  background: rgba(76, 175, 80, 0.1);
+  border-left-color: #4caf50;
+}
+.rf-name {
+  font-weight: 600;
+}
+.rf-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: block;
+}
+.satisfied-badge {
+  color: #4caf50;
+  font-weight: 500;
+}
+.upload-file-btn, .upload-generic-btn {
+  background: var(--accent-color);
+  color: var(--button-text);
+  border: none;
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.upload-file-btn:hover, .upload-generic-btn:hover {
+  background: var(--accent-hover);
+}
+.attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: var(--bg-page);
+  border-radius: 8px;
+}
+.attachment-item a {
+  color: var(--link-color);
+  text-decoration: none;
+  flex: 1;
+}
+.attachment-item a:hover {
+  text-decoration: underline;
+}
+.attachment-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+.delete-attachment {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 4px;
+  border-radius: 4px;
+}
+.delete-attachment:hover {
+  background: rgba(244, 67, 54, 0.2);
+}
+.upload-generic-btn-wrapper {
+  margin-bottom: 28px;
+  text-align: right;
+}
+</style>
+
+<!-- Остальные стили (диаграмма Ганта, подзадачи, прогресс) идут без изменений -->
 <style scoped>
 /* ---------- Общие стили ---------- */
 .task-details-page {
@@ -740,13 +1004,12 @@ const goHome = () => router.push('/main');
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background 0.2s, box-shadow 0.2s;
   color: var(--text-primary);
 }
 
 .icon-button:hover {
   background: var(--bg-card);
-  transform: scale(1.1);
   box-shadow: var(--shadow-strong);
 }
 
@@ -758,11 +1021,7 @@ const goHome = () => router.push('/main');
   padding: 30px;
   max-width: 800px;
   margin: 0 auto;
-  transition: border 0.2s, transform 0.2s, background 0.3s;
-}
-
-.task-card:hover {
-  transform: translateY(-2px);
+  transition: border 0.2s, background 0.3s;
 }
 
 .task-card.task-overdue {
@@ -839,7 +1098,7 @@ const goHome = () => router.push('/main');
   font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
   display: flex;
   align-items: center;
   box-shadow: var(--shadow);
@@ -847,7 +1106,6 @@ const goHome = () => router.push('/main');
 
 .comment-toggle-btn:hover {
   background: var(--accent-hover);
-  transform: translateY(-2px);
   box-shadow: var(--shadow-strong);
 }
 
@@ -1109,12 +1367,11 @@ const goHome = () => router.push('/main');
   border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 2px 6px var(--shadow);
-  transition: transform 0.15s ease, background 0.2s ease;
+  transition: background 0.2s ease;
   border: 2px solid white;
 }
 
 .progress-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
   background: #2563eb;
 }
 
@@ -1125,11 +1382,10 @@ const goHome = () => router.push('/main');
   border-radius: 50%;
   cursor: pointer;
   border: 2px solid white;
-  transition: transform 0.15s ease, background 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .progress-slider::-moz-range-thumb:hover {
-  transform: scale(1.15);
   background: #2563eb;
 }
 
@@ -1148,14 +1404,13 @@ const goHome = () => router.push('/main');
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+  transition: background 0.2s;
   box-shadow: var(--shadow);
   margin-top: 10px;
 }
 
 .apply-progress-button:hover {
   background: var(--accent-hover);
-  transform: scale(1.02);
 }
 
 .progress-section-disabled {
@@ -1187,13 +1442,12 @@ const goHome = () => router.push('/main');
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
+  transition: background 0.2s;
   box-shadow: var(--shadow);
 }
 
 .complete-button:hover:not(:disabled), .renew-button:hover:not(:disabled) {
   background: var(--accent-hover);
-  transform: scale(1.02);
 }
 
 .complete-button:disabled, .renew-button:disabled {
@@ -1215,7 +1469,7 @@ const goHome = () => router.push('/main');
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s;
   box-shadow: var(--shadow);
 }
 
@@ -1226,7 +1480,6 @@ const goHome = () => router.push('/main');
 
 .status-option.work:hover:not(:disabled) {
   background: var(--accent-hover);
-  transform: scale(1.02);
 }
 
 .status-option.waiting {
@@ -1416,7 +1669,7 @@ const goHome = () => router.push('/main');
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s;
 }
 
 .modal-confirm {
@@ -1426,7 +1679,6 @@ const goHome = () => router.push('/main');
 
 .modal-confirm:hover {
   background: var(--accent-hover);
-  transform: scale(1.02);
 }
 
 .modal-cancel {

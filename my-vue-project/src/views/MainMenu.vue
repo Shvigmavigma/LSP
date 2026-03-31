@@ -119,7 +119,6 @@ const logout = () => {
 .profile-button:hover {
   background: var(--accent-hover);
   box-shadow: var(--shadow-strong);
-  transform: translateY(-2px);
 }
 
 .menu-container {
@@ -156,7 +155,6 @@ const logout = () => {
 .menu-item:hover {
   background: var(--bg-card);
   box-shadow: var(--shadow-strong);
-  transform: translateX(10px) scale(1.02);
   border-color: var(--accent-color);
   color: var(--heading-color);
 }

@@ -1,6 +1,8 @@
 {
     "common": {
         "welcome": "Добро пожаловать",
+        "upload": "Загрузить",
+        "confirmDelete": "Вы уверены, что хотите удалить этот файл?",
         "download": "Скачать",
         "save": "Сохранить",
         "cancel": "Отмена",
@@ -627,8 +629,19 @@
         "genericError": "Произошла ошибка при регистрации"
     },
     "taskDetails": {
+        "confirmDeleteFile": "Вы уверены, что хотите удалить этот файл?",
         "title": "Детали задачи",
         "files": "Файлы задачи",
+        "requiredFilesLabel": "Нужные файлы",
+        "requiredFiles": "Обязательные файлы",
+        "attachments": "Прикреплённые файлы",
+        "uploadFile": "Загрузить файл",
+        "attached": "Прикреплён",
+        "fileUploaded": "Файл загружен",
+        "uploadError": "Ошибка загрузки файла",
+        "fileDeleted": "Файл удалён",
+        "deleteError": "Ошибка удаления файла",
+        "missingRequiredFiles": "Не прикреплены все обязательные файлы",
         "fileRequiredForCompletion": "Для завершения задачи необходимо прикрепить файл",
         "fileCheckError": "Ошибка проверки файлов",
         "status": "Статус",
@@ -668,6 +681,10 @@
     },
     "taskEdit": {
         "createTitle": "Создание задачи",
+        "requiredFiles": "Обязательные файлы для завершения",
+        "noRequiredFiles": "Нет обязательных файлов. Добавьте требования.",
+        "requiredFileName": "Название файла",
+        "requiredFileDescription": "Описание (необязательно)",
         "editTitle": "Редактирование задачи",
         "adminHint": "Вы имеете полные права как администратор или куратор.",
         "noEditPermission": "У вас нет прав для редактирования этой задачи",

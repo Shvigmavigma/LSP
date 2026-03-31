@@ -297,7 +297,6 @@ function goHome() {
 
 .create-button-top:hover {
   background: var(--accent-hover);
-  transform: translateY(-2px);
   box-shadow: var(--shadow-strong);
 }
 
@@ -314,7 +313,7 @@ function goHome() {
   border-radius: 16px;
   padding: 20px;
   box-shadow: var(--shadow);
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  transition: all 0.2s;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -322,9 +321,10 @@ function goHome() {
 }
 
 .project-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-strong);
+  outline: 1px solid var(--accent-color);
+  outline-offset: 1px;
   border-color: var(--accent-color);
+  box-shadow: var(--shadow-strong);
 }
 
 .card-title {
