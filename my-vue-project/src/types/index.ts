@@ -39,6 +39,24 @@ export interface SubTask {
   completed: boolean;
 }
 
+// Новый интерфейс для обязательного файла
+export interface RequiredFile {
+  id: string;          // уникальный идентификатор в рамках задачи
+  name: string;        // название требуемого файла
+  description?: string; // описание (необязательно)
+}
+
+// Новый интерфейс для вложения (связь файла с задачей и, возможно, с обязательным требованием)
+export interface TaskAttachment {
+  id: string;               // уникальный ID вложения
+  file_id: number;          // ID файла в таблице project_files
+  required_file_id?: string; // ID обязательного файла, к которому привязано вложение
+  uploaded_at: string;
+  original_filename: string;
+  mime_type: string;
+  size: number;
+}
+
 export interface Task {
   id?: string;
   title: string;
@@ -50,7 +68,9 @@ export interface Task {
   subtasks?: SubTask[];
   comments?: Comment[];
   assigned_to?: number;
-  requires_file?: boolean;
+  requires_file?: boolean;       // устаревшее поле, оставлено для обратной совместимости
+  required_files?: RequiredFile[];   // новое поле: список обязательных файлов
+  attachments?: TaskAttachment[];    // новое поле: список прикреплённых файлов
 }
 
 export interface Comment {
@@ -62,15 +82,17 @@ export interface Comment {
   hidden?: boolean;
   authorRole?: string;
 }
+
 export interface ProjectFile {
   id: number;
-  filename: string;          // оригинальное имя
+  filename: string;          // уникальное имя на диске
   original_filename: string;
   file_size: number;
   mime_type: string;
   uploaded_at: string;
   uploaded_by: number;
   task_id?: number | null;   // если null – файл привязан к проекту, иначе к задаче
+  required_file_id?: string | null; // ID обязательного файла (если привязан к конкретному требованию)
 }
 
 export interface SuggestionComment {
@@ -128,6 +150,7 @@ export interface Project {
   is_hidden?: boolean;
   hidden_by?: number;  
 }
+
 export interface ProjectLinks {
   github?: string;
   google_drive?: string;

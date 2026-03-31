@@ -12,31 +12,26 @@
     <div class="admin-menu">
       <div class="menu-grid">
         <router-link to="/admin/users" class="menu-card">
-          <span class="card-icon">👥</span>
           <span class="card-title">{{ $t('adminPanel.userManagement.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.userManagement.desc') }}</span>
         </router-link>
 
         <router-link to="/admin/projects" class="menu-card">
-          <span class="card-icon">📁</span>
           <span class="card-title">{{ $t('adminPanel.projectManagement.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.projectManagement.desc') }}</span>
         </router-link>
 
         <router-link to="/admin/emails" class="menu-card">
-          <span class="card-icon">✉️</span>
           <span class="card-title">{{ $t('adminPanel.allowedEmails.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.allowedEmails.desc') }}</span>
         </router-link>
 
         <div class="menu-card danger" @click="confirmDeleteAllUsers">
-          <span class="card-icon">⚠️</span>
           <span class="card-title">{{ $t('adminPanel.deleteAllUsers.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.deleteAllUsers.desc') }}</span>
         </div>
 
         <div class="menu-card danger" @click="confirmDeleteAllProjects">
-          <span class="card-icon">⚠️</span>
           <span class="card-title">{{ $t('adminPanel.deleteAllProjects.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.deleteAllProjects.desc') }}</span>
         </div>
@@ -121,7 +116,6 @@ async function executeAction() {
 </script>
 
 <style scoped>
-/* Стили остаются без изменений (копируем из исходного файла) */
 .admin-panel {
   min-height: 100vh;
   background: var(--bg-page);
@@ -175,7 +169,7 @@ async function executeAction() {
   border-radius: 16px;
   padding: 20px;
   box-shadow: var(--shadow);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.2s;
   cursor: pointer;
   text-decoration: none;
   color: inherit;
@@ -184,11 +178,15 @@ async function executeAction() {
   border: 1px solid var(--border-color);
 }
 .menu-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-strong);
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
 }
 .menu-card.danger {
   border-color: var(--danger-color);
+}
+.menu-card.danger:hover {
+  outline: 2px solid var(--danger-color);
+  outline-offset: 2px;
 }
 .menu-card.danger .card-icon {
   color: var(--danger-color);

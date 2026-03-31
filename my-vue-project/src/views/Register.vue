@@ -15,7 +15,6 @@
           :class="{ active: accountType === 'student' }"
           @click="accountType = 'student'"
         >
-          <span class="type-icon">👨‍🎓</span>
           <span class="type-label">{{ $t('register.student') }}</span>
         </button>
         <button 
@@ -24,7 +23,7 @@
           :class="{ active: accountType === 'teacher' }"
           @click="accountType = 'teacher'"
         >
-          <span class="type-icon">👨‍🏫</span>
+
           <span class="type-label">{{ $t('register.teacher') }}</span>
         </button>
       </div>
