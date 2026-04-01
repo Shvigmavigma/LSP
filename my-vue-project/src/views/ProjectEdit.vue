@@ -258,6 +258,7 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { isTaskTitleUnique } from '@/utils/taskUtils';
 import { useProjectsStore } from '@/stores/projects';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
@@ -720,53 +721,65 @@ function addTask() {
 }
 
 function addDefaultTasks() {
-  const newTasks = defaultTasks.value.map(task => {
-    const requiredFiles = (task.required_files || []).map(rf => ({
-      id: uuidv4(),
-      name: rf.name,
-      description: rf.description || ''
-    }));
-    return {
-      title: task.title || 'Новая задача',
-      body: task.body || '',
-      status: task.status || 'ожидает',
-      timeline: task.timeline || '',
-      timelinend: task.timelinend || '',
-      progress: task.progress,
-      subtasks: task.subtasks,
-      comments: task.comments,
-      assigned_to: task.assigned_to,
-      id: task.id,
-      expanded: false,
-      startError: undefined,
-      endError: undefined,
-      required_files: requiredFiles,
-    };
-  });
-  tasks.value.push(...newTasks);
-  showNotification(t('taskEdit.defaultTasksAdded', { count: defaultTasks.value.length }), 'success');
+  // Получаем существующие названия задач (в нижнем регистре)
+  const existingTitles = tasks.value.map(t => t.title.trim().toLowerCase());
+  
+  // Фильтруем дефолтные задачи, оставляя только те, чьи названия не встречаются
+  const newTasksToAdd = defaultTasks.value
+    .filter(task => {
+      const title = task.title?.trim().toLowerCase() || 'новая задача';
+      return !existingTitles.includes(title);
+    })
+    .map(task => {
+      const requiredFiles = (task.required_files || []).map(rf => ({
+        id: uuidv4(),
+        name: rf.name,
+        description: rf.description || ''
+      }));
+      return {
+        title: task.title || 'Новая задача',
+        body: task.body || '',
+        status: task.status || 'ожидает',
+        timeline: task.timeline || '',
+        timelinend: task.timelinend || '',
+        progress: task.progress,
+        subtasks: task.subtasks,
+        comments: task.comments,
+        assigned_to: task.assigned_to,
+        id: task.id,
+        expanded: false,
+        startError: undefined,
+        endError: undefined,
+        required_files: requiredFiles,
+      };
+    });
+  
+  if (newTasksToAdd.length === 0) {
+    showNotification(t('projectEdit.allDefaultTasksAlreadyExist'), 'info');
+    return;
+  }
+  
+  tasks.value.push(...newTasksToAdd);
+  showNotification(t('taskEdit.defaultTasksAdded', { count: newTasksToAdd.length }), 'success');
 }
 
 function saveTask(index: number) {
   const task = tasks.value[index];
   if (!task) return;
-  if (!task.title.trim()) { showNotification(t('projectEdit.taskTitleRequired'), 'info'); return; }
-  if (!task.body.trim()) { showNotification(t('projectEdit.taskDescriptionRequired'), 'info'); return; }
-
-  task.startError = undefined;
-  task.endError = undefined;
-  let valid = true;
-
-  if (!isValidDate(task.timeline || '')) {
-    task.startError = t('projectEdit.invalidStartDate');
-    valid = false;
+  if (!task.title.trim()) {
+    showNotification(t('projectEdit.taskTitleRequired'), 'info');
+    return;
   }
-  if (!isValidDate(task.timelinend || '')) {
-    task.endError = t('projectEdit.invalidEndDate');
-    valid = false;
+  if (!task.body.trim()) {
+    showNotification(t('projectEdit.taskDescriptionRequired'), 'info');
+    return;
   }
 
-  if (!valid) return;
+  // Проверка уникальности названия
+  if (!isTaskTitleUnique(tasks.value, task.title, index)) {
+    showNotification(t('projectEdit.taskTitleMustBeUnique'), 'info');
+    return;
+  }
 
   if (task.timeline && task.timelinend) {
     const start = parseDate(task.timeline);
