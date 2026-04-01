@@ -457,6 +457,7 @@
         "saveError": "Error saving data"
     },
     "projectDetails": {
+        "timelineUpdated":"Timeline updated",
         "defaultTitle": "Project",
         "description": "Description",
         "additional": "Additional info",
@@ -491,7 +492,7 @@
         "notStarted": "Not started",
         "assignee": "Assignee",
         "noActiveTasks": "No active tasks",
-        "timeline": "Tasks timeline (elapsed time)",
+        "timeline": "Gantt Chart",
         "confirmDeleteProject": "Are you sure you want to permanently delete this project? This action is irreversible.",
         "confirmHideProject": "Hide project from the list? You will be able to see it again if admin or curator restores it.",
         "projectDeleted": "Project successfully deleted",
@@ -518,6 +519,7 @@
     },
     "projectEdit": {
         "adminHint": "You have full rights as an administrator or curator.",
+        "taskTitleMustBeUnique": "Task title must be unique",
         "noRightsHint": "Only the customer, executor, administrator, or curator can edit the project.",
         "basicInfo": "Basic information",
         "projectTitle": "Project title",

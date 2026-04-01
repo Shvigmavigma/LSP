@@ -447,27 +447,15 @@
             <div v-if="inProgressTasks.length === 0 && waitingTasks.length === 0" class="no-tasks">
               {{ $t('projectDetails.noActiveTasks') }}
             </div>
-
-            <!-- Диаграмма Ганта -->
-            <div v-if="activeTasks.length" class="gantt-section">
-              <h3>{{ $t('projectDetails.timeline') }}</h3>
-              <div class="gantt-chart">
-                <div v-for="(task, index) in activeTasksProgress" :key="index" class="gantt-row">
-                  <div class="gantt-label">{{ task.title }}</div>
-                  <div class="gantt-bar-container">
-                    <div
-                      class="gantt-bar"
-                      :style="{ backgroundColor: task.barColor }"
-                    ></div>
-                    <span class="gantt-text">
-                      {{ task.startStr || '???' }} – {{ task.endStr || '???' }} ({{ task.progress.toFixed(1) }}%)
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
+
+        <!-- Новая интерактивная диаграмма Ганта (под двумя колонками) -->
+        <GanttChart
+          :tasks="activeTasks"
+          :title="$t('projectDetails.timeline')"
+          @update-tasks="handleTaskUpdate"
+        />
       </div>
     </div>
 
@@ -493,11 +481,14 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import CommentsSection from '@/components/CommentsSection.vue';
 import SuggestionsSection from '@/components/SuggestionsSection.vue';
 import InviteModal from '@/components/InviteModal.vue';
+import GanttChart from '@/components/GanttChart.vue';
 import type { Project, Task, Comment, ProjectRole, JoinRequest } from '@/types';
 import axios from 'axios';
+import { isTaskTitleUnique } from '@/utils/taskUtils';
 import { v4 as uuidv4 } from 'uuid';
 import githubIcon from '@/assets/icons/icons8-github-30.png';
 import driveIcon from '@/assets/icons/icons8-google-drive-48.png';
+import { parseDate, formatDate } from '@/utils/dateUtils';
 
 const { t, locale } = useI18n();
 const baseUrl = 'http://localhost:8000';
@@ -563,6 +554,7 @@ const canHideComments = computed(() =>
   isAdmin.value || 
   isCurator.value
 );
+
 
 const canInvite = computed(() => 
   userRole.value === 'customer' || 
@@ -635,13 +627,6 @@ function formatTaskDates(task: Task): string {
     return `${parts[0]} – ${parts[1]}`;
   }
   return task.timeline || '?';
-}
-function parseDate(dateStr: string): Date | null {
-  if (!dateStr) return null;
-  const parts = dateStr.split('.');
-  if (parts.length !== 3) return null;
-  const [day, month, year] = parts.map(Number);
-  return new Date(year, month - 1, day);
 }
 function isTaskOverdue(task: Task): boolean {
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -763,7 +748,7 @@ function showNotification(message: string, type: 'error' | 'info' | 'success' = 
 }
 
 // ---- Загрузка данных ----
-async function loadProject() {
+async function loadProject(force = false) {
   const id = Number(route.params.id);
   if (isNaN(id)) {
     error.value = t('projectDetails.invalidId');
@@ -771,7 +756,7 @@ async function loadProject() {
     return;
   }
   try {
-    project.value = await projectsStore.fetchProjectById(id);
+    project.value = await projectsStore.fetchProjectById(id, force);
     if (usersStore.users.length === 0) await usersStore.fetchAllUsers();
   } catch (err) {
     error.value = t('projectDetails.loadError');
@@ -788,9 +773,10 @@ async function respondToProject() {
   try {
     await axios.post(`${baseUrl}/projects/${project.value.id}/join-requests`);
     showNotification(t('projectDetails.requestSent'), 'success');
-    await loadProject();
+    await loadProject(true);
   } catch (err: any) {
     showNotification(err.response?.data?.detail || t('projectDetails.requestError'), 'error');
+    await loadProject(true); // ← перезагружаем проект даже при ошибке
   } finally {
     responding.value = false;
   }
@@ -800,19 +786,22 @@ async function acceptJoinRequest(requestId: string) {
   try {
     await axios.put(`${baseUrl}/projects/${project.value.id}/join-requests/${requestId}/accept`);
     showNotification(t('projectDetails.requestAccepted'), 'success');
-    await loadProject();
+    await loadProject(true);
   } catch (err) {
     showNotification(t('projectDetails.acceptError'), 'error');
+    await loadProject(true);
   }
 }
+
 async function rejectJoinRequest(requestId: string) {
   if (!project.value) return;
   try {
     await axios.put(`${baseUrl}/projects/${project.value.id}/join-requests/${requestId}/reject`);
     showNotification(t('projectDetails.requestRejected'), 'success');
-    await loadProject();
+    await loadProject(true);
   } catch (err) {
     showNotification(t('projectDetails.rejectError'), 'error');
+    await loadProject(true);
   }
 }
 
@@ -1014,6 +1003,47 @@ const goToTask = (task: Task) => {
 };
 const openInviteModal = () => { showInviteModal.value = true; };
 
+const handleTaskUpdate = async (payload: { task: Task; index: number }) => {
+  if (!project.value) return;
+
+  // Копируем текущий список задач и заменяем задачу по индексу
+  const tasks = [...(project.value.tasks || [])];
+  tasks[payload.index] = payload.task;
+
+  // Удаляем возможные дубликаты названий (оставляем только первое вхождение)
+  const uniqueTasks: Task[] = [];
+  const seenTitles = new Set<string>();
+  for (const t of tasks) {
+    const title = t.title?.trim().toLowerCase();
+    if (!seenTitles.has(title)) {
+      seenTitles.add(title);
+      uniqueTasks.push(t);
+    } else {
+      console.warn(`[handleTaskUpdate] Дубликат названия удалён: "${t.title}"`);
+    }
+  }
+
+  if (uniqueTasks.length !== tasks.length) {
+    console.warn(`[handleTaskUpdate] Удалено ${tasks.length - uniqueTasks.length} дублирующихся задач`);
+  }
+
+  // Отправляем обновлённый проект с уникальными задачами
+  const updatedProject = { ...project.value, tasks: uniqueTasks };
+  try {
+    await axios.put(`${baseUrl}/projects/${project.value.id}`, updatedProject);
+    project.value = updatedProject;
+    showNotification(t('projectDetails.timelineUpdated'), 'success');
+  } catch (error: any) {
+    console.error('Failed to update task dates', error);
+    if (error.response) {
+      console.error('Response data:', error.response.data);
+      console.error('Response status:', error.response.status);
+    }
+    showNotification(t('projectDetails.timelineUpdateError'), 'error');
+    await loadProject(true);
+  }
+};
+
 // ---- Вспомогательные для аватаров ----
 const avatarError = ref<Record<number, boolean>>({});
 const handleAuthorImageError = (id: number) => {
@@ -1023,14 +1053,15 @@ const handleAuthorImageError = (id: number) => {
 
 // ---- Жизненный цикл ----
 onMounted(() => {
-  loadProject();
+  loadProject(true);
 });
 watch(() => route.params.id, () => {
-  loadProject();
+  loadProject(true);
 });
 </script>
 
 <style scoped>
+/* Весь CSS остаётся без изменений */
 .already-responded {
   text-align: center;
   padding: 12px 24px;

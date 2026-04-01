@@ -458,6 +458,7 @@
         "saveError": "保存数据时出错"
     },
     "projectDetails": {
+        "timelineUpdated": "时间线已更新",
         "defaultTitle": "项目",
         "description": "描述",
         "additional": "附加信息",
@@ -492,7 +493,7 @@
         "notStarted": "未开始",
         "assignee": "执行者",
         "noActiveTasks": "没有活动任务",
-        "timeline": "任务时间线（已过时间）",
+        "timeline": "甘特图）",
         "confirmDeleteProject": "确定要永久删除此项目吗？此操作不可逆。",
         "confirmHideProject": "从列表中隐藏项目？如果管理员或策展人恢复，您将再次看到它。",
         "projectDeleted": "项目已成功删除",
@@ -519,6 +520,7 @@
     },
     "projectEdit": {
         "adminHint": "您具有管理员或策展人的全部权限。",
+        "taskTitleMustBeUnique": "任务标题必须唯一",
         "noRightsHint": "只有客户、执行者、管理员或策展人可以编辑项目。",
         "basicInfo": "基本信息",
         "projectTitle": "项目名称",

@@ -1690,6 +1690,25 @@ const goHome = () => router.push('/main');
 .modal-cancel:hover {
   background: var(--bg-page);
 }
+.edit-task-button {
+  transition: all 0.2s ease;
+}
+
+.edit-task-button:hover {
+  transform: scale(1.05);
+  color: white;
+}
+
+.light-theme .edit-task-button:hover {
+  background-color: #4caf50;
+  border-color: #4caf50;
+}
+
+/* Тёмная тема – синий фон */
+:root:not(.light-theme) .edit-task-button:hover {
+  background-color: #2196f3;
+  border-color: #2196f3;
+}
 
 @keyframes fadeIn {
   from { opacity: 0; }

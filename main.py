@@ -942,11 +942,13 @@ async def reject_join_request(
     return project
 
 @app.post("/projects/", response_model=ProjectResponse, tags=["Projects"])
+@app.post("/projects/", response_model=ProjectResponse, tags=["Projects"])
 async def create_project(
     project: ProjectCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Проверяем, что создатель участвует в проекте (если нет – добавляем с ролью по умолчанию)
     creator_in_participants = any(p.user_id == current_user.id for p in project.participants)
     if not creator_in_participants:
         default_role = ProjectRole.EXECUTOR
@@ -963,10 +965,20 @@ async def create_project(
         project.participants.append(
             Participant(user_id=current_user.id, role=default_role, joined_at=datetime.utcnow())
         )
+
+    # Проверяем, что все участники существуют
     user_ids = [p.user_id for p in project.participants]
     users = db.query(User).filter(User.id.in_(user_ids)).all()
     if len(users) != len(user_ids):
         raise HTTPException(status_code=404, detail="Один или несколько участников не найдены")
+
+    # Проверка уникальности названий задач при создании
+    if project.tasks:
+        titles = [task.get('title', '').strip().lower() for task in project.tasks if task.get('title')]
+        if len(titles) != len(set(titles)):
+            raise HTTPException(status_code=400, detail="Task titles must be unique within a project")
+
+    # Создаём проект
     db_project = Project(
         title=project.title,
         body=project.body,
@@ -1037,11 +1049,14 @@ async def update_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Проверка прав
     if not (current_user.is_admin or is_curator(current_user)):
         participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
         if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can update the project")
 
+    # Обновляем простые поля
     if project_update.title is not None:
         project.title = project_update.title
     if project_update.body is not None:
@@ -1049,12 +1064,13 @@ async def update_project(
     if project_update.underbody is not None:
         project.underbody = project_update.underbody
 
+    # Обновляем задачи (заменяем весь список)
     if project_update.tasks is not None:
         old_tasks = project.tasks or []
         new_tasks = project_update.tasks
+        # Проверяем обязательные файлы при переходе в статус "выполнена"
         for i, new_task in enumerate(new_tasks):
             old_task = old_tasks[i] if i < len(old_tasks) else None
-            # Если задача переходит в статус "выполнена"
             if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
                 required_files = new_task.get("required_files", [])
                 if required_files:
@@ -1062,7 +1078,6 @@ async def update_project(
                         req_id = req.get("id")
                         if not req_id:
                             continue
-                        # Проверяем, прикреплён ли хотя бы один файл с таким required_file_id
                         attached = db.query(ProjectFile).filter(
                             ProjectFile.project_id == project_id,
                             ProjectFile.task_id == i,
@@ -1071,21 +1086,30 @@ async def update_project(
                         ).first()
                         if not attached:
                             raise HTTPException(
-                                400,
+                                401,
                                 f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}"
                             )
         project.tasks = new_tasks
+        flag_modified(project, "tasks")   # явно помечаем поле как изменённое
 
+    # Обновляем ссылки
     if project_update.links is not None:
         project.links = project_update.links
+        flag_modified(project, "links")
+
+    # Обновляем комментарии
     if project_update.comments is not None:
         project.comments = [c.model_dump(mode='json') for c in project_update.comments]
+        flag_modified(project, "comments")
+
+    # Обновляем участников
     if project_update.participants is not None:
         new_ids = [p.user_id for p in project_update.participants]
         users = db.query(User).filter(User.id.in_(new_ids)).all()
         if len(users) != len(new_ids):
             raise HTTPException(404, "One or more users not found")
         project.participants = [p.model_dump(mode='json') for p in project_update.participants]
+        flag_modified(project, "participants")
 
     db.commit()
     db.refresh(project)
