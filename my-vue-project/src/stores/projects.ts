@@ -35,7 +35,6 @@ export const useProjectsStore = defineStore('projects', {
      * принудительно делает запрос к серверу, игнорируя текущее состояние.
      */
     async fetchProjectById(id: number, force: boolean = false): Promise<Project> {
-      // Если уже есть загруженный проект и force=false, возвращаем его
       if (!force && this.currentProject?.id === id) {
         return this.currentProject;
       }
@@ -43,7 +42,6 @@ export const useProjectsStore = defineStore('projects', {
       this.currentProject = response.data;
       return response.data;
     },
-
     async createProject(projectData: ProjectCreate): Promise<Project> {
       const response = await axios.post<Project>('/projects/', projectData);
       return response.data;

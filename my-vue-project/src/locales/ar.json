@@ -460,6 +460,7 @@
     "projectDetails": {
         "defaultTitle": "المشروع",
         "description": "الوصف",
+        "timelineUpdated": "تم تحديث الجدول الزمني",
         "additional": "معلومات إضافية",
         "participants": "المشاركون",
         "noParticipants": "لا يوجد مشاركون",
@@ -492,7 +493,7 @@
         "notStarted": "لم يبدأ",
         "assignee": "المنفذ",
         "noActiveTasks": "لا توجد مهام نشطة",
-        "timeline": "الجدول الزمني للمهام (الوقت المنقضي)",
+        "timeline": "مخطط جانت",
         "confirmDeleteProject": "هل أنت متأكد من رغبتك في حذف المشروع نهائياً؟ لا يمكن التراجع عن هذا الإجراء.",
         "confirmHideProject": "إخفاء المشروع من القائمة؟ ستتمكن من رؤيته مرة أخرى إذا قام المسؤول أو المنسق باستعادته.",
         "projectDeleted": "تم حذف المشروع بنجاح",
@@ -519,6 +520,7 @@
     },
     "projectEdit": {
         "adminHint": "لديك الصلاحيات الكاملة كمسؤول أو منسق.",
+        "taskTitleMustBeUnique": "يجب أن يكون عنوان المهمة فريدًا",
         "noRightsHint": "يمكن فقط للعميل أو المنفذ أو المسؤول أو المنسق تحرير المشروع.",
         "basicInfo": "معلومات أساسية",
         "projectTitle": "عنوان المشروع",
