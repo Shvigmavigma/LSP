@@ -168,6 +168,7 @@ class ProjectFileResponse(BaseModel):
     uploaded_at: datetime
     uploaded_by: int
     task_id: Optional[int] = None
+    is_old: bool = False
     model_config = ConfigDict(from_attributes=True)
 class ProjectBase(BaseModel):
     title: str = Field(..., min_length=1, json_schema_extra={"example": "Космическая программа"})
@@ -213,6 +214,7 @@ class ProjectUpdate(BaseModel):
     underbody: Optional[str] = None
     tasks: Optional[List[Dict[str, Any]]] = None
     participants: Optional[List[Participant]] = None
+    is_old: Optional[bool] = None
     links: Optional[Dict[str, str]] = None
     comments: Optional[List[Comment]] = None
 
