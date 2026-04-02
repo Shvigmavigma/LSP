@@ -56,6 +56,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAdmin: true }
   },
   {
+  path: '/old-projects',
+  name: 'OldProjects',
+  component: () => import('@/views/OldProjects.vue'),
+  meta: { requiresAuth: true }
+},
+  {
     path: '/admin/users/:id/edit',
     name: 'AdminUserEdit',
     component: AdminUserEdit,

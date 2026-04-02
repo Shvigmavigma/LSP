@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div v-if="show" class="file-preview-overlay" @click.self="close">
-      <div class="file-preview-modal">
+      <div class="file-preview-modal" :class="{ 'wide-modal': isPdf }">
         <div class="modal-header">
           <h3>{{ file?.original_filename || $t('filePreview.title') }}</h3>
           <button class="close-btn" @click="close">✕</button>
@@ -18,9 +18,19 @@
           <div v-else-if="isText" class="text-container">
             <pre>{{ textContent }}</pre>
           </div>
-          <!-- PDF через встроенный просмотрщик браузера -->
+          <!-- PDF через iframe (более надёжно) -->
           <div v-else-if="isPdf" class="pdf-container">
-            <embed v-if="pdfBlobUrl" :src="pdfBlobUrl" type="application/pdf" width="100%" height="100%" />
+            <iframe
+              v-if="pdfBlobUrl"
+              :src="pdfBlobUrl"
+              frameborder="0"
+              class="pdf-viewer"
+              @error="handlePdfError"
+            ></iframe>
+            <div v-else class="fallback-message">
+              <p>{{ $t('filePreview.previewNotAvailable') }}</p>
+              <button class="download-link" @click="downloadFile">{{ $t('filePreview.downloadFile') }}</button>
+            </div>
           </div>
           <!-- Офисные документы через Google Docs Viewer (только для публичных URL) -->
           <div v-else-if="isOfficeDocument && isPublicUrl" class="office-container">
@@ -64,9 +74,9 @@ const emit = defineEmits<{
 
 const downloading = ref(false);
 const loadingPreview = ref(false);
-const imageBlobUrl = ref<string>(); // string | undefined
+const imageBlobUrl = ref<string>();
 const textContent = ref('');
-const pdfBlobUrl = ref<string>(); // Blob URL для PDF
+const pdfBlobUrl = ref<string>();
 
 const fileUrl = computed(() => `${props.baseUrl}/files/${props.file.id}`);
 
@@ -149,6 +159,12 @@ const loadPdf = async () => {
   }
 };
 
+const handlePdfError = () => {
+  console.warn('PDF preview failed, falling back to download');
+  pdfBlobUrl.value = undefined;
+  alert(t('filePreview.previewNotAvailable') || 'Невозможно отобразить PDF. Попробуйте скачать файл.');
+};
+
 const downloadFile = async () => {
   downloading.value = true;
   try {
@@ -212,60 +228,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* ... существующие стили ... */
-
-/* Расширяем модальное окно для PDF */
-.file-preview-modal:has(.pdf-container) {
-  width: 90vw;
-  max-width: none;
-  height: 90vh;
-  max-height: none;
-}
-
-/* Контейнер PDF занимает всё доступное пространство */
-.pdf-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  height: 100%;
-  min-height: 70vh;
-}
-
-/* Если нужен встроенный просмотрщик через embed, то увеличиваем его размеры */
-.pdf-container embed {
-  width: 100%;
-  height: 100%;
-  min-height: 70vh;
-  border: none;
-  border-radius: 8px;
-}
-
-/* Также увеличиваем контейнер для офисных документов, если нужно */
-.office-container {
-  width: 100%;
-  height: 100%;
-  min-height: 70vh;
-}
-.office-viewer {
-  width: 100%;
-  height: 100%;
-  border: none;
-  border-radius: 8px;
-}
-
-/* Убираем лишние отступы в теле модального окна для PDF/Office */
-.modal-body:has(.pdf-container),
-.modal-body:has(.office-container) {
-  padding: 0;
-}
-
-/* Остальные стили без изменений */
-</style>
-
-
-<style scoped>
+/* Объединённые стили */
 .file-preview-overlay {
   position: fixed;
   top: 0;
@@ -291,6 +254,14 @@ onUnmounted(() => {
   flex-direction: column;
   box-shadow: var(--shadow-strong);
   animation: scaleIn 0.2s ease;
+}
+
+/* Широкое модальное окно для PDF и офисных документов */
+.file-preview-modal.wide-modal {
+  width: 90vw;
+  max-width: none;
+  height: 90vh;
+  max-height: none;
 }
 
 .modal-header {
@@ -332,6 +303,12 @@ onUnmounted(() => {
   justify-content: center;
 }
 
+/* Для PDF и офисных документов убираем отступы */
+.modal-body:has(.pdf-container),
+.modal-body:has(.office-container) {
+  padding: 0;
+}
+
 .preview-loading {
   display: flex;
   align-items: center;
@@ -364,46 +341,23 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
+/* PDF просмотрщик */
 .pdf-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
   width: 100%;
-  height: 70vh;
+  height: 100%;
+  min-height: 70vh;
 }
-.pdf-canvas {
-  max-width: 100%;
-  height: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-}
-.pdf-controls {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.pdf-controls button {
-  background: var(--accent-color);
-  color: var(--button-text);
+.pdf-viewer {
+  width: 100%;
+  height: 100%;
   border: none;
-  border-radius: 30px;
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.pdf-controls button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.pdf-controls button:hover:not(:disabled) {
-  background: var(--accent-hover);
+  border-radius: 8px;
 }
 
 .office-container {
   width: 100%;
-  height: 70vh;
+  height: 100%;
+  min-height: 70vh;
 }
 .office-viewer {
   width: 100%;

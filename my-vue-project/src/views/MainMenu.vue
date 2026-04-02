@@ -13,14 +13,22 @@
     </header>
 
     <div class="menu-container">
-      <nav class="menu-list">
-        <button class="menu-item" @click="goTo('my-projects')">{{ $t('navigation.my_projects') }}</button>
-        <button class="menu-item" @click="goTo('users')">{{ $t('navigation.users') }}</button>
-        <button class="menu-item" @click="goTo('projects')">{{ $t('navigation.all_projects') }}</button>
-        <button v-if="authStore.user?.is_admin" class="menu-item admin-button" @click="goTo('admin')">
-          ⚙️ {{ $t('navigation.admin_panel') }}
-        </button>
-      </nav>
+      <div class="menu-grid">
+        <!-- Для обычных пользователей -->
+        <template v-if="!authStore.user?.is_admin">
+          <button class="menu-item" @click="goTo('my-projects')">{{ $t('navigation.my_projects') }}</button>
+          <button class="menu-item" @click="goTo('users')">{{ $t('navigation.all_users') }}</button>
+          <button class="menu-item" @click="goTo('old-projects')">{{ $t('navigation.old_projects') }}</button>
+          <button class="menu-item" @click="goTo('projects')">{{ $t('navigation.all_projects') }}</button>
+        </template>
+        <!-- Для админов -->
+        <template v-else>
+          <button class="menu-item" @click="goTo('users')">{{ $t('navigation.all_users') }}</button>
+          <button class="menu-item" @click="goTo('projects')">{{ $t('navigation.all_projects') }}</button>
+          <button class="menu-item" @click="goTo('old-projects')">{{ $t('navigation.old_projects') }}</button>
+          <button class="menu-item admin-button" @click="goTo('admin')">⚙️ {{ $t('navigation.admin_panel') }}</button>
+        </template>
+      </div>
     </div>
 
     <button class="logout-button" @click="logout">{{ $t('navigation.logout') }}</button>
@@ -47,21 +55,9 @@ const logout = () => {
 </script>
 
 <style scoped>
-/* предыдущие стили + для admin-button */
-.admin-button {
-  background: var(--danger-color) !important;
-  color: white;
-}
-.admin-button:hover {
-  background: var(--danger-hover) !important;
-}
-</style>
-
-<style scoped>
 .main-menu {
   min-height: 100vh;
   background: var(--bg-page);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   padding: 2rem;
   box-sizing: border-box;
   display: flex;
@@ -69,6 +65,7 @@ const logout = () => {
   transition: background 0.3s;
 }
 
+/* Шапка */
 .menu-header {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -82,12 +79,7 @@ const logout = () => {
   font-weight: 400;
   color: var(--heading-color);
   margin: 0;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
   text-align: center;
-}
-
-.light-theme .welcome-message {
-  text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
 }
 
 .username {
@@ -112,44 +104,50 @@ const logout = () => {
   color: var(--button-text);
   cursor: pointer;
   box-shadow: var(--shadow);
-  transition: all 0.2s ease;
-  border: 1px solid var(--border-color);
+  transition: background 0.2s ease;
 }
 
 .profile-button:hover {
   background: var(--accent-hover);
-  box-shadow: var(--shadow-strong);
 }
 
+/* Контейнер для сетки — растягивается на всю оставшуюся высоту */
 .menu-container {
   flex: 1;
   display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  padding-left: 2rem;
+  align-items: stretch;
+  min-height: 0; /* важно для корректного растяжения */
 }
 
-.menu-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.2rem;
-  max-width: 400px;
+/* Сетка 2×2 занимает всё доступное пространство */
+.menu-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
   width: 100%;
+  align-items: stretch;
 }
 
+/* Кнопки-прямоугольники, растягиваются на всю высоту ячейки */
 .menu-item {
   background: var(--bg-card);
   backdrop-filter: blur(4px);
   border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 1.2rem 2rem;
-  font-size: 1.4rem;
-  font-weight: 500;
+  border-radius: 32px;
+  padding: 2rem 1rem;
+  font-size: 1.8rem;
+  font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
   box-shadow: var(--shadow);
-  transition: all 0.2s ease;
-  text-align: left;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 
 .menu-item:hover {
@@ -157,8 +155,18 @@ const logout = () => {
   box-shadow: var(--shadow-strong);
   border-color: var(--accent-color);
   color: var(--heading-color);
+  /* Без transform: scale() */
 }
 
+.admin-button {
+  background: var(--danger-color) !important;
+  color: white;
+}
+.admin-button:hover {
+  background: var(--danger-hover) !important;
+}
+
+/* Кнопка выхода */
 .logout-button {
   background: var(--danger-bg);
   border: 1px solid var(--border-color);
@@ -169,7 +177,7 @@ const logout = () => {
   cursor: pointer;
   align-self: flex-end;
   margin-top: 2rem;
-  transition: all 0.2s;
+  transition: background 0.2s ease;
   width: fit-content;
 }
 

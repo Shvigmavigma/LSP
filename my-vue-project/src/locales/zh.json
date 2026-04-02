@@ -29,12 +29,13 @@
     },
     "navigation": {
         "main_menu": "主菜单",
-        "my_projects": "我的项目",
-        "all_projects": "所有项目",
-        "users": "用户",
-        "profile": "个人资料",
-        "logout": "退出",
-        "admin_panel": "管理面板"
+    "my_projects": "我的项目",
+    "all_users": "所有用户",
+    "old_projects": "旧项目",
+    "all_projects": "所有项目",
+    "admin_panel": "管理面板",
+    "profile": "个人资料",
+    "logout": "退出"
     },
     "project": {
         "title": "项目名称",

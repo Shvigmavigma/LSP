@@ -28,12 +28,13 @@
     },
     "navigation": {
         "main_menu": "Головне меню",
-        "my_projects": "Мої проєкти",
-        "all_projects": "Усі проєкти",
-        "users": "Користувачі",
-        "profile": "Профіль",
-        "logout": "Вийти",
-        "admin_panel": "Адмін панель"
+    "my_projects": "Мої проєкти",
+    "all_users": "Усі користувачі",
+    "old_projects": "Старі проєкти",
+    "all_projects": "Усі проєкти",
+    "admin_panel": "Адмін-панель",
+    "profile": "Профіль",
+    "logout": "Вийти"
     },
     "project": {
         "title": "Назва проєкту",
