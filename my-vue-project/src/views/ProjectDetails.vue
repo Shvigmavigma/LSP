@@ -212,10 +212,25 @@
               >
                 {{ deleteInProgress ? $t('common.processing') : (isAdminOrCurator ? $t('projectDetails.deleteProject') : $t('projectDetails.hideProject')) }}
               </button>
+              <!-- Кнопки для пометки "старый" (только админ/куратор) -->
+              <button 
+                v-if="isAdminOrCurator && !project.is_old" 
+                class="mark-old-button" 
+                @click="markAsOld"
+              >
+                📦 {{ $t('projectDetails.markAsOld') }}
+              </button>
+              <button 
+                v-if="isAdminOrCurator && project.is_old" 
+                class="unmark-old-button" 
+                @click="unmarkAsOld"
+              >
+                🔄 {{ $t('projectDetails.unmarkAsOld') }}
+              </button>
             </div>
           </div>
 
-          <!-- Правая колонка -->
+          <!-- Правая колонка (задачи, комментарии, предложения) -->
           <div class="tasks-column">
             <h3 class="tasks-section-title">{{ $t('projectDetails.activeTasks') }}</h3>
 
@@ -554,7 +569,6 @@ const canHideComments = computed(() =>
   isAdmin.value || 
   isCurator.value
 );
-
 
 const canInvite = computed(() => 
   userRole.value === 'customer' || 
@@ -992,6 +1006,29 @@ const handleProjectDelete = async () => {
   deleteInProgress.value = false;
 };
 
+// ---- НОВЫЕ МЕТОДЫ для пометки "старый" ----
+const markAsOld = async () => {
+  if (!project.value) return;
+  try {
+    await axios.put(`${baseUrl}/projects/${project.value.id}/mark-old`);
+    showNotification(t('projectDetails.markedAsOld'), 'success');
+    await loadProject(true);
+  } catch (err: any) {
+    showNotification(err.response?.data?.detail || t('projectDetails.markOldError'), 'error');
+  }
+};
+
+const unmarkAsOld = async () => {
+  if (!project.value) return;
+  try {
+    await axios.put(`${baseUrl}/projects/${project.value.id}/unmark-old`);
+    showNotification(t('projectDetails.unmarkedAsOld'), 'success');
+    await loadProject(true);
+  } catch (err: any) {
+    showNotification(err.response?.data?.detail || t('projectDetails.unmarkOldError'), 'error');
+  }
+};
+
 // ---- Навигация ----
 const goToEdit = () => router.push(`/project/edit/${route.params.id}`);
 const goHome = () => router.push('/main');
@@ -1003,14 +1040,13 @@ const goToTask = (task: Task) => {
 };
 const openInviteModal = () => { showInviteModal.value = true; };
 
+// Обработчик обновления задачи (удаляет дубликаты)
 const handleTaskUpdate = async (payload: { task: Task; index: number }) => {
   if (!project.value) return;
 
-  // Копируем текущий список задач и заменяем задачу по индексу
   const tasks = [...(project.value.tasks || [])];
   tasks[payload.index] = payload.task;
 
-  // Удаляем возможные дубликаты названий (оставляем только первое вхождение)
   const uniqueTasks: Task[] = [];
   const seenTitles = new Set<string>();
   for (const t of tasks) {
@@ -1023,11 +1059,6 @@ const handleTaskUpdate = async (payload: { task: Task; index: number }) => {
     }
   }
 
-  if (uniqueTasks.length !== tasks.length) {
-    console.warn(`[handleTaskUpdate] Удалено ${tasks.length - uniqueTasks.length} дублирующихся задач`);
-  }
-
-  // Отправляем обновлённый проект с уникальными задачами
   const updatedProject = { ...project.value, tasks: uniqueTasks };
   try {
     await axios.put(`${baseUrl}/projects/${project.value.id}`, updatedProject);
@@ -1059,6 +1090,40 @@ watch(() => route.params.id, () => {
   loadProject(true);
 });
 </script>
+
+<style scoped>
+/* Все стили остаются без изменений – они уже есть в вашем исходном файле */
+/* Добавим стили для новых кнопок */
+.mark-old-button,
+.unmark-old-button {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.mark-old-button {
+  background: #ff9800;
+  color: white;
+}
+.mark-old-button:hover {
+  background: #e68900;
+}
+.unmark-old-button {
+  background: #2196f3;
+  color: white;
+}
+.unmark-old-button:hover {
+  background: #0b7dda;
+}
+</style>
 
 <style scoped>
 /* Весь CSS остаётся без изменений */

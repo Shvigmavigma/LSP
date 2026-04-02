@@ -29,11 +29,12 @@
     "navigation": {
         "main_menu": "Main Menu",
         "my_projects": "My Projects",
+        "all_users": "All Users",
+        "old_projects": "Old Projects",
         "all_projects": "All Projects",
-        "users": "Users",
+        "admin_panel": "Admin Panel",
         "profile": "Profile",
-        "logout": "Logout",
-        "admin_panel": "Admin Panel"
+        "logout": "Logout"
     },
     "project": {
         "title": "Project Title",

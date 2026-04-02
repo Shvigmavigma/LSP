@@ -28,12 +28,13 @@
     },
     "navigation": {
         "main_menu": "Главное меню",
-        "my_projects": "Мои проекты",
-        "all_projects": "Все проекты",
-        "users": "Пользователи",
-        "profile": "Профиль",
-        "logout": "Выйти",
-        "admin_panel": "Админ панель"
+    "my_projects": "Мои проекты",
+    "all_users": "Все пользователи",
+    "old_projects": "Старые проекты",
+    "all_projects": "Все проекты",
+    "admin_panel": "Админ-панель",
+    "profile": "Профиль",
+    "logout": "Выйти"
     },
     "project": {
         "title": "Название проекта",

@@ -148,6 +148,7 @@ export interface Project {
   suggestions?: Suggestion[];
   join_requests?: JoinRequest[]; 
   is_hidden?: boolean;
+  is_old: boolean;
   hidden_by?: number;  
 }
 

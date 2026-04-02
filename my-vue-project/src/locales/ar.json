@@ -29,12 +29,13 @@
     },
     "navigation": {
         "main_menu": "القائمة الرئيسية",
-        "my_projects": "مشاريعي",
-        "all_projects": "جميع المشاريع",
-        "users": "المستخدمون",
-        "profile": "الملف الشخصي",
-        "logout": "تسجيل الخروج",
-        "admin_panel": "لوحة الإدارة"
+    "my_projects": "مشاريعي",
+    "all_users": "جميع المستخدمين",
+    "old_projects": "المشاريع القديمة",
+    "all_projects": "جميع المشاريع",
+    "admin_panel": "لوحة الإدارة",
+    "profile": "الملف الشخصي",
+    "logout": "تسجيل الخروج"
     },
     "project": {
         "title": "عنوان المشروع",
