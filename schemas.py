@@ -168,7 +168,6 @@ class ProjectFileResponse(BaseModel):
     uploaded_at: datetime
     uploaded_by: int
     task_id: Optional[int] = None
-    is_old: bool = False
     model_config = ConfigDict(from_attributes=True)
 class ProjectBase(BaseModel):
     title: str = Field(..., min_length=1, json_schema_extra={"example": "Космическая программа"})
@@ -193,7 +192,8 @@ class ProjectBase(BaseModel):
         json_schema_extra={"example": {"github": "https://github.com/...", "google_drive": "https://drive.google.com/..."}}
     )
     comments: List[Comment] = Field(default=[], description="Комментарии к проекту")
-    suggestions: List[Suggestion] = [] 
+    suggestions: List[Suggestion] = []
+    is_old: bool = False
 
 class ProjectCreate(ProjectBase):
     pass  

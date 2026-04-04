@@ -167,4 +167,5 @@ export interface ProjectUpdate {
   participants?: Participant[];
   links?: ProjectLinks;
   comments?: Comment[];
+  is_old?: boolean;
 }

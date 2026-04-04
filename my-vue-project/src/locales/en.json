@@ -1,7 +1,7 @@
 {
     "common": {
         "welcome": "Welcome",
-          "confirmDelete": "Are you sure you want to delete this file?",
+        "confirmDelete": "Are you sure you want to delete this file?",
         "upload": "Upload",
         "download": "Download",
         "save": "Save",
@@ -458,7 +458,16 @@
         "saveError": "Error saving data"
     },
     "projectDetails": {
-        "timelineUpdated":"Timeline updated",
+        "markAsOld": "📦 Mark as old",
+        "unmarkAsOld": "🔄 Remove old mark",
+        "oldProject": "Old project",
+        "oldProjectReadOnly": "This project is marked as old and is read-only. Editing is prohibited.",
+        "markedAsOld": "Project marked as old",
+        "unmarkedAsOld": "Old mark removed",
+        "markOldError": "Error marking project as old",
+        "unmarkOldError": "Error removing old mark",
+        "timelineUpdateError": "Error updating task dates",
+
         "defaultTitle": "Project",
         "description": "Description",
         "additional": "Additional info",
@@ -632,6 +641,7 @@
     },
     "taskDetails": {
         "title": "Task details",
+        "oldProjectReadOnly": "This project is marked as old and is read-only.",
         "confirmDeleteFile": "Are you sure you want to delete this file?",
         "requiredFilesLabel": "Required files",
         "requiredFiles": "Required files",

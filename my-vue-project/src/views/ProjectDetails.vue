@@ -14,52 +14,608 @@
     <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="project">
-      <!-- Макет для НЕ-участников -->
-      <div v-if="!userRole && !isAdmin && !isCurator" class="non-author-layout">
-        <div class="project-card">
-          <div class="project-section">
-            <h3>{{ $t('projectDetails.description') }}</h3>
-            <p>{{ project.body }}</p>
-          </div>
-          <div v-if="project.underbody" class="project-section">
-            <h3>{{ $t('projectDetails.additional') }}</h3>
-            <p>{{ project.underbody }}</p>
-          </div>
-          <div class="project-section">
-            <h3>{{ $t('projectDetails.participants') }}</h3>
-            <div v-if="project.participants?.length" class="participants-list">
-              <span
-                v-for="participant in project.participants"
-                :key="participant.user_id"
-                class="participant-link"
-                @click="goToUser(participant.user_id)"
-              >
-                {{ getUserNickname(participant.user_id) }}
-                <span class="role-badge">{{ getRoleDisplay(participant.role) }}</span>
-              </span>
+      <!-- Выбор макета: 
+           1. Если пользователь является участником, админом или куратором → всегда author-layout.
+           2. Если не участник и не админ/куратор:
+              - если проект старый → author-layout (полная информация, но без редактирования)
+              - если проект не старый → non-author-layout (краткая карточка)
+      -->
+      <template v-if="userRole || isAdmin || isCurator">
+        <!-- Макет для участников, админов, кураторов -->
+        <div class="author-layout">
+          <h1 class="project-title-center">{{ project.title }}</h1>
+          <div class="two-columns">
+            <!-- Левая колонка -->
+            <div class="info-column">
+              <div class="project-section">
+                <h3>{{ $t('projectDetails.description') }}</h3>
+                <p>{{ project.body }}</p>
+              </div>
+              <div v-if="project.underbody" class="project-section">
+                <h3>{{ $t('projectDetails.additional') }}</h3>
+                <p>{{ project.underbody }}</p>
+              </div>
+
+              <!-- Ссылки проекта -->
+              <div class="project-links">
+                <h3>{{ $t('projectDetails.projectLinks') }}</h3>
+                <div class="links-buttons">
+                  <!-- GitHub -->
+                  <template v-if="project.links?.github">
+                    <div v-if="!showEditGithub" class="link-display">
+                      <a
+                        :href="project.links.github"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="link-button github-link"
+                      >
+                        <img :src="githubIcon" alt="GitHub" class="icon" />
+                        {{ $t('projectDetails.githubRepo') }}
+                      </a>
+                      <div class="link-actions" v-if="!project.is_old || isAdminOrCurator">
+                        <button class="link-edit" @click="startEditGithub" :title="$t('common.edit')">✎</button>
+                        <button class="link-delete" @click="deleteGithubLink" :title="$t('common.delete')">✖</button>
+                      </div>
+                    </div>
+                    <div v-else class="link-input-wrapper">
+                      <input
+                        v-model="githubEditValue"
+                        type="url"
+                        :placeholder="$t('projectDetails.githubPlaceholder')"
+                        class="link-input"
+                        @keyup.enter="saveEditGithub"
+                      />
+                      <button class="link-save" @click="saveEditGithub">✔</button>
+                      <button class="link-cancel" @click="cancelEditGithub">✖</button>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div v-if="showGithubInput" class="link-input-wrapper">
+                      <input
+                        v-model="githubInput"
+                        type="url"
+                        :placeholder="$t('projectDetails.githubPlaceholder')"
+                        class="link-input"
+                        @keyup.enter="saveGithubLink"
+                      />
+                      <button class="link-save" @click="saveGithubLink">✔</button>
+                      <button class="link-cancel" @click="cancelGithub">✖</button>
+                    </div>
+                    <button v-else-if="!project.is_old || isAdminOrCurator" class="link-button add-github" @click="showGithubInput = true">
+                      <img :src="githubIcon" alt="GitHub" class="icon" />
+                      + {{ $t('projectDetails.addGithub') }}
+                    </button>
+                  </template>
+
+                  <!-- Google Drive -->
+                  <template v-if="project.links?.google_drive">
+                    <div v-if="!showEditDrive" class="link-display">
+                      <a
+                        :href="project.links.google_drive"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="link-button drive-link"
+                      >
+                        <img :src="driveIcon" alt="Google Drive" class="icon" />
+                        {{ $t('projectDetails.googleDrive') }}
+                      </a>
+                      <div class="link-actions" v-if="!project.is_old || isAdminOrCurator">
+                        <button class="link-edit" @click="startEditDrive" :title="$t('common.edit')">✎</button>
+                        <button class="link-delete" @click="deleteDriveLink" :title="$t('common.delete')">✖</button>
+                      </div>
+                    </div>
+                    <div v-else class="link-input-wrapper">
+                      <input
+                        v-model="driveEditValue"
+                        type="url"
+                        :placeholder="$t('projectDetails.drivePlaceholder')"
+                        class="link-input"
+                        @keyup.enter="saveEditDrive"
+                      />
+                      <button class="link-save" @click="saveEditDrive">✔</button>
+                      <button class="link-cancel" @click="cancelEditDrive">✖</button>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div v-if="showDriveInput" class="link-input-wrapper">
+                      <input
+                        v-model="driveInput"
+                        type="url"
+                        :placeholder="$t('projectDetails.drivePlaceholder')"
+                        class="link-input"
+                        @keyup.enter="saveDriveLink"
+                      />
+                      <button class="link-save" @click="saveDriveLink">✔</button>
+                      <button class="link-cancel" @click="cancelDrive">✖</button>
+                    </div>
+                    <button v-else-if="!project.is_old || isAdminOrCurator" class="link-button add-drive" @click="showDriveInput = true">
+                      <img :src="driveIcon" alt="Google Drive" class="icon" />
+                      + {{ $t('projectDetails.addDrive') }}
+                    </button>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Участники -->
+              <div class="project-section">
+                <h3>{{ $t('projectDetails.participants') }}</h3>
+                <div v-if="project.participants?.length" class="participants-list">
+                  <span
+                    v-for="participant in project.participants"
+                    :key="participant.user_id"
+                    class="participant-link"
+                    @click="goToUser(participant.user_id)"
+                  >
+                    {{ getUserNickname(participant.user_id) }}
+                    <span class="role-badge">{{ getRoleDisplay(participant.role) }}</span>
+                  </span>
+                </div>
+                <p v-else>{{ $t('projectDetails.noParticipants') }}</p>
+              </div>
+
+              <!-- Выполненные задачи -->
+              <div v-if="completedTasks.length" class="project-section">
+                <h3>{{ $t('projectDetails.completedTasks') }}</h3>
+                <div class="completed-tasks">
+                  <div
+                    v-for="task in completedTasks"
+                    :key="task.title"
+                    class="completed-task"
+                    @click="goToTask(task)"
+                  >
+                    <span class="completed-task-title">{{ task.title }}</span>
+                    <span class="completed-task-date">{{ formatTaskDates(task) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Кнопки управления проектом -->
+              <div class="project-actions" v-if="hasManagementRights && (!project.is_old || isAdminOrCurator)">
+                <button class="edit-project-button" @click="goToEdit">✎ {{ $t('projectDetails.editProject') }}</button>
+                <button 
+                  class="delete-project-button" 
+                  @click="handleProjectDelete" 
+                  :disabled="deleteInProgress"
+                >
+                  {{ deleteInProgress ? $t('common.processing') : (isAdminOrCurator ? $t('projectDetails.deleteProject') : $t('projectDetails.hideProject')) }}
+                </button>
+                <!-- Кнопки для пометки "старый" (только админ/куратор) -->
+                <button 
+                  v-if="isAdminOrCurator && !project.is_old" 
+                  class="mark-old-button" 
+                  @click="markAsOld"
+                >
+                  📦 {{ $t('projectDetails.markAsOld') }}
+                </button>
+                <button 
+                  v-if="isAdminOrCurator && project.is_old" 
+                  class="unmark-old-button" 
+                  @click="unmarkAsOld"
+                >
+                  🔄 {{ $t('projectDetails.unmarkAsOld') }}
+                </button>
+              </div>
             </div>
-            <p v-else>{{ $t('projectDetails.noParticipants') }}</p>
+
+            <!-- Правая колонка -->
+            <div class="tasks-column">
+              <h3 class="tasks-section-title">{{ $t('projectDetails.activeTasks') }}</h3>
+
+              <!-- Кнопки управления -->
+              <div class="task-header-buttons">
+                <button 
+                  v-if="hasFullAccess && (!project.is_old || isAdminOrCurator)" 
+                  class="suggestions-btn" 
+                  @click="showSuggestions = !showSuggestions"
+                >
+                  <span class="btn-content">
+                    <span class="suggestions-icon">📋</span>
+                    {{ showSuggestions ? $t('common.hide') : $t('suggestions.show') }} {{ $t('suggestions.title') }}
+                    <span v-if="pendingSuggestionsCount > 0" class="header-unread-badge">
+                      {{ pendingSuggestionsCount }}
+                    </span>
+                  </span>
+                </button>
+
+                <router-link
+                  v-if="canSuggest && (!project.is_old || isAdminOrCurator)"
+                  :to="`/project/edit/${project.id}?mode=suggest`"
+                  custom
+                  v-slot="{ navigate }"
+                >
+                  <button class="suggest-btn" @click="navigate">💡 {{ $t('projectDetails.suggestEdit') }}</button>
+                </router-link>
+
+                <button v-if="canInvite && (!project.is_old || isAdminOrCurator)" class="invite-btn" @click="openInviteModal">
+                  ✉️ {{ $t('projectDetails.invite') }}
+                </button>
+
+                <button class="comments-header-btn" @click="showProjectComments = !showProjectComments">
+                  <span class="btn-content">
+                    <span class="comment-icon">💬</span>
+                    {{ showProjectComments ? $t('common.hide') : $t('common.show') }} {{ $t('commentsSection.title') }}
+                    <span v-if="unreadProjectCommentsCount > 0" class="header-unread-badge">
+                      {{ unreadProjectCommentsCount }}
+                    </span>
+                  </span>
+                </button>
+
+                <button 
+                  v-if="canManageJoinRequests && (!project.is_old || isAdminOrCurator)" 
+                  class="requests-btn" 
+                  @click="showJoinRequests = !showJoinRequests"
+                >
+                  <span class="btn-content">
+                    <span class="requests-icon">👥</span>
+                    {{ showJoinRequests ? $t('common.hide') : $t('projectDetails.requests') }}
+                    <span v-if="pendingJoinRequestsCount > 0" class="header-unread-badge">
+                      {{ pendingJoinRequestsCount }}
+                    </span>
+                  </span>
+                </button>
+              </div>
+
+              <!-- Блок предложений -->
+              <div v-if="showSuggestions" class="suggestions-container">
+                <SuggestionsSection
+                  :project-id="project.id"
+                  :suggestions="suggestions"
+                  :is-project-participant="hasFullAccess"
+                  :can-edit="canEdit"
+                  :can-hide-comments="canHideComments"
+                  :on-accept="acceptSuggestion"
+                  :on-reject="rejectSuggestion"
+                  :on-add-comment="addSuggestionComment"
+                  :on-mark-comment-read="markSuggestionCommentRead"
+                  :on-delete-comment="deleteSuggestionComment"
+                  :on-hide-comment="hideSuggestionComment"
+                />
+              </div>
+
+              <!-- Блок комментариев проекта -->
+              <div v-if="showProjectComments" class="comments-container">
+                <CommentsSection
+                  :comments="project.comments || []"
+                  :can-comment="hasFullAccess"
+                  :is-author="canEdit"
+                  :can-hide-comments="canHideComments"
+                  :is-admin="isAdmin"
+                  :is-curator="isCurator"
+                  :on-add-comment="addProjectComment"
+                  :on-mark-as-read="markProjectCommentAsRead"
+                  :on-hide-comment="hideProjectComment"
+                  :on-restore-comment="restoreProjectComment"
+                  :on-permanent-delete="permanentDeleteComment"
+                />
+              </div>
+
+              <!-- Блок запросов на вступление -->
+              <div v-if="showJoinRequests" class="requests-container">
+                <div class="requests-header">
+                  <h3>{{ $t('projectDetails.joinRequests') }}</h3>
+                  <span v-if="pendingJoinRequestsCount > 0" class="pending-badge">{{ pendingJoinRequestsCount }}</span>
+                </div>
+
+                <div v-if="project.join_requests === undefined" class="loading">{{ $t('common.loading') }}</div>
+                <div v-else-if="pendingJoinRequests.length === 0" class="no-requests">
+                  {{ $t('projectDetails.noRequests') }}
+                </div>
+                <div v-else class="requests-list">
+                  <div
+                    v-for="request in pendingJoinRequests"
+                    :key="request.id"
+                    class="request-item"
+                  >
+                    <div class="request-info">
+                      <div class="request-user">
+                        <div class="user-avatar">
+                          <img
+                            v-if="getUserAvatar(request.user_id)"
+                            :src="getUserAvatar(request.user_id)"
+                            :alt="getUserNickname(request.user_id)"
+                            @error="handleAuthorImageError(request.user_id)"
+                          />
+                          <span v-else>{{ getUserInitials(request.user_id) }}</span>
+                        </div>
+                        <span class="user-name">{{ getUserNickname(request.user_id) }}</span>
+                      </div>
+                      <div class="request-task">
+                        {{ $t('projectDetails.requestMessage') }}
+                      </div>
+                    </div>
+                    <div class="request-actions">
+                      <button class="accept-request-btn" @click="acceptJoinRequest(request.id)">✅ {{ $t('common.accept') }}</button>
+                      <button class="reject-request-btn" @click="rejectJoinRequest(request.id)">❌ {{ $t('common.reject') }}</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Задачи в работе -->
+              <div v-if="inProgressTasks.length > 0" class="task-group">
+                <h4 class="task-group-title in-progress-title">{{ $t('projectDetails.inProgress') }}</h4>
+                <div class="task-tree">
+                  <div
+                    v-for="task in inProgressTasks"
+                    :key="task.title"
+                    class="task-node"
+                    :class="taskStatusClass(task)"
+                    @click="goToTask(task)"
+                  >
+                    <span class="task-icon">📄</span>
+                    <div class="task-content">
+                      <strong>{{ task.title }}</strong>
+                      <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
+                      <p>{{ task.body }}</p>
+
+                      <div v-if="task.required_files && task.required_files.length" class="task-required-files">
+                        <div class="required-files-label">{{ $t('taskDetails.requiredFilesLabel') }}:</div>
+                        <div class="required-files-list">
+                          <div
+                            v-for="req in task.required_files"
+                            :key="req.id"
+                            class="required-file-item"
+                            :class="{ satisfied: isTaskRequiredFileAttached(task, req.id) }"
+                          >
+                            {{ req.name }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <span v-if="task.status === 'в работе'" class="task-progress">
+                        {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
+                      </span>
+                      <small>{{ $t('projectDetails.deadline') }}: {{ formatTaskDates(task) }}</small>
+                      <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
+                      <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
+                      <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
+                      <span v-if="task.assigned_to" class="assigned-info">
+                        {{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Задачи в ожидании -->
+              <div v-if="waitingTasks.length > 0" class="task-group">
+                <h4 class="task-group-title waiting-title">{{ $t('projectDetails.waiting') }}</h4>
+                <div class="task-tree">
+                  <div
+                    v-for="task in waitingTasks"
+                    :key="task.title"
+                    class="task-node"
+                    :class="taskStatusClass(task)"
+                    @click="goToTask(task)"
+                  >
+                    <span class="task-icon">📄</span>
+                    <div class="task-content">
+                      <strong>{{ task.title }}</strong>
+                      <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
+                      <p>{{ task.body }}</p>
+
+                      <div v-if="task.required_files && task.required_files.length" class="task-required-files">
+                        <div class="required-files-label">{{ $t('taskDetails.requiredFilesLabel') }}:</div>
+                        <div class="required-files-list">
+                          <div
+                            v-for="req in task.required_files"
+                            :key="req.id"
+                            class="required-file-item"
+                            :class="{ satisfied: isTaskRequiredFileAttached(task, req.id) }"
+                          >
+                            {{ req.name }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <span v-if="task.status === 'в работе'" class="task-progress">
+                        {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
+                      </span>
+                      <small>{{ $t('projectDetails.deadline') }}: {{ formatTaskDates(task) }}</small>
+                      <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
+                      <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
+                      <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
+                      <span v-if="task.assigned_to" class="assigned-info">
+                        {{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="inProgressTasks.length === 0 && waitingTasks.length === 0" class="no-tasks">
+                {{ $t('projectDetails.noActiveTasks') }}
+              </div>
+            </div>
           </div>
 
-          <!-- Кнопка отклика для учеников (не участников) -->
-          <div v-if="isStudent && !hasExecutors" class="respond-project-section">
-            <div v-if="userPendingRequest" class="already-responded">
-              <span class="responded-message">✅ {{ $t('projectDetails.alreadyResponded') }}</span>
-            </div>
-            <button v-else class="respond-project-btn" @click="respondToProject" :disabled="responding">
-              {{ responding ? $t('common.sending') : $t('projectDetails.respondButton') }}
-            </button>
-          </div>
+          <!-- Диаграмма Ганта (исправленное условие) -->
+          <GanttChart
+            :tasks="activeTasks"
+            :title="$t('projectDetails.timeline')"
+            :readonly="!canEditGantt"
+            @update-tasks="handleTaskUpdate"
+          />
         </div>
-      </div>
+      </template>
 
-      <!-- Макет для УЧАСТНИКОВ, АДМИНИСТРАТОРОВ И КУРАТОРОВ -->
-      <div v-else class="author-layout">
-        <h1 class="project-title-center">{{ project.title }}</h1>
+      <!-- Не-участники, не админы, не кураторы -->
+      <template v-else>
+        <!-- Если проект старый – показываем полную версию (author-layout) без кнопок редактирования -->
+        <div v-if="project.is_old" class="author-layout">
+          <!-- Баннер для старого проекта -->
+          <div class="old-project-banner">
+            📦 {{ $t('projectDetails.oldProjectReadOnly') }}
+          </div>
+          <h1 class="project-title-center">{{ project.title }}</h1>
+          <div class="two-columns">
+            <!-- Левая колонка -->
+            <div class="info-column">
+              <div class="project-section">
+                <h3>{{ $t('projectDetails.description') }}</h3>
+                <p>{{ project.body }}</p>
+              </div>
+              <div v-if="project.underbody" class="project-section">
+                <h3>{{ $t('projectDetails.additional') }}</h3>
+                <p>{{ project.underbody }}</p>
+              </div>
 
-        <div class="two-columns">
-          <!-- Левая колонка -->
-          <div class="info-column">
+              <!-- Ссылки (без кнопок редактирования) -->
+              <div class="project-links">
+                <h3>{{ $t('projectDetails.projectLinks') }}</h3>
+                <div class="links-buttons">
+                  <a v-if="project.links?.github" :href="project.links.github" target="_blank" class="link-button github-link">
+                    <img :src="githubIcon" alt="GitHub" class="icon" />
+                    {{ $t('projectDetails.githubRepo') }}
+                  </a>
+                  <a v-if="project.links?.google_drive" :href="project.links.google_drive" target="_blank" class="link-button drive-link">
+                    <img :src="driveIcon" alt="Google Drive" class="icon" />
+                    {{ $t('projectDetails.googleDrive') }}
+                  </a>
+                </div>
+              </div>
+
+              <div class="project-section">
+                <h3>{{ $t('projectDetails.participants') }}</h3>
+                <div v-if="project.participants?.length" class="participants-list">
+                  <span
+                    v-for="participant in project.participants"
+                    :key="participant.user_id"
+                    class="participant-link"
+                    @click="goToUser(participant.user_id)"
+                  >
+                    {{ getUserNickname(participant.user_id) }}
+                    <span class="role-badge">{{ getRoleDisplay(participant.role) }}</span>
+                  </span>
+                </div>
+                <p v-else>{{ $t('projectDetails.noParticipants') }}</p>
+              </div>
+
+              <div v-if="completedTasks.length" class="project-section">
+                <h3>{{ $t('projectDetails.completedTasks') }}</h3>
+                <div class="completed-tasks">
+                  <div
+                    v-for="task in completedTasks"
+                    :key="task.title"
+                    class="completed-task"
+                    @click="goToTask(task)"
+                  >
+                    <span class="completed-task-title">{{ task.title }}</span>
+                    <span class="completed-task-date">{{ formatTaskDates(task) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Правая колонка (без кнопок управления) -->
+            <div class="tasks-column">
+              <h3 class="tasks-section-title">{{ $t('projectDetails.activeTasks') }}</h3>
+
+              <!-- Задачи в работе -->
+              <div v-if="inProgressTasks.length > 0" class="task-group">
+                <h4 class="task-group-title in-progress-title">{{ $t('projectDetails.inProgress') }}</h4>
+                <div class="task-tree">
+                  <div
+                    v-for="task in inProgressTasks"
+                    :key="task.title"
+                    class="task-node"
+                    :class="taskStatusClass(task)"
+                    @click="goToTask(task)"
+                  >
+                    <span class="task-icon">📄</span>
+                    <div class="task-content">
+                      <strong>{{ task.title }}</strong>
+                      <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
+                      <p>{{ task.body }}</p>
+                      <div v-if="task.required_files && task.required_files.length" class="task-required-files">
+                        <div class="required-files-label">{{ $t('taskDetails.requiredFilesLabel') }}:</div>
+                        <div class="required-files-list">
+                          <div
+                            v-for="req in task.required_files"
+                            :key="req.id"
+                            class="required-file-item"
+                            :class="{ satisfied: isTaskRequiredFileAttached(task, req.id) }"
+                          >
+                            {{ req.name }}
+                          </div>
+                        </div>
+                      </div>
+                      <span v-if="task.status === 'в работе'" class="task-progress">
+                        {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
+                      </span>
+                      <small>{{ $t('projectDetails.deadline') }}: {{ formatTaskDates(task) }}</small>
+                      <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
+                      <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
+                      <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
+                      <span v-if="task.assigned_to" class="assigned-info">
+                        {{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="waitingTasks.length > 0" class="task-group">
+                <h4 class="task-group-title waiting-title">{{ $t('projectDetails.waiting') }}</h4>
+                <div class="task-tree">
+                  <div
+                    v-for="task in waitingTasks"
+                    :key="task.title"
+                    class="task-node"
+                    :class="taskStatusClass(task)"
+                    @click="goToTask(task)"
+                  >
+                    <span class="task-icon">📄</span>
+                    <div class="task-content">
+                      <strong>{{ task.title }}</strong>
+                      <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
+                      <p>{{ task.body }}</p>
+                      <div v-if="task.required_files && task.required_files.length" class="task-required-files">
+                        <div class="required-files-label">{{ $t('taskDetails.requiredFilesLabel') }}:</div>
+                        <div class="required-files-list">
+                          <div
+                            v-for="req in task.required_files"
+                            :key="req.id"
+                            class="required-file-item"
+                            :class="{ satisfied: isTaskRequiredFileAttached(task, req.id) }"
+                          >
+                            {{ req.name }}
+                          </div>
+                        </div>
+                      </div>
+                      <span v-if="task.status === 'в работе'" class="task-progress">
+                        {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
+                      </span>
+                      <small>{{ $t('projectDetails.deadline') }}: {{ formatTaskDates(task) }}</small>
+                      <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
+                      <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
+                      <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
+                      <span v-if="task.assigned_to" class="assigned-info">
+                        {{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="inProgressTasks.length === 0 && waitingTasks.length === 0" class="no-tasks">
+                {{ $t('projectDetails.noActiveTasks') }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Диаграмма Ганта в режиме только чтения -->
+          <GanttChart
+            :tasks="activeTasks"
+            :title="$t('projectDetails.timeline')"
+            :readonly="true"
+            @update-tasks="handleTaskUpdate"
+          />
+        </div>
+
+        <!-- Если проект НЕ старый – показываем старую краткую карточку -->
+        <div v-else class="non-author-layout">
+          <div class="project-card">
             <div class="project-section">
               <h3>{{ $t('projectDetails.description') }}</h3>
               <p>{{ project.body }}</p>
@@ -68,108 +624,6 @@
               <h3>{{ $t('projectDetails.additional') }}</h3>
               <p>{{ project.underbody }}</p>
             </div>
-
-            <!-- Ссылки проекта -->
-            <div class="project-links">
-              <h3>{{ $t('projectDetails.projectLinks') }}</h3>
-              <div class="links-buttons">
-                <!-- GitHub -->
-                <template v-if="project.links?.github">
-                  <div v-if="!showEditGithub" class="link-display">
-                    <a
-                      :href="project.links.github"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="link-button github-link"
-                    >
-                      <img :src="githubIcon" alt="GitHub" class="icon" />
-                      {{ $t('projectDetails.githubRepo') }}
-                    </a>
-                    <div class="link-actions">
-                      <button class="link-edit" @click="startEditGithub" :title="$t('common.edit')">✎</button>
-                      <button class="link-delete" @click="deleteGithubLink" :title="$t('common.delete')">✖</button>
-                    </div>
-                  </div>
-                  <div v-else class="link-input-wrapper">
-                    <input
-                      v-model="githubEditValue"
-                      type="url"
-                      :placeholder="$t('projectDetails.githubPlaceholder')"
-                      class="link-input"
-                      @keyup.enter="saveEditGithub"
-                    />
-                    <button class="link-save" @click="saveEditGithub">✔</button>
-                    <button class="link-cancel" @click="cancelEditGithub">✖</button>
-                  </div>
-                </template>
-                <template v-else>
-                  <div v-if="showGithubInput" class="link-input-wrapper">
-                    <input
-                      v-model="githubInput"
-                      type="url"
-                      :placeholder="$t('projectDetails.githubPlaceholder')"
-                      class="link-input"
-                      @keyup.enter="saveGithubLink"
-                    />
-                    <button class="link-save" @click="saveGithubLink">✔</button>
-                    <button class="link-cancel" @click="cancelGithub">✖</button>
-                  </div>
-                  <button v-else class="link-button add-github" @click="showGithubInput = true">
-                    <img :src="githubIcon" alt="GitHub" class="icon" />
-                    + {{ $t('projectDetails.addGithub') }}
-                  </button>
-                </template>
-
-                <!-- Google Drive -->
-                <template v-if="project.links?.google_drive">
-                  <div v-if="!showEditDrive" class="link-display">
-                    <a
-                      :href="project.links.google_drive"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="link-button drive-link"
-                    >
-                      <img :src="driveIcon" alt="Google Drive" class="icon" />
-                      {{ $t('projectDetails.googleDrive') }}
-                    </a>
-                    <div class="link-actions">
-                      <button class="link-edit" @click="startEditDrive" :title="$t('common.edit')">✎</button>
-                      <button class="link-delete" @click="deleteDriveLink" :title="$t('common.delete')">✖</button>
-                    </div>
-                  </div>
-                  <div v-else class="link-input-wrapper">
-                    <input
-                      v-model="driveEditValue"
-                      type="url"
-                      :placeholder="$t('projectDetails.drivePlaceholder')"
-                      class="link-input"
-                      @keyup.enter="saveEditDrive"
-                    />
-                    <button class="link-save" @click="saveEditDrive">✔</button>
-                    <button class="link-cancel" @click="cancelEditDrive">✖</button>
-                  </div>
-                </template>
-                <template v-else>
-                  <div v-if="showDriveInput" class="link-input-wrapper">
-                    <input
-                      v-model="driveInput"
-                      type="url"
-                      :placeholder="$t('projectDetails.drivePlaceholder')"
-                      class="link-input"
-                      @keyup.enter="saveDriveLink"
-                    />
-                    <button class="link-save" @click="saveDriveLink">✔</button>
-                    <button class="link-cancel" @click="cancelDrive">✖</button>
-                  </div>
-                  <button v-else class="link-button add-drive" @click="showDriveInput = true">
-                    <img :src="driveIcon" alt="Google Drive" class="icon" />
-                    + {{ $t('projectDetails.addDrive') }}
-                  </button>
-                </template>
-              </div>
-            </div>
-
-            <!-- Участники -->
             <div class="project-section">
               <h3>{{ $t('projectDetails.participants') }}</h3>
               <div v-if="project.participants?.length" class="participants-list">
@@ -186,292 +640,18 @@
               <p v-else>{{ $t('projectDetails.noParticipants') }}</p>
             </div>
 
-            <!-- Выполненные задачи -->
-            <div v-if="completedTasks.length" class="project-section">
-              <h3>{{ $t('projectDetails.completedTasks') }}</h3>
-              <div class="completed-tasks">
-                <div
-                  v-for="task in completedTasks"
-                  :key="task.title"
-                  class="completed-task"
-                  @click="goToTask(task)"
-                >
-                  <span class="completed-task-title">{{ task.title }}</span>
-                  <span class="completed-task-date">{{ formatTaskDates(task) }}</span>
-                </div>
+            <!-- Кнопка отклика для учеников -->
+            <div v-if="isStudent && !hasExecutors" class="respond-project-section">
+              <div v-if="userPendingRequest" class="already-responded">
+                <span class="responded-message">✅ {{ $t('projectDetails.alreadyResponded') }}</span>
               </div>
-            </div>
-
-            <!-- Кнопки управления проектом -->
-            <div class="project-actions" v-if="hasManagementRights">
-              <button class="edit-project-button" @click="goToEdit">✎ {{ $t('projectDetails.editProject') }}</button>
-              <button 
-                class="delete-project-button" 
-                @click="handleProjectDelete" 
-                :disabled="deleteInProgress"
-              >
-                {{ deleteInProgress ? $t('common.processing') : (isAdminOrCurator ? $t('projectDetails.deleteProject') : $t('projectDetails.hideProject')) }}
+              <button v-else class="respond-project-btn" @click="respondToProject" :disabled="responding">
+                {{ responding ? $t('common.sending') : $t('projectDetails.respondButton') }}
               </button>
-              <!-- Кнопки для пометки "старый" (только админ/куратор) -->
-              <button 
-                v-if="isAdminOrCurator && !project.is_old" 
-                class="mark-old-button" 
-                @click="markAsOld"
-              >
-                📦 {{ $t('projectDetails.markAsOld') }}
-              </button>
-              <button 
-                v-if="isAdminOrCurator && project.is_old" 
-                class="unmark-old-button" 
-                @click="unmarkAsOld"
-              >
-                🔄 {{ $t('projectDetails.unmarkAsOld') }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Правая колонка (задачи, комментарии, предложения) -->
-          <div class="tasks-column">
-            <h3 class="tasks-section-title">{{ $t('projectDetails.activeTasks') }}</h3>
-
-            <!-- Кнопки управления -->
-            <div class="task-header-buttons">
-              <button 
-                v-if="hasFullAccess" 
-                class="suggestions-btn" 
-                @click="showSuggestions = !showSuggestions"
-              >
-                <span class="btn-content">
-                  <span class="suggestions-icon">📋</span>
-                  {{ showSuggestions ? $t('common.hide') : $t('suggestions.show') }} {{ $t('suggestions.title') }}
-                  <span v-if="pendingSuggestionsCount > 0" class="header-unread-badge">
-                    {{ pendingSuggestionsCount }}
-                  </span>
-                </span>
-              </button>
-
-              <router-link
-                v-if="canSuggest"
-                :to="`/project/edit/${project.id}?mode=suggest`"
-                custom
-                v-slot="{ navigate }"
-              >
-                <button class="suggest-btn" @click="navigate">💡 {{ $t('projectDetails.suggestEdit') }}</button>
-              </router-link>
-
-              <button v-if="canInvite" class="invite-btn" @click="openInviteModal">
-                ✉️ {{ $t('projectDetails.invite') }}
-              </button>
-
-              <button class="comments-header-btn" @click="showProjectComments = !showProjectComments">
-                <span class="btn-content">
-                  <span class="comment-icon">💬</span>
-                  {{ showProjectComments ? $t('common.hide') : $t('common.show') }} {{ $t('commentsSection.title') }}
-                  <span v-if="unreadProjectCommentsCount > 0" class="header-unread-badge">
-                    {{ unreadProjectCommentsCount }}
-                  </span>
-                </span>
-              </button>
-
-              <button 
-                v-if="canManageJoinRequests" 
-                class="requests-btn" 
-                @click="showJoinRequests = !showJoinRequests"
-              >
-                <span class="btn-content">
-                  <span class="requests-icon">👥</span>
-                  {{ showJoinRequests ? $t('common.hide') : $t('projectDetails.requests') }}
-                  <span v-if="pendingJoinRequestsCount > 0" class="header-unread-badge">
-                    {{ pendingJoinRequestsCount }}
-                  </span>
-                </span>
-              </button>
-            </div>
-
-            <!-- Блок предложений -->
-            <div v-if="showSuggestions" class="suggestions-container">
-              <SuggestionsSection
-                :project-id="project.id"
-                :suggestions="suggestions"
-                :is-project-participant="hasFullAccess"
-                :can-edit="canEdit"
-                :can-hide-comments="canHideComments"
-                :on-accept="acceptSuggestion"
-                :on-reject="rejectSuggestion"
-                :on-add-comment="addSuggestionComment"
-                :on-mark-comment-read="markSuggestionCommentRead"
-                :on-delete-comment="deleteSuggestionComment"
-                :on-hide-comment="hideSuggestionComment"
-              />
-            </div>
-
-            <!-- Блок комментариев проекта -->
-            <div v-if="showProjectComments" class="comments-container">
-              <CommentsSection
-                :comments="project.comments || []"
-                :can-comment="hasFullAccess"
-                :is-author="canEdit"
-                :can-hide-comments="canHideComments"
-                :is-admin="isAdmin"
-                :is-curator="isCurator"
-                :on-add-comment="addProjectComment"
-                :on-mark-as-read="markProjectCommentAsRead"
-                :on-hide-comment="hideProjectComment"
-                :on-restore-comment="restoreProjectComment"
-                :on-permanent-delete="permanentDeleteComment"
-              />
-            </div>
-
-            <!-- Блок запросов на вступление -->
-            <div v-if="showJoinRequests" class="requests-container">
-              <div class="requests-header">
-                <h3>{{ $t('projectDetails.joinRequests') }}</h3>
-                <span v-if="pendingJoinRequestsCount > 0" class="pending-badge">{{ pendingJoinRequestsCount }}</span>
-              </div>
-
-              <div v-if="project.join_requests === undefined" class="loading">{{ $t('common.loading') }}</div>
-              <div v-else-if="pendingJoinRequests.length === 0" class="no-requests">
-                {{ $t('projectDetails.noRequests') }}
-              </div>
-              <div v-else class="requests-list">
-                <div
-                  v-for="request in pendingJoinRequests"
-                  :key="request.id"
-                  class="request-item"
-                >
-                  <div class="request-info">
-                    <div class="request-user">
-                      <div class="user-avatar">
-                        <img
-                          v-if="getUserAvatar(request.user_id)"
-                          :src="getUserAvatar(request.user_id)"
-                          :alt="getUserNickname(request.user_id)"
-                          @error="handleAuthorImageError(request.user_id)"
-                        />
-                        <span v-else>{{ getUserInitials(request.user_id) }}</span>
-                      </div>
-                      <span class="user-name">{{ getUserNickname(request.user_id) }}</span>
-                    </div>
-                    <div class="request-task">
-                      {{ $t('projectDetails.requestMessage') }}
-                    </div>
-                  </div>
-                  <div class="request-actions">
-                    <button class="accept-request-btn" @click="acceptJoinRequest(request.id)">✅ {{ $t('common.accept') }}</button>
-                    <button class="reject-request-btn" @click="rejectJoinRequest(request.id)">❌ {{ $t('common.reject') }}</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Задачи в работе -->
-            <div v-if="inProgressTasks.length > 0" class="task-group">
-              <h4 class="task-group-title in-progress-title">{{ $t('projectDetails.inProgress') }}</h4>
-              <div class="task-tree">
-                <div
-                  v-for="task in inProgressTasks"
-                  :key="task.title"
-                  class="task-node"
-                  :class="taskStatusClass(task)"
-                  @click="goToTask(task)"
-                >
-                  <span class="task-icon">📄</span>
-                  <div class="task-content">
-                    <strong>{{ task.title }}</strong>
-                    <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
-                    <p>{{ task.body }}</p>
-
-                    <!-- Обязательные файлы для задачи -->
-                    <div v-if="task.required_files && task.required_files.length" class="task-required-files">
-                      <div class="required-files-label">{{ $t('taskDetails.requiredFilesLabel') }}:</div>
-                      <div class="required-files-list">
-                        <div
-                          v-for="req in task.required_files"
-                          :key="req.id"
-                          class="required-file-item"
-                          :class="{ satisfied: isTaskRequiredFileAttached(task, req.id) }"
-                        >
-                          {{ req.name }}
-                        </div>
-                      </div>
-                    </div>
-
-                    <span v-if="task.status === 'в работе'" class="task-progress">
-                      {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
-                    </span>
-                    <small>{{ $t('projectDetails.deadline') }}: {{ formatTaskDates(task) }}</small>
-                    <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
-                    <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
-                    <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
-                    <span v-if="task.assigned_to" class="assigned-info">
-                      {{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Задачи в ожидании -->
-            <div v-if="waitingTasks.length > 0" class="task-group">
-              <h4 class="task-group-title waiting-title">{{ $t('projectDetails.waiting') }}</h4>
-              <div class="task-tree">
-                <div
-                  v-for="task in waitingTasks"
-                  :key="task.title"
-                  class="task-node"
-                  :class="taskStatusClass(task)"
-                  @click="goToTask(task)"
-                >
-                  <span class="task-icon">📄</span>
-                  <div class="task-content">
-                    <strong>{{ task.title }}</strong>
-                    <span class="task-status">{{ getTaskStatusText(task.status) }}</span>
-                    <p>{{ task.body }}</p>
-
-                    <!-- Обязательные файлы для задачи -->
-                    <div v-if="task.required_files && task.required_files.length" class="task-required-files">
-                      <div class="required-files-label">{{ $t('taskDetails.requiredFilesLabel') }}:</div>
-                      <div class="required-files-list">
-                        <div
-                          v-for="req in task.required_files"
-                          :key="req.id"
-                          class="required-file-item"
-                          :class="{ satisfied: isTaskRequiredFileAttached(task, req.id) }"
-                        >
-                          {{ req.name }}
-                        </div>
-                      </div>
-                    </div>
-
-                    <span v-if="task.status === 'в работе'" class="task-progress">
-                      {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
-                    </span>
-                    <small>{{ $t('projectDetails.deadline') }}: {{ formatTaskDates(task) }}</small>
-                    <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
-                    <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
-                    <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
-                    <span v-if="task.assigned_to" class="assigned-info">
-                      {{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Сообщение, если нет ни одной активной задачи -->
-            <div v-if="inProgressTasks.length === 0 && waitingTasks.length === 0" class="no-tasks">
-              {{ $t('projectDetails.noActiveTasks') }}
             </div>
           </div>
         </div>
-
-        <!-- Новая интерактивная диаграмма Ганта (под двумя колонками) -->
-        <GanttChart
-          :tasks="activeTasks"
-          :title="$t('projectDetails.timeline')"
-          @update-tasks="handleTaskUpdate"
-        />
-      </div>
+      </template>
     </div>
 
     <!-- Модальное окно приглашения -->
@@ -499,7 +679,6 @@ import InviteModal from '@/components/InviteModal.vue';
 import GanttChart from '@/components/GanttChart.vue';
 import type { Project, Task, Comment, ProjectRole, JoinRequest } from '@/types';
 import axios from 'axios';
-import { isTaskTitleUnique } from '@/utils/taskUtils';
 import { v4 as uuidv4 } from 'uuid';
 import githubIcon from '@/assets/icons/icons8-github-30.png';
 import driveIcon from '@/assets/icons/icons8-google-drive-48.png';
@@ -549,6 +728,16 @@ const isCurator = computed(() => {
   return user.teacher_info?.curator ?? false;
 });
 const isAdminOrCurator = computed(() => isAdmin.value || isCurator.value);
+
+// Право редактировать диаграмму Ганта
+const canEditGantt = computed(() => {
+  // Админы и кураторы могут всегда
+  if (isAdminOrCurator.value) return true;
+  // Если проект старый – никто кроме админов/кураторов не может
+  if (project.value?.is_old) return false;
+  // Если проект не старый – участники с ролью заказчика или исполнителя могут
+  return userRole.value === 'customer' || userRole.value === 'executor';
+});
 
 const hasFullAccess = computed(() => !!userRole.value || isAdmin.value || isCurator.value);
 
@@ -790,7 +979,7 @@ async function respondToProject() {
     await loadProject(true);
   } catch (err: any) {
     showNotification(err.response?.data?.detail || t('projectDetails.requestError'), 'error');
-    await loadProject(true); // ← перезагружаем проект даже при ошибке
+    await loadProject(true);
   } finally {
     responding.value = false;
   }
@@ -806,7 +995,6 @@ async function acceptJoinRequest(requestId: string) {
     await loadProject(true);
   }
 }
-
 async function rejectJoinRequest(requestId: string) {
   if (!project.value) return;
   try {
@@ -1040,9 +1228,11 @@ const goToTask = (task: Task) => {
 };
 const openInviteModal = () => { showInviteModal.value = true; };
 
-// Обработчик обновления задачи (удаляет дубликаты)
+// ---- Обработчик обновления задачи (drag-and-drop) ----
 const handleTaskUpdate = async (payload: { task: Task; index: number }) => {
   if (!project.value) return;
+  // Разрешаем обновление только если можно редактировать диаграмму
+  if (!canEditGantt.value) return;
 
   const tasks = [...(project.value.tasks || [])];
   tasks[payload.index] = payload.task;
@@ -1123,10 +1313,45 @@ watch(() => route.params.id, () => {
 .unmark-old-button:hover {
   background: #0b7dda;
 }
+
+/* Остальные стили (дублируются из вашего исходного файла) – они уже есть в вашем проекте */
+/* ... */
 </style>
 
 <style scoped>
-/* Весь CSS остаётся без изменений */
+/* Все стили остаются без изменений – они уже есть в вашем исходном файле */
+/* Добавим стили для новых кнопок */
+.mark-old-button,
+.unmark-old-button {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.mark-old-button {
+  background: #ff9800;
+  color: white;
+}
+.mark-old-button:hover {
+  background: #e68900;
+}
+.unmark-old-button {
+  background: #2196f3;
+  color: white;
+}
+.unmark-old-button:hover {
+  background: #0b7dda;
+}
+
+/* Остальные стили (дублируются из вашего исходного файла) */
 .already-responded {
   text-align: center;
   padding: 12px 24px;
@@ -1191,7 +1416,6 @@ watch(() => route.params.id, () => {
 .light-theme .home-button:hover {
   background: rgba(0, 0, 0, 0.05);
 }
-/* Общие стили */
 .project-section {
   margin-bottom: 28px;
 }
@@ -1227,7 +1451,6 @@ watch(() => route.params.id, () => {
   border-radius: 12px;
   margin-left: 4px;
 }
-/* Макеты */
 .non-author-layout {
   max-width: 800px;
   margin: 0 auto;
@@ -1262,7 +1485,6 @@ watch(() => route.params.id, () => {
   box-shadow: var(--shadow);
   transition: background 0.3s;
 }
-/* Заголовок и кнопки в правой колонке */
 .tasks-section-title {
   color: var(--heading-color);
   font-weight: 500;
@@ -1325,7 +1547,6 @@ watch(() => route.params.id, () => {
   padding: 0 4px;
   margin-left: 4px;
 }
-/* Контейнеры для комментариев и предложений */
 .comments-container,
 .suggestions-container,
 .requests-container {
@@ -1338,7 +1559,6 @@ watch(() => route.params.id, () => {
   background: var(--bg-card);
   padding: 15px;
 }
-/* Специфично для запросов */
 .requests-header {
   display: flex;
   justify-content: space-between;
@@ -1445,7 +1665,6 @@ watch(() => route.params.id, () => {
   padding: 20px;
   font-style: italic;
 }
-/* Кнопка отклика на проект */
 .respond-project-section {
   margin-bottom: 20px;
   text-align: center;
@@ -1470,7 +1689,6 @@ watch(() => route.params.id, () => {
   opacity: 0.6;
   cursor: not-allowed;
 }
-/* Группы задач */
 .task-group {
   margin-bottom: 30px;
 }
@@ -1549,7 +1767,6 @@ watch(() => route.params.id, () => {
   color: var(--text-primary);
   margin: 8px 0 4px;
 }
-/* НОВЫЕ СТИЛИ ДЛЯ ОБЯЗАТЕЛЬНЫХ ФАЙЛОВ В ЗАДАЧЕ */
 .task-required-files {
   margin-top: 8px;
   font-size: 0.8rem;
@@ -1577,7 +1794,6 @@ watch(() => route.params.id, () => {
   background: rgba(76, 175, 80, 0.1);
   font-weight: 500;
 }
-/* Остальные стили */
 .task-progress {
   display: inline-block;
   margin-top: 4px;
@@ -1646,7 +1862,6 @@ watch(() => route.params.id, () => {
   font-style: italic;
   padding: 20px;
 }
-/* Диаграмма Ганта */
 .gantt-section {
   margin-top: 30px;
   border-top: 2px dashed var(--border-color);
@@ -1704,7 +1919,6 @@ watch(() => route.params.id, () => {
   font-weight: 500;
   background-color: transparent;
 }
-/* Выполненные задачи */
 .completed-tasks {
   display: flex;
   flex-direction: column;
@@ -1733,7 +1947,6 @@ watch(() => route.params.id, () => {
   color: var(--text-secondary);
   margin-top: 4px;
 }
-/* Кнопки управления проектом (левая колонка) */
 .project-actions {
   margin-top: 30px;
   display: flex;
@@ -1773,7 +1986,6 @@ watch(() => route.params.id, () => {
   color: var(--danger-color);
   border: 1px solid var(--danger-color);
 }
-/* Ссылки проекта */
 .project-links {
   margin-bottom: 28px;
 }
@@ -1905,5 +2117,15 @@ watch(() => route.params.id, () => {
   color: var(--text-primary);
   font-size: 1.2rem;
   padding: 40px;
+}
+.old-project-banner {
+  background-color: #ff9800;
+  color: white;
+  text-align: center;
+  padding: 12px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  box-shadow: var(--shadow);
 }
 </style>
