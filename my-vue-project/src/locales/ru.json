@@ -28,13 +28,13 @@
     },
     "navigation": {
         "main_menu": "Главное меню",
-    "my_projects": "Мои проекты",
-    "all_users": "Все пользователи",
-    "old_projects": "Старые проекты",
-    "all_projects": "Все проекты",
-    "admin_panel": "Админ-панель",
-    "profile": "Профиль",
-    "logout": "Выйти"
+        "my_projects": "Мои проекты",
+        "all_users": "Все пользователи",
+        "old_projects": "Старые проекты",
+        "all_projects": "Все проекты",
+        "admin_panel": "Админ-панель",
+        "profile": "Профиль",
+        "logout": "Выйти"
     },
     "project": {
         "title": "Название проекта",
@@ -459,7 +459,15 @@
         "saveError": "Ошибка при сохранении данных"
     },
     "projectDetails": {
-        "timelineUpdated": "Временная шкала обновлена",
+        "markAsOld": "📦 Пометить как старый",
+        "unmarkAsOld": "🔄 Снять пометку",
+        "oldProject": "Старый проект",
+        "oldProjectReadOnly": "Этот проект помечен как старый и доступен только для просмотра. Редактирование запрещено.",
+        "markedAsOld": "Проект помечен как старый",
+        "unmarkedAsOld": "Пометка «старый» снята",
+        "markOldError": "Ошибка при пометке проекта как старого",
+        "unmarkOldError": "Ошибка при снятии пометки «старый»",
+        "timelineUpdateError": "Ошибка при обновлении сроков задач",
         "defaultTitle": "Проект",
         "description": "Описание",
         "additional": "Дополнительно",
@@ -633,6 +641,7 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы уверены, что хотите удалить этот файл?",
+        "oldProjectReadOnly": "Этот проект помечен как старый и доступен только для просмотра.",
         "title": "Детали задачи",
         "files": "Файлы задачи",
         "requiredFilesLabel": "Нужные файлы",

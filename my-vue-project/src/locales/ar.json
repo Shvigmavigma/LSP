@@ -29,13 +29,13 @@
     },
     "navigation": {
         "main_menu": "القائمة الرئيسية",
-    "my_projects": "مشاريعي",
-    "all_users": "جميع المستخدمين",
-    "old_projects": "المشاريع القديمة",
-    "all_projects": "جميع المشاريع",
-    "admin_panel": "لوحة الإدارة",
-    "profile": "الملف الشخصي",
-    "logout": "تسجيل الخروج"
+        "my_projects": "مشاريعي",
+        "all_users": "جميع المستخدمين",
+        "old_projects": "المشاريع القديمة",
+        "all_projects": "جميع المشاريع",
+        "admin_panel": "لوحة الإدارة",
+        "profile": "الملف الشخصي",
+        "logout": "تسجيل الخروج"
     },
     "project": {
         "title": "عنوان المشروع",
@@ -459,7 +459,15 @@
         "saveError": "خطأ في حفظ البيانات"
     },
     "projectDetails": {
-        "defaultTitle": "المشروع",
+        "markAsOld": "📦 وضع علامة قديم",
+        "unmarkAsOld": "🔄 إزالة علامة القديم",
+        "oldProject": "مشروع قديم",
+        "oldProjectReadOnly": "تم وضع علامة على هذا المشروع كقديم وهو للقراءة فقط. التحرير محظور.",
+        "markedAsOld": "تم وضع علامة على المشروع كقديم",
+        "unmarkedAsOld": "تمت إزالة علامة القديم",
+        "markOldError": "خطأ في وضع علامة قديم على المشروع",
+        "unmarkOldError": "خطأ في إزالة علامة القديم",
+        "timelineUpdateError": "خطأ في تحديث تواريخ المهام",
         "description": "الوصف",
         "timelineUpdated": "تم تحديث الجدول الزمني",
         "additional": "معلومات إضافية",
@@ -633,6 +641,7 @@
     },
     "taskDetails": {
         "title": "تفاصيل المهمة",
+        "oldProjectReadOnly": "تم وضع علامة على هذا المشروع كقديم وهو للقراءة فقط.",
         "confirmDeleteFile": "هل أنت متأكد من حذف هذا الملف؟",
         "requiredFiles": "الملفات المطلوبة",
         "attachments": "المرفقات",

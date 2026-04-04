@@ -166,7 +166,7 @@
           </div>
         </div>
 
-        <!-- НОВОЕ: Обязательные файлы для завершения задачи -->
+        <!-- Обязательные файлы для завершения задачи -->
         <div class="form-section">
           <div class="required-files-header">
             <h2>{{ $t('taskEdit.requiredFiles') }}</h2>
@@ -202,16 +202,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Старое поле "требуется файл" – скрыто, но оставлено для совместимости (можно удалить) -->
-        <!-- <div class="form-section">
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="form.requires_file" />
-              {{ $t('taskEdit.requiresFile') }}
-            </label>
-          </div>
-        </div> -->
 
         <!-- Кнопки сохранения -->
         <div class="form-actions">
@@ -266,7 +256,6 @@ const form = reactive({
   timelinend: '',
   status: 'ожидает' as Task['status'],
   progress: 0,
-  // requires_file: false,  // оставлено для совместимости, но не используется
 });
 
 // Подзадачи
@@ -309,7 +298,7 @@ function closeNotification() {
   }
 }
 
-// Является ли пользователь куратором (глобально) – исправлено
+// Является ли пользователь куратором (глобально)
 const isCurator = computed(() => {
   const user = authStore.user;
   if (!user) return false;
@@ -317,7 +306,7 @@ const isCurator = computed(() => {
   return user.teacher_info?.curator ?? false;
 });
 
-// Является ли пользователь администратором или куратором – исправлено
+// Является ли пользователь администратором или куратором
 const isAdminOrCurator = computed(() => (authStore.user?.is_admin ?? false) || isCurator.value);
 
 // Право на редактирование задачи (заказчик, исполнитель, куратор в проекте, либо глобальный админ/куратор)
@@ -425,6 +414,14 @@ onMounted(async () => {
       return;
     }
 
+    // === НОВАЯ ПРОВЕРКА НА СТАРЫЙ ПРОЕКТ ===
+    // Если проект старый и пользователь не админ и не куратор – запрещаем редактирование
+    if (project.value.is_old && !isAdminOrCurator.value) {
+      showNotification(t('taskEdit.oldProjectReadOnly'), 'info');
+      setTimeout(() => router.push(`/project/${projectId}`), 2000);
+      return;
+    }
+
     if (taskIndex < 0 || taskIndex >= (project.value.tasks?.length || 0)) {
       error.value = t('taskEdit.taskNotFound');
       return;
@@ -438,7 +435,6 @@ onMounted(async () => {
       form.timelinend = originalTask.value.timelinend || '';
       form.status = originalTask.value.status || 'ожидает';
       form.progress = originalTask.value.progress || 0;
-      // form.requires_file = originalTask.value.requires_file || false; // не используется
 
       subtasks.value = originalTask.value.subtasks?.map(st => ({ ...st })) || [];
       requiredFiles.value = originalTask.value.required_files ? [...originalTask.value.required_files] : [];
@@ -519,8 +515,7 @@ async function handleSubmit() {
     status: form.status,
     subtasks: subtasks.value,
     progress: totalSubtasksPercent.value,
-    required_files: requiredFiles.value,   // отправляем список обязательных файлов
-    // requires_file: form.requires_file, // не используется
+    required_files: requiredFiles.value,
   };
 
   const updatedTasks = [...project.value.tasks];
@@ -550,7 +545,6 @@ const goHome = () => router.push('/main');
 </script>
 
 <style scoped>
-/* Копируем стили из ProjectEdit.vue и адаптируем */
 .task-edit-page {
   min-height: 100vh;
   background: var(--bg-page);
@@ -604,7 +598,6 @@ const goHome = () => router.push('/main');
   background: rgba(0, 0, 0, 0.05);
 }
 
-/* Подсказка для админа/куратора */
 .admin-hint {
   max-width: 800px;
   margin: 0 auto 15px;
@@ -702,7 +695,6 @@ textarea {
   gap: 20px;
 }
 
-/* Статус */
 .status-selector {
   background: var(--bg-page);
   padding: 20px;
@@ -741,7 +733,6 @@ textarea {
   cursor: not-allowed;
 }
 
-/* Подзадачи */
 .subtasks-header {
   display: flex;
   justify-content: space-between;
@@ -861,7 +852,6 @@ textarea {
   accent-color: var(--accent-color);
 }
 
-/* НОВЫЕ СТИЛИ ДЛЯ ОБЯЗАТЕЛЬНЫХ ФАЙЛОВ */
 .required-files-header {
   display: flex;
   justify-content: space-between;
@@ -931,7 +921,6 @@ textarea {
   padding: 0 8px;
 }
 
-/* Кнопки действий */
 .form-actions {
   display: flex;
   gap: 12px;
@@ -980,7 +969,6 @@ textarea {
   padding: 40px;
 }
 
-/* Уведомления */
 .notification {
   position: fixed;
   top: 20px;

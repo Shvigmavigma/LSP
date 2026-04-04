@@ -13,13 +13,19 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <router-link v-if="canEditTask" :to="`/project/${projectId}/task/${taskIndex}/edit`">
+        <router-link v-if="canEditTask && !isOldReadOnly" :to="`/project/${projectId}/task/${taskIndex}/edit`">
           <button class="icon-button edit-task-button" :title="$t('common.edit')">✎</button>
         </router-link>
         <button class="icon-button home-button" @click="goHome" :title="$t('common.home')">🏠</button>
         <button class="icon-button back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
+
+    <!-- Сообщение о режиме только для чтения (старый проект) -->
+    <div v-if="isOldReadOnly" class="readonly-notice">
+      <span class="notice-icon">🔒</span>
+      <span>{{ $t('taskDetails.oldProjectReadOnly') }}</span>
+    </div>
 
     <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
@@ -68,7 +74,7 @@
         <CommentsSection
           v-if="showTaskComments"
           :comments="taskComments"
-          :can-comment="hasFullAccess"
+          :can-comment="hasFullAccess && !isOldReadOnly"
           :is-author="canEditTask"
           :can-hide-comments="canHideComments"
           :is-admin="isAdmin"
@@ -97,14 +103,14 @@
             </div>
             <div class="rf-actions">
               <button
-                v-if="!isRequiredFileSatisfied(req.id)"
+                v-if="!isRequiredFileSatisfied(req.id) && !isOldReadOnly"
                 class="upload-file-btn"
                 @click="uploadFileForRequired(req.id)"
                 :disabled="uploadingFiles[req.id]"
               >
                 {{ uploadingFiles[req.id] ? $t('common.sending') : '📎 ' + $t('common.upload') }}
               </button>
-              <span v-else class="satisfied-badge">✅ {{ $t('taskDetails.attached') }}</span>
+              <span v-else-if="isRequiredFileSatisfied(req.id)" class="satisfied-badge">✅ {{ $t('taskDetails.attached') }}</span>
             </div>
           </div>
         </div>
@@ -118,7 +124,7 @@
             <a href="#" @click.prevent="previewAttachment(att)">{{ att.original_filename }}</a>
             <span class="attachment-meta">({{ formatFileSize(att.size) }})</span>
             <button
-              v-if="canEditTask"
+              v-if="canEditTask && !isOldReadOnly"
               class="delete-attachment"
               @click="openDeleteFileModal(att.file_id)"
               :disabled="deletingAttachment"
@@ -128,8 +134,8 @@
         </div>
       </section>
 
-      <!-- Кнопка загрузки любого файла -->
-      <div class="upload-generic-btn-wrapper">
+      <!-- Кнопка загрузки любого файла (только для редактирования) -->
+      <div v-if="!isOldReadOnly" class="upload-generic-btn-wrapper">
         <button class="upload-generic-btn" @click="uploadGenericFile" :disabled="uploadingFiles['generic']">
           {{ uploadingFiles['generic'] ? $t('common.sending') : '📁 ' + $t('taskDetails.uploadFile') }}
         </button>
@@ -169,7 +175,7 @@
           <div v-for="subtask in subtasks" :key="subtask.id" class="subtask-item" :class="{ completed: subtask.completed }">
             <div class="subtask-info">
               <input type="checkbox" :checked="subtask.completed" @change="toggleSubtask(subtask)"
-                     :disabled="actionInProgress || !canEditTask" />
+                     :disabled="actionInProgress || !canEditTask || isOldReadOnly" />
               <span class="subtask-title">{{ subtask.title }}</span>
               <span class="subtask-percent">{{ subtask.progressPercent }}%</span>
             </div>
@@ -181,7 +187,7 @@
         </div>
       </section>
 
-      <section v-if="showManualProgress && canEditTask" class="progress-section">
+      <section v-if="showManualProgress && canEditTask && !isOldReadOnly" class="progress-section">
         <h3>{{ $t('taskDetails.extraProgress') }}</h3>
         <div class="progress-slider-container">
           <span class="progress-value">{{ sliderValue }}%</span>
@@ -198,11 +204,11 @@
         </div>
         <button class="apply-progress-button" @click="openConfirmDialog">{{ $t('taskDetails.applyExtraProgress') }}</button>
       </section>
-      <div v-else-if="showManualProgress && !canEditTask" class="progress-section-disabled">
+      <div v-else-if="showManualProgress && !canEditTask && !isOldReadOnly" class="progress-section-disabled">
         <p class="disabled-message">🔒 {{ $t('taskDetails.onlyEditorsCanChangeProgress') }}</p>
       </div>
 
-      <section class="action-buttons" v-if="hasFullAccess">
+      <section class="action-buttons" v-if="hasFullAccess && !isOldReadOnly">
         <div v-if="task.status !== 'выполнена'">
           <button class="complete-button" @click="completeTask"
                   :disabled="actionInProgress || totalProgress < 100 || !canEditTask || !areAllRequiredFilesAttached"
@@ -238,7 +244,7 @@
       </section>
     </div>
 
-    <!-- Модальное окно подтверждения (общий прогресс) -->
+    <!-- Модальные окна (без изменений) -->
     <div v-if="showConfirmDialog" class="modal-overlay" @click.self="closeConfirmDialog">
       <div class="modal-content">
         <h3>{{ $t('common.confirm') }}</h3>
@@ -250,7 +256,6 @@
       </div>
     </div>
 
-    <!-- Модальное окно предпросмотра файла -->
     <FilePreviewModal
       :show="previewModalVisible"
       :file="previewFile"
@@ -258,7 +263,6 @@
       @close="previewModalVisible = false"
     />
 
-    <!-- Модальное окно подтверждения удаления файла -->
     <div v-if="showDeleteFileModal" class="modal-overlay" @click.self="closeDeleteFileModal">
       <div class="modal-content">
         <h3>{{ $t('common.confirm') }}</h3>
@@ -314,11 +318,9 @@ const sliderValue = ref(0);
 const oldSliderValue = ref(0);
 const showConfirmDialog = ref(false);
 
-// === Состояния для модального окна удаления файла ===
 const showDeleteFileModal = ref(false);
 const fileToDelete = ref<number | null>(null);
 
-// === Файловая часть с состояниями загрузки ===
 const requiredFiles = computed<RequiredFile[]>(() => task.value?.required_files || []);
 const attachments = computed<TaskAttachment[]>(() => task.value?.attachments || []);
 
@@ -331,10 +333,8 @@ const areAllRequiredFilesAttached = computed(() => {
 
 const uploadingFiles = ref<Record<string, boolean>>({});
 const deletingAttachment = ref(false);
-
 const extraProgress = computed(() => sliderValue.value);
 
-// Уведомления
 const notification = ref({ show: false, message: '', type: 'error' as 'error' | 'info' | 'success' });
 let notificationTimeout: number | null = null;
 
@@ -366,15 +366,20 @@ const isCurator = computed(() => {
   if (!user.is_teacher) return false;
   return user.teacher_info?.curator ?? false;
 });
-
+const isAdminOrCurator = computed(() => isAdmin.value || isCurator.value);
 const hasFullAccess = computed(() => !!userRole.value || isAdmin.value || isCurator.value);
+
+// Блокировка редактирования для старых проектов (обычные пользователи)
+const isOldReadOnly = computed(() => project.value?.is_old === true && !isAdminOrCurator.value);
+
 const canEditTask = computed(() => 
-  userRole.value === 'customer' || 
-  userRole.value === 'executor' || 
-  userRole.value === 'curator' ||
-  isAdmin.value || 
-  isCurator.value
+  (userRole.value === 'customer' || 
+   userRole.value === 'executor' || 
+   userRole.value === 'curator' ||
+   isAdmin.value || 
+   isCurator.value) && !isOldReadOnly.value
 );
+
 const canHideComments = computed(() => 
   userRole.value === 'supervisor' || 
   isAdmin.value || 
@@ -388,7 +393,7 @@ const unreadTaskCommentsCount = computed(() => {
   return comments.filter(c => !c.hidden && !c.isRead).length;
 });
 
-// Вспомогательные функции
+// Вспомогательные функции (без изменений)
 function parseDate(dateStr?: string): Date | null {
   if (!dateStr) return null;
   const parts = dateStr.split('.');
@@ -415,7 +420,6 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-// Подзадачи
 const subtasks = computed(() => task.value?.subtasks || []);
 const totalSubtasksPercent = computed(() => subtasks.value.reduce((sum, st) => sum + (st.progressPercent || 0), 0));
 const completedSubtasksPercent = computed(() => subtasks.value.filter(st => st.completed).reduce((sum, st) => sum + (st.progressPercent || 0), 0));
@@ -461,7 +465,7 @@ async function loadTask() {
 onMounted(loadTask);
 watch(() => route.params.id, loadTask);
 
-// Статусы задачи
+// Статусы задачи (без изменений)
 const isInvalid = computed(() => {
   const tsk = task.value;
   if (!tsk) return false;
@@ -546,9 +550,9 @@ function getCompleteButtonTitle(): string {
   return '';
 }
 
-// --- Методы для задач ---
+// --- Методы для задач (все проверяют isOldReadOnly) ---
 const toggleSubtask = async (subtask: SubTask) => {
-  if (!canEditTask.value) { 
+  if (!canEditTask.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyEditorsCanEditSubtasks'), 'info'); 
     return; 
   }
@@ -584,7 +588,7 @@ const toggleSubtask = async (subtask: SubTask) => {
 };
 
 const completeTask = async () => {
-  if (!canEditTask.value) { 
+  if (!canEditTask.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyEditorsCanComplete'), 'info'); 
     return; 
   }
@@ -613,7 +617,7 @@ const completeTask = async () => {
 };
 
 const updateTaskStatus = async (newStatus: string) => {
-  if (!canEditTask.value) { 
+  if (!canEditTask.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyEditorsCanChangeStatus'), 'info'); 
     return; 
   }
@@ -634,9 +638,9 @@ const updateTaskStatus = async (newStatus: string) => {
   } finally { actionInProgress.value = false; }
 };
 
-// --- Функции для работы с комментариями ---
+// --- Функции для работы с комментариями (проверка isOldReadOnly уже в пропе can-comment) ---
 const addTaskComment = async (content: string) => {
-  if (!hasFullAccess.value) { 
+  if (!hasFullAccess.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyParticipantsCanComment'), 'info'); 
     return; 
   }
@@ -681,7 +685,7 @@ const markTaskCommentAsRead = async (commentId: string) => {
 };
 
 const hideTaskComment = async (commentId: string) => {
-  if (!project.value) return;
+  if (!project.value || isOldReadOnly.value) return;
   try {
     const response = await axios.delete(`${baseUrl}/projects/${projectId}/tasks/${taskIndex}/comments/${commentId}`);
     project.value = response.data;
@@ -693,7 +697,7 @@ const hideTaskComment = async (commentId: string) => {
 };
 
 const permanentDeleteComment = async (commentId: string) => {
-  if (!project.value) return;
+  if (!project.value || isOldReadOnly.value) return;
   try {
     await axios.delete(`${baseUrl}/admin/comments/${commentId}`);
     showNotification(t('commentsSection.permanentDeleteSuccess'), 'success');
@@ -709,7 +713,7 @@ const permanentDeleteComment = async (commentId: string) => {
 };
 
 const restoreTaskComment = async (commentId: string) => {
-  if (!project.value) return;
+  if (!project.value || isOldReadOnly.value) return;
   try {
     await axios.post(`${baseUrl}/projects/${projectId}/tasks/${taskIndex}/comments/${commentId}/restore`);
     showNotification(t('commentsSection.restoreSuccess'), 'success');
@@ -724,12 +728,13 @@ const restoreTaskComment = async (commentId: string) => {
   }
 };
 
-// === Файловые методы с кастомным модальным окном ===
+// === Файловые методы (загрузка/удаление) – заблокированы для isOldReadOnly ===
 function isRequiredFileSatisfied(requiredId: string): boolean {
   return attachments.value.some(att => att.required_file_id === requiredId);
 }
 
 function uploadFileForRequired(requiredId: string) {
+  if (isOldReadOnly.value) return;
   const input = document.createElement('input');
   input.type = 'file';
   input.onchange = async (e) => {
@@ -761,8 +766,8 @@ function uploadGenericFile() {
   uploadFileForRequired('');
 }
 
-// Открытие модального окна удаления
 function openDeleteFileModal(fileId: number) {
+  if (isOldReadOnly.value) return;
   fileToDelete.value = fileId;
   showDeleteFileModal.value = true;
 }
@@ -772,19 +777,17 @@ function closeDeleteFileModal() {
   fileToDelete.value = null;
 }
 
-// Подтверждение удаления
 async function confirmDeleteFile() {
-  if (!fileToDelete.value) return;
+  if (!fileToDelete.value || isOldReadOnly.value) return;
   await deleteAttachment(fileToDelete.value);
   closeDeleteFileModal();
 }
 
-// Основная функция удаления (без confirm)
 async function deleteAttachment(fileId: number) {
+  if (isOldReadOnly.value) return;
   deletingAttachment.value = true;
   try {
     await axios.delete(`${baseUrl}/files/${fileId}`);
-    // Принудительная перезагрузка задачи
     const response = await axios.get(`${baseUrl}/projects/${projectId}`);
     project.value = response.data;
     task.value = project.value.tasks[taskIndex];
@@ -811,7 +814,6 @@ function previewAttachment(att: TaskAttachment) {
   previewModalVisible.value = true;
 }
 
-// Метод для обновления ползунка
 const updateSliderValue = (event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target) {
@@ -819,7 +821,6 @@ const updateSliderValue = (event: Event) => {
   }
 };
 
-// Диалог подтверждения изменения прогресса
 const openConfirmDialog = () => { 
   oldSliderValue.value = sliderValue.value; 
   showConfirmDialog.value = true; 
@@ -828,7 +829,7 @@ const closeConfirmDialog = () => {
   showConfirmDialog.value = false; 
 };
 const confirmExtraChange = async () => {
-  if (!canEditTask.value) { 
+  if (!canEditTask.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyEditorsCanChangeProgress'), 'info'); 
     closeConfirmDialog(); 
     return; 
@@ -864,7 +865,26 @@ const goHome = () => router.push('/main');
 </script>
 
 <style scoped>
-/* Все стили из оригинального файла остаются без изменений */
+/* Все существующие стили остаются без изменений */
+/* Добавим стиль для уведомления о режиме только для чтения */
+.readonly-notice {
+  max-width: 800px;
+  margin: 0 auto 20px;
+  padding: 12px 20px;
+  background-color: rgba(255, 152, 0, 0.1);
+  border-left: 4px solid #ff9800;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+.readonly-notice .notice-icon {
+  font-size: 1.2rem;
+}
+
+/* Остальные стили (диаграмма Ганта, подзадачи, прогресс) – без изменений */
 .required-files-section, .attachments-section {
   margin-bottom: 28px;
 }
@@ -951,10 +971,7 @@ const goHome = () => router.push('/main');
   margin-bottom: 28px;
   text-align: right;
 }
-</style>
 
-<!-- Остальные стили (диаграмма Ганта, подзадачи, прогресс) идут без изменений -->
-<style scoped>
 /* ---------- Общие стили ---------- */
 .task-details-page {
   min-height: 100vh;
@@ -964,7 +981,6 @@ const goHome = () => router.push('/main');
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   transition: background 0.3s;
 }
-
 .details-header {
   display: flex;
   justify-content: space-between;
@@ -974,24 +990,20 @@ const goHome = () => router.push('/main');
   flex-wrap: wrap;
   gap: 10px;
 }
-
 .details-header h1 {
   color: var(--heading-color);
   font-size: 2rem;
   margin: 0;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
 }
-
 .light-theme .details-header h1 {
   text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
 }
-
 .header-actions {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-
 .icon-button {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -1007,13 +1019,10 @@ const goHome = () => router.push('/main');
   transition: background 0.2s, box-shadow 0.2s;
   color: var(--text-primary);
 }
-
 .icon-button:hover {
   background: var(--bg-card);
   box-shadow: var(--shadow-strong);
 }
-
-/* ---------- Карточка задачи ---------- */
 .task-card {
   background: var(--bg-card);
   border-radius: 32px;
@@ -1023,20 +1032,16 @@ const goHome = () => router.push('/main');
   margin: 0 auto;
   transition: border 0.2s, background 0.3s;
 }
-
 .task-card.task-overdue {
   border: 2px solid #f44336;
 }
-
 .task-card.task-urgent {
   border: 2px solid #ff9800;
 }
-
 .task-card.task-invalid {
   border: 2px solid #9e9e9e;
   opacity: 0.9;
 }
-
 .task-title {
   color: var(--heading-color);
   margin-bottom: 24px;
@@ -1044,51 +1049,41 @@ const goHome = () => router.push('/main');
   border-bottom: 2px solid var(--border-color);
   padding-bottom: 10px;
 }
-
 .task-section {
   margin-bottom: 28px;
 }
-
 .task-section h3 {
   color: var(--heading-color);
   margin-bottom: 10px;
   font-weight: 500;
   font-size: 1.2rem;
 }
-
 .task-section p {
   color: var(--text-primary);
   line-height: 1.6;
 }
-
-/* ---------- Валидация дат ---------- */
 .invalid-date {
   color: #f44336;
   font-weight: 600;
   text-decoration: underline wavy #f44336;
 }
-
 .date-warning {
   display: block;
   color: #f44336;
   font-size: 0.85rem;
   margin-top: 4px;
 }
-
-/* ---------- Стили для комментариев ---------- */
 .comments-main-section {
   margin-bottom: 28px;
   padding-bottom: 20px;
   border-bottom: 2px dashed var(--border-color);
 }
-
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 15px;
 }
-
 .comment-toggle-btn {
   background: var(--accent-color);
   color: var(--button-text);
@@ -1103,22 +1098,18 @@ const goHome = () => router.push('/main');
   align-items: center;
   box-shadow: var(--shadow);
 }
-
 .comment-toggle-btn:hover {
   background: var(--accent-hover);
   box-shadow: var(--shadow-strong);
 }
-
 .btn-content {
   display: flex;
   align-items: center;
   gap: 6px;
 }
-
 .comment-icon {
   font-size: 1.1rem;
 }
-
 .header-unread-badge {
   background: #f44336;
   color: white;
@@ -1133,25 +1124,20 @@ const goHome = () => router.push('/main');
   padding: 0 4px;
   margin-left: 4px;
 }
-
-/* ---------- Диаграмма Ганта ---------- */
 .gantt-section {
   margin-top: 40px;
   padding-top: 20px;
   border-top: 2px dashed var(--border-color);
 }
-
 .gantt-section h3 {
   color: var(--heading-color);
   margin-bottom: 15px;
   font-weight: 500;
   text-align: center;
 }
-
 .gantt-container {
   width: 100%;
 }
-
 .gantt-bar-container {
   position: relative;
   height: 30px;
@@ -1162,7 +1148,6 @@ const goHome = () => router.push('/main');
   align-items: center;
   overflow: hidden;
 }
-
 .gantt-bar {
   height: 100%;
   background: #42b983;
@@ -1170,7 +1155,6 @@ const goHome = () => router.push('/main');
   width: 0%;
   transition: width 0.3s ease;
 }
-
 .gantt-percent {
   position: absolute;
   left: 10px;
@@ -1183,12 +1167,10 @@ const goHome = () => router.push('/main');
   z-index: 1;
   pointer-events: none;
 }
-
 .light-theme .gantt-percent {
   background: rgba(255, 255, 255, 0.8);
   color: #2563eb;
 }
-
 .gantt-dates {
   position: absolute;
   right: 10px;
@@ -1199,12 +1181,10 @@ const goHome = () => router.push('/main');
   border-radius: 12px;
   font-weight: 500;
 }
-
 .light-theme .gantt-dates {
   background: rgba(255,255,255,0.8);
   color: #1a3a1a;
 }
-
 .gantt-labels {
   display: flex;
   justify-content: space-between;
@@ -1212,7 +1192,6 @@ const goHome = () => router.push('/main');
   font-size: 0.9rem;
   margin-top: 5px;
 }
-
 .progress-breakdown {
   display: flex;
   justify-content: center;
@@ -1221,41 +1200,33 @@ const goHome = () => router.push('/main');
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
-
 .breakdown-item {
   display: flex;
   align-items: center;
   gap: 5px;
 }
-
 .breakdown-label {
   font-weight: 500;
 }
-
 .breakdown-value {
   font-weight: 600;
   color: var(--heading-color);
 }
-
-/* ---------- Подзадачи ---------- */
 .subtasks-section {
   margin-top: 30px;
   padding-top: 20px;
   border-top: 2px dashed var(--border-color);
 }
-
 .subtasks-section h3 {
   color: var(--heading-color);
   margin-bottom: 15px;
   font-weight: 500;
 }
-
 .subtasks-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-
 .subtask-item {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -1263,31 +1234,26 @@ const goHome = () => router.push('/main');
   padding: 12px;
   transition: opacity 0.2s;
 }
-
 .subtask-item.completed {
   opacity: 0.6;
   background: var(--completed-bg);
 }
-
 .subtask-info {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-
 .subtask-info input[type=checkbox] {
   width: 18px;
   height: 18px;
   cursor: pointer;
   accent-color: var(--accent-color);
 }
-
 .subtask-title {
   flex: 1;
   color: var(--text-primary);
   font-weight: 500;
 }
-
 .subtask-percent {
   font-size: 0.9rem;
   color: var(--text-secondary);
@@ -1295,22 +1261,18 @@ const goHome = () => router.push('/main');
   padding: 2px 8px;
   border-radius: 12px;
 }
-
 .subtask-description {
   margin-top: 8px;
   font-size: 0.9rem;
   color: var(--text-secondary);
   padding-left: 28px;
 }
-
 .subtasks-summary {
   margin-top: 10px;
   font-size: 0.9rem;
   color: var(--text-secondary);
   text-align: right;
 }
-
-/* ---------- Ползунок прогресса ---------- */
 .progress-section {
   margin-top: 30px;
   padding-top: 20px;
@@ -1320,13 +1282,11 @@ const goHome = () => router.push('/main');
   align-items: center;
   gap: 15px;
 }
-
 .progress-section h3 {
   color: var(--heading-color);
   margin-bottom: 5px;
   font-weight: 500;
 }
-
 .progress-slider-container {
   width: 100%;
   display: flex;
@@ -1335,18 +1295,15 @@ const goHome = () => router.push('/main');
   flex-wrap: wrap;
   justify-content: center;
 }
-
 .progress-value {
   font-weight: 600;
   color: var(--heading-color);
   min-width: 40px;
 }
-
 .progress-max {
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
-
 .progress-slider {
   flex: 1;
   height: 8px;
@@ -1358,7 +1315,6 @@ const goHome = () => router.push('/main');
   outline: none;
   transition: background 0.2s ease;
 }
-
 .progress-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 20px;
@@ -1370,11 +1326,9 @@ const goHome = () => router.push('/main');
   transition: background 0.2s ease;
   border: 2px solid white;
 }
-
 .progress-slider::-webkit-slider-thumb:hover {
   background: #2563eb;
 }
-
 .progress-slider::-moz-range-thumb {
   width: 20px;
   height: 20px;
@@ -1384,17 +1338,14 @@ const goHome = () => router.push('/main');
   border: 2px solid white;
   transition: background 0.2s ease;
 }
-
 .progress-slider::-moz-range-thumb:hover {
   background: #2563eb;
 }
-
 .progress-slider::-moz-range-track {
   background: #3b82f6;
   height: 8px;
   border-radius: 4px;
 }
-
 .apply-progress-button {
   background: var(--accent-color);
   color: var(--button-text);
@@ -1408,11 +1359,9 @@ const goHome = () => router.push('/main');
   box-shadow: var(--shadow);
   margin-top: 10px;
 }
-
 .apply-progress-button:hover {
   background: var(--accent-hover);
 }
-
 .progress-section-disabled {
   margin-top: 30px;
   padding: 15px;
@@ -1421,18 +1370,14 @@ const goHome = () => router.push('/main');
   text-align: center;
   border: 1px dashed var(--border-color);
 }
-
 .disabled-message {
   color: var(--text-secondary);
   font-size: 0.95rem;
 }
-
-/* ---------- Кнопки действий ---------- */
 .action-buttons {
   margin-top: 30px;
   text-align: center;
 }
-
 .complete-button, .renew-button {
   background: var(--accent-color);
   color: var(--button-text);
@@ -1445,23 +1390,19 @@ const goHome = () => router.push('/main');
   transition: background 0.2s;
   box-shadow: var(--shadow);
 }
-
 .complete-button:hover:not(:disabled), .renew-button:hover:not(:disabled) {
   background: var(--accent-hover);
 }
-
 .complete-button:disabled, .renew-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
 .renew-options {
   display: flex;
   gap: 12px;
   justify-content: center;
   flex-wrap: wrap;
 }
-
 .status-option {
   padding: 10px 20px;
   border: none;
@@ -1472,40 +1413,32 @@ const goHome = () => router.push('/main');
   transition: background 0.2s;
   box-shadow: var(--shadow);
 }
-
 .status-option.work {
   background: var(--accent-color);
   color: var(--button-text);
 }
-
 .status-option.work:hover:not(:disabled) {
   background: var(--accent-hover);
 }
-
 .status-option.waiting {
   background: #ff9800;
   color: white;
 }
-
 .status-option.waiting:hover:not(:disabled) {
   background: #f57c00;
 }
-
 .status-option.cancel {
   background: var(--bg-card);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
-
 .status-option.cancel:hover:not(:disabled) {
   background: var(--bg-page);
 }
-
 .status-option:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-
 .task-completed-info {
   display: inline-block;
   padding: 8px 16px;
@@ -1514,15 +1447,12 @@ const goHome = () => router.push('/main');
   border-radius: 20px;
   font-size: 0.95rem;
 }
-
-/* ---------- Бейджики состояния ---------- */
 .status-badges {
   margin-top: 20px;
   display: flex;
   gap: 10px;
   justify-content: center;
 }
-
 .badge {
   padding: 4px 12px;
   border-radius: 20px;
@@ -1531,20 +1461,15 @@ const goHome = () => router.push('/main');
   color: white;
   box-shadow: var(--shadow);
 }
-
 .badge.overdue {
   background-color: #f44336;
 }
-
 .badge.urgent {
   background-color: #ff9800;
 }
-
 .badge.invalid {
   background-color: #9e9e9e;
 }
-
-/* ---------- Уведомления ---------- */
 .notification {
   position: fixed;
   top: 20px;
@@ -1562,26 +1487,21 @@ const goHome = () => router.push('/main');
   max-width: 400px;
   backdrop-filter: blur(4px);
 }
-
 .notification.error {
   background-color: rgba(244, 67, 54, 0.9);
   border-left: 4px solid #d32f2f;
 }
-
 .notification.success {
   background-color: rgba(76, 175, 80, 0.9);
   border-left: 4px solid #388e3c;
 }
-
 .notification.info {
   background-color: rgba(33, 150, 243, 0.9);
   border-left: 4px solid #1976d2;
 }
-
 .notification-message {
   flex: 1;
 }
-
 .notification-close {
   background: none;
   border: none;
@@ -1593,30 +1513,23 @@ const goHome = () => router.push('/main');
   opacity: 0.8;
   transition: opacity 0.2s;
 }
-
 .notification-close:hover {
   opacity: 1;
 }
-
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease;
 }
-
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
-
-/* ---------- Состояния загрузки ---------- */
 .loading, .error {
   text-align: center;
   color: var(--text-primary);
   font-size: 1.2rem;
   padding: 40px;
 }
-
-/* ---------- Модальное окно ---------- */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1631,7 +1544,6 @@ const goHome = () => router.push('/main');
   z-index: 1000;
   animation: fadeIn 0.2s;
 }
-
 .modal-content {
   background: var(--modal-bg);
   border-radius: 32px;
@@ -1642,26 +1554,22 @@ const goHome = () => router.push('/main');
   animation: slideUp 0.3s;
   color: var(--modal-text);
 }
-
 .modal-content h3 {
   color: var(--heading-color);
   margin-bottom: 15px;
   font-weight: 500;
   font-size: 1.5rem;
 }
-
 .modal-content p {
   color: var(--text-primary);
   margin-bottom: 25px;
   font-size: 1.1rem;
 }
-
 .modal-actions {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
 }
-
 .modal-confirm, .modal-cancel {
   padding: 10px 25px;
   border: none;
@@ -1671,50 +1579,40 @@ const goHome = () => router.push('/main');
   cursor: pointer;
   transition: background 0.2s;
 }
-
 .modal-confirm {
   background: var(--accent-color);
   color: var(--button-text);
 }
-
 .modal-confirm:hover {
   background: var(--accent-hover);
 }
-
 .modal-cancel {
   background: var(--bg-card);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
-
 .modal-cancel:hover {
   background: var(--bg-page);
 }
 .edit-task-button {
   transition: all 0.2s ease;
 }
-
 .edit-task-button:hover {
   transform: scale(1.05);
   color: white;
 }
-
 .light-theme .edit-task-button:hover {
   background-color: #4caf50;
   border-color: #4caf50;
 }
-
-/* Тёмная тема – синий фон */
 :root:not(.light-theme) .edit-task-button:hover {
   background-color: #2196f3;
   border-color: #2196f3;
 }
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
 @keyframes slideUp {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }

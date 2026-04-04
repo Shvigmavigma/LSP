@@ -1,7 +1,7 @@
 {
     "common": {
         "welcome": "欢迎",
-  "confirmDelete": "您确定要删除此文件吗？",
+        "confirmDelete": "您确定要删除此文件吗？",
 
         "upload": "上传",
         "download": "下载",
@@ -29,13 +29,13 @@
     },
     "navigation": {
         "main_menu": "主菜单",
-    "my_projects": "我的项目",
-    "all_users": "所有用户",
-    "old_projects": "旧项目",
-    "all_projects": "所有项目",
-    "admin_panel": "管理面板",
-    "profile": "个人资料",
-    "logout": "退出"
+        "my_projects": "我的项目",
+        "all_users": "所有用户",
+        "old_projects": "旧项目",
+        "all_projects": "所有项目",
+        "admin_panel": "管理面板",
+        "profile": "个人资料",
+        "logout": "退出"
     },
     "project": {
         "title": "项目名称",
@@ -459,7 +459,15 @@
         "saveError": "保存数据时出错"
     },
     "projectDetails": {
-        "timelineUpdated": "时间线已更新",
+        "markAsOld": "📦 标记为旧项目",
+        "unmarkAsOld": "🔄 取消旧标记",
+        "oldProject": "旧项目",
+        "oldProjectReadOnly": "此项目已标记为旧项目，仅可查看。禁止编辑。",
+        "markedAsOld": "项目已标记为旧项目",
+        "unmarkedAsOld": "已移除旧项目标记",
+        "markOldError": "标记旧项目时出错",
+        "unmarkOldError": "移除旧项目标记时出错",
+        "timelineUpdateError": "更新任务日期时出错",
         "defaultTitle": "项目",
         "description": "描述",
         "additional": "附加信息",
@@ -633,6 +641,7 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "您确定要删除此文件吗？",
+        "oldProjectReadOnly": "此项目已标记为旧项目，仅可查看。",
         "requiredFilesLabel": "所需文件",
         "noRequiredFiles": "没有必需的文件。请添加要求。",
         "requiredFileName": "文件名",

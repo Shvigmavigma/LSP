@@ -559,6 +559,14 @@ onMounted(async () => {
       return;
     }
 
+    // === НОВАЯ ПРОВЕРКА НА СТАРЫЙ ПРОЕКТ ===
+    // Если проект старый и пользователь не админ и не куратор – запрещаем редактирование
+    if (project.is_old && !isAdminOrCurator.value) {
+      showNotification(t('projectEdit.oldProjectReadOnly'), 'info');
+      setTimeout(() => router.push(`/project/${projectId}`), 2000);
+      return;
+    }
+
     const participant = project.participants?.find(p => p.user_id === authStore.userId);
     userRole.value = participant?.role || null;
 
@@ -826,6 +834,7 @@ async function handleSubmit() {
     underbody: form.underbody || '',
     participants: participants.value,
     tasks: tasks.value.map(({ expanded, startError, endError, id, ...task }) => task),
+    is_old: false
   };
 
   saving.value = true;
@@ -877,6 +886,7 @@ async function handleSubmit() {
 const goHome = () => router.push('/main');
 const goBack = () => router.go(-1);
 </script>
+
 <style scoped>
 /* Уведомления */
 .notification {

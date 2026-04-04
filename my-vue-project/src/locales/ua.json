@@ -1,7 +1,7 @@
 {
     "common": {
         "welcome": "Ласкаво просимо",
-          "confirmDelete": "Ви впевнені, що хочете видалити цей файл?",
+        "confirmDelete": "Ви впевнені, що хочете видалити цей файл?",
         "upload": "Завантажити",
         "download": "Завантажити",
         "save": "Зберегти",
@@ -28,13 +28,13 @@
     },
     "navigation": {
         "main_menu": "Головне меню",
-    "my_projects": "Мої проєкти",
-    "all_users": "Усі користувачі",
-    "old_projects": "Старі проєкти",
-    "all_projects": "Усі проєкти",
-    "admin_panel": "Адмін-панель",
-    "profile": "Профіль",
-    "logout": "Вийти"
+        "my_projects": "Мої проєкти",
+        "all_users": "Усі користувачі",
+        "old_projects": "Старі проєкти",
+        "all_projects": "Усі проєкти",
+        "admin_panel": "Адмін-панель",
+        "profile": "Профіль",
+        "logout": "Вийти"
     },
     "project": {
         "title": "Назва проєкту",
@@ -458,7 +458,15 @@
         "saveError": "Помилка при збереженні даних"
     },
     "projectDetails": {
-        "defaultTitle": "Проєкт",
+        "markAsOld": "📦 Позначити як старий",
+        "unmarkAsOld": "🔄 Зняти позначку «старий»",
+        "oldProject": "Старий проєкт",
+        "oldProjectReadOnly": "Цей проєкт позначено як старий і доступний лише для перегляду. Редагування заборонено.",
+        "markedAsOld": "Проєкт позначено як старий",
+        "unmarkedAsOld": "Позначку «старий» знято",
+        "markOldError": "Помилка при позначенні проєкту як старого",
+        "unmarkOldError": "Помилка при знятті позначки «старий»",
+        "timelineUpdateError": "Помилка при оновленні термінів завдань",
         "timelineUpdated": "Часову шкалу оновлено",
         "description": "Опис",
         "additional": "Додатково",
@@ -632,6 +640,7 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "Ви впевнені, що хочете видалити цей файл?",
+        "oldProjectReadOnly": "Цей проєкт позначено як старий і доступний лише для перегляду.",
         "title": "Деталі завдання",
         "requiredFilesLabel": "Необхідні файли",
         "requiredFiles": "Обов'язкові файли",

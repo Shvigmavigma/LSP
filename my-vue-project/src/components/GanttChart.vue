@@ -32,7 +32,7 @@
           v-for="task in displayTasks"
           :key="task.key"
           class="gantt-row"
-          :class="{ 'task-disabled': !task.editable }"
+          :class="{ 'task-disabled': !task.editable || readonly }"
         >
           <div class="gantt-label" :title="task.title">
             {{ task.title }}
@@ -46,17 +46,19 @@
                 backgroundColor: task.barColor
               }"
               :class="{ dragging: draggingTaskId === task.id }"
-              @mousedown="startDrag(task, $event)"
-              @touchstart="startDrag(task, $event)"
+              @mousedown="!readonly && startDrag(task, $event)"
+              @touchstart="!readonly && startDrag(task, $event)"
             >
-              <!-- Ресайз справа -->
+              <!-- Ресайз справа (только если не readonly) -->
               <div
+                v-if="!readonly"
                 class="resize-handle right"
                 @mousedown.stop="startResize(task, 'right', $event)"
                 @touchstart.stop="startResize(task, 'right', $event)"
               ></div>
-              <!-- Ресайз слева -->
+              <!-- Ресайз слева (только если не readonly) -->
               <div
+                v-if="!readonly"
                 class="resize-handle left"
                 @mousedown.stop="startResize(task, 'left', $event)"
                 @touchstart.stop="startResize(task, 'left', $event)"
@@ -85,6 +87,7 @@ import { parseDate, formatDate } from '@/utils/dateUtils';
 const props = defineProps<{
   tasks: Task[];
   title: string;
+  readonly?: boolean; // новый проп – отключает редактирование
 }>();
 
 const emit = defineEmits<{
@@ -111,7 +114,6 @@ function getTaskVisuals(status: string, start: Date, end: Date, title: string) {
   const startTime = start.getTime();
   const endTime = end.getTime();
 
-  // Если задача выполнена
   if (status === 'выполнена') {
     return {
       barColor: '#4caf50',
@@ -119,7 +121,6 @@ function getTaskVisuals(status: string, start: Date, end: Date, title: string) {
     };
   }
 
-  // Просрочена: текущая дата > дата окончания
   if (now > endTime) {
     return {
       barColor: '#9e9e9e',
@@ -127,7 +128,6 @@ function getTaskVisuals(status: string, start: Date, end: Date, title: string) {
     };
   }
 
-  // Ещё не началась
   if (now < startTime) {
     return {
       barColor: '#4caf50',
@@ -135,25 +135,17 @@ function getTaskVisuals(status: string, start: Date, end: Date, title: string) {
     };
   }
 
-  // В процессе: цвет по прогрессу
   const totalDuration = endTime - startTime;
   const elapsed = now - startTime;
-  const progress = elapsed / totalDuration; // 0..1
+  const progress = elapsed / totalDuration;
 
-  let barColor = '#4caf50'; // зелёный по умолчанию
-  if (progress > 0.8) {
-    barColor = '#f44336'; // красный
-  } else if (progress > 0.5) {
-    barColor = '#ff9800'; // оранжевый/жёлтый
-  }
+  let barColor = '#4caf50';
+  if (progress > 0.8) barColor = '#f44336';
+  else if (progress > 0.5) barColor = '#ff9800';
 
-  // Текст статуса
   let statusText = '';
-  if (status && status !== '') {
-    statusText = ` (${status})`;
-  } else {
-    statusText = ' (в процессе)';
-  }
+  if (status && status !== '') statusText = ` (${status})`;
+  else statusText = ' (в процессе)';
 
   return {
     barColor,
@@ -161,7 +153,6 @@ function getTaskVisuals(status: string, start: Date, end: Date, title: string) {
   };
 }
 
-// Подготовка задач для отображения с уникальными ключами и индексами
 const tasksWithDates = computed(() => {
   return props.tasks
     .map((task, idx) => {
@@ -181,10 +172,8 @@ const tasksWithDates = computed(() => {
 
       const visual = getTaskVisuals(task.status, start, end, task.title);
       const uniqueId = task.id || task.title;
-
-      // Изменённая логика редактируемости: разрешаем редактирование всех задач, кроме выполненных
       const isCompleted = task.status === 'выполнена';
-      const editable = true; // просроченные теперь тоже можно редактировать
+      const editable = true; // в режиме readonly будет заблокировано через проп
 
       return {
         id: uniqueId,
@@ -201,7 +190,6 @@ const tasksWithDates = computed(() => {
     .filter(t => t !== null);
 });
 
-// Отображаемые задачи (с учётом временных изменений)
 const displayTasks = computed(() => {
   if (!draggingTaskId.value || !draggingTaskTemp.value) {
     return tasksWithDates.value;
@@ -231,7 +219,6 @@ const displayTasks = computed(() => {
   });
 });
 
-// Диапазон дат (учитываем временную задачу)
 const allTasksForRange = computed(() => {
   const base = tasksWithDates.value;
   if (!draggingTaskId.value || !draggingTaskTemp.value) return base;
@@ -267,7 +254,6 @@ const dateHeaders = computed(() => {
 
 const timelineWidth = computed(() => dateHeaders.value.length * dayWidth.value);
 
-// Смещение для сегодняшней даты (в пикселях от начала шкалы времени)
 const todayOffset = computed(() => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -303,7 +289,7 @@ function handleWheel(e: WheelEvent) {
 }
 
 function startDrag(task: any, event: MouseEvent | TouchEvent) {
-  if (!task.editable) return;
+  if (!task.editable || props.readonly) return;
   event.preventDefault();
   draggingTaskId.value = task.id;
   const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
@@ -314,7 +300,7 @@ function startDrag(task: any, event: MouseEvent | TouchEvent) {
 }
 
 function startResize(task: any, direction: 'left' | 'right', event: MouseEvent | TouchEvent) {
-  if (!task.editable) return;
+  if (!task.editable || props.readonly) return;
   event.stopPropagation();
   event.preventDefault();
   draggingTaskId.value = task.id;
@@ -361,11 +347,6 @@ function onMouseUp() {
           timeline: formatDate(draggingTaskTemp.value.start),
           timelinend: formatDate(draggingTaskTemp.value.end),
         };
-        console.log('[Gantt] Emitting update-tasks', {
-          task: updatedTask,
-          index: taskWithId.originalIndex,
-          id: draggingTaskId.value
-        });
         emit('update-tasks', { task: updatedTask, index: taskWithId.originalIndex });
       } else {
         console.warn('[Gantt] Original task not found by id:', draggingTaskId.value);
@@ -395,7 +376,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* стили без изменений */
+/* стили без изменений – оставлены как в вашем исходном файле */
 .gantt-wrapper {
   margin-top: 20px;
   border-top: 2px dashed var(--border-color);

@@ -762,6 +762,57 @@ async def upload_avatar(
         raise HTTPException(status_code=500, detail=f"Image processing failed: {str(e)}")
 
 # ==================== ПРОЕКТЫ ====================
+# Эндпоинты, связанные со старыми проектами, должны быть выше /projects/{project_id}
+@app.get("/projects/old", response_model=List[ProjectResponse], tags=["Projects"])
+async def get_old_projects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Получить все проекты, помеченные как старые (is_old=True)."""
+    query = db.query(Project).filter(Project.is_old == True)
+    if not (current_user.is_admin or is_curator(current_user)):
+        query = query.filter(Project.is_hidden == False)
+        all_projects = query.all()
+        filtered = []
+        for p in all_projects:
+            if current_user.id not in (p.hidden_by_users or []):
+                filtered.append(p)
+        return filtered
+    return query.all()
+
+@app.put("/projects/{project_id}/mark-old", response_model=ProjectResponse, tags=["Projects"])
+async def mark_project_old(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Пометить проект как старый (только для админа или куратора)."""
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(403, "Only admin or curator can mark projects as old")
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    project.is_old = True
+    db.commit()
+    db.refresh(project)
+    return project
+
+@app.put("/projects/{project_id}/unmark-old", response_model=ProjectResponse, tags=["Projects"])
+async def unmark_project_old(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Снять пометку «старый» (только для админа или куратора)."""
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(403, "Only admin or curator can unmark projects as old")
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    project.is_old = False
+    db.commit()
+    db.refresh(project)
+    return project
 
 @app.post("/projects/{project_id}/join-requests", response_model=ProjectResponse, tags=["Projects"])
 async def create_join_request(
@@ -942,7 +993,6 @@ async def reject_join_request(
     return project
 
 @app.post("/projects/", response_model=ProjectResponse, tags=["Projects"])
-@app.post("/projects/", response_model=ProjectResponse, tags=["Projects"])
 async def create_project(
     project: ProjectCreate,
     db: Session = Depends(get_db),
@@ -989,7 +1039,8 @@ async def create_project(
         comments=[c.model_dump(mode='json') for c in project.comments] if project.comments else [],
         is_hidden=False,
         hidden_by=None,
-        hidden_by_users=[]
+        hidden_by_users=[],
+        is_old=False   # по умолчанию проект не старый
     )
     db.add(db_project)
     db.commit()
@@ -1039,59 +1090,6 @@ async def get_project_by_id(project_id: int, db: Session = Depends(get_db), curr
             raise HTTPException(status_code=403, detail="Project is hidden")
     return project
 
-@app.get("/projects/old", response_model=List[ProjectResponse], tags=["Projects"])
-async def get_old_projects(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Получить все проекты, помеченные как старые (is_old=True)."""
-    query = db.query(Project).filter(Project.is_old == True)
-    if not (current_user.is_admin or is_curator(current_user)):
-        # Обычные пользователи видят только не скрытые и не скрытые для них
-        query = query.filter(Project.is_hidden == False)
-        # дополнительно фильтруем по hidden_by_users (как в get_projects)
-        all_projects = query.all()
-        filtered = []
-        for p in all_projects:
-            if current_user.id not in (p.hidden_by_users or []):
-                filtered.append(p)
-        return filtered
-    return query.all()
-
-@app.put("/projects/{project_id}/mark-old", response_model=ProjectResponse, tags=["Projects"])
-async def mark_project_old(
-    project_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Пометить проект как старый (только для админа или куратора)."""
-    if not (current_user.is_admin or is_curator(current_user)):
-        raise HTTPException(403, "Only admin or curator can mark projects as old")
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-    project.is_old = True
-    db.commit()
-    db.refresh(project)
-    return project
-
-@app.put("/projects/{project_id}/unmark-old", response_model=ProjectResponse, tags=["Projects"])
-async def unmark_project_old(
-    project_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Снять пометку «старый» (только для админа или куратора)."""
-    if not (current_user.is_admin or is_curator(current_user)):
-        raise HTTPException(403, "Only admin or curator can unmark projects as old")
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-    project.is_old = False
-    db.commit()
-    db.refresh(project)
-    return project
-
 @app.put("/projects/{project_id}", response_model=ProjectResponse, tags=["Projects"])
 async def update_project(
     project_id: int,
@@ -1103,7 +1101,11 @@ async def update_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Проверка прав
+    # Если проект старый, редактировать могут только администраторы или кураторы
+    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Старый проект нельзя редактировать. Только администратор может изменять его.")
+
+    # Проверка прав на редактирование (обычная логика)
     if not (current_user.is_admin or is_curator(current_user)):
         participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
         if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
