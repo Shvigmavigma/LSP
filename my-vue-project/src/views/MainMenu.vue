@@ -3,11 +3,14 @@
     <header class="menu-header">
       <div class="header-left"></div>
       <h1 class="welcome-message">
-        {{ $t('common.welcome') }}, <span class="username">{{ authStore.user?.nickname }}</span>!
+        {{ $t('common.welcome') }}, <span class="username">{{ greetingName }}</span>!
       </h1>
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
+        <button class="invitations-button" @click="goTo('invitations')">
+          ✉️ {{ $t('navigation.invitations') }}
+        </button>
         <button class="profile-button" @click="goTo('profile')">{{ $t('navigation.profile') }}</button>
       </div>
     </header>
@@ -31,18 +34,35 @@
       </div>
     </div>
 
-    <button class="logout-button" @click="logout">{{ $t('navigation.logout') }}</button>
+    <!-- Отзеркаленная кнопка выхода -->
+    <button class="logout-button" @click="logout" :title="$t('navigation.logout')">
+      <i class="fas fa-sign-out-alt fa-flip-horizontal"></i>
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import '@fortawesome/fontawesome-free/css/all.css';
 
 const authStore = useAuthStore();
 const router = useRouter();
+
+// Вычисляем имя и отчество из fullname (формат: "Фамилия Имя Отчество")
+const greetingName = computed(() => {
+  const fullname = authStore.user?.fullname || '';
+  const parts = fullname.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    const firstName = parts[1];
+    const patronymic = parts[2] || '';
+    return patronymic ? `${firstName} ${patronymic}` : firstName;
+  }
+  return authStore.user?.nickname || 'Гость';
+});
 
 const goTo = (route: string) => {
   router.push(`/${route}`);
@@ -55,6 +75,7 @@ const logout = () => {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений, но добавим стили для новой кнопки */
 .main-menu {
   min-height: 100vh;
   background: var(--bg-page);
@@ -65,7 +86,6 @@ const logout = () => {
   transition: background 0.3s;
 }
 
-/* Шапка */
 .menu-header {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -94,6 +114,8 @@ const logout = () => {
   align-items: center;
 }
 
+/* Стили для кнопки "Приглашения" (аналогично profile-button) */
+.invitations-button,
 .profile-button {
   background: var(--accent-color);
   border: none;
@@ -107,19 +129,18 @@ const logout = () => {
   transition: background 0.2s ease;
 }
 
+.invitations-button:hover,
 .profile-button:hover {
   background: var(--accent-hover);
 }
 
-/* Контейнер для сетки — растягивается на всю оставшуюся высоту */
 .menu-container {
   flex: 1;
   display: flex;
   align-items: stretch;
-  min-height: 0; /* важно для корректного растяжения */
+  min-height: 0;
 }
 
-/* Сетка 2×2 занимает всё доступное пространство */
 .menu-grid {
   flex: 1;
   display: grid;
@@ -129,7 +150,6 @@ const logout = () => {
   align-items: stretch;
 }
 
-/* Кнопки-прямоугольники, растягиваются на всю высоту ячейки */
 .menu-item {
   background: var(--bg-card);
   backdrop-filter: blur(4px);
@@ -155,7 +175,6 @@ const logout = () => {
   box-shadow: var(--shadow-strong);
   border-color: var(--accent-color);
   color: var(--heading-color);
-  /* Без transform: scale() */
 }
 
 .admin-button {
@@ -166,23 +185,68 @@ const logout = () => {
   background: var(--danger-hover) !important;
 }
 
-/* Кнопка выхода */
 .logout-button {
-  background: var(--danger-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 40px;
-  padding: 0.8rem 2rem;
-  font-size: 1rem;
-  color: var(--danger-color);
   cursor: pointer;
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 60px;
+  border-radius: 30px;
+  overflow: hidden;
   align-self: flex-end;
   margin-top: 2rem;
-  transition: background 0.2s ease;
-  width: fit-content;
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
-.logout-button:hover {
-  background: var(--danger-hover);
+.logout-button::before,
+.logout-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  transition: all 0.25s ease;
+  border-radius: 30px;
+}
+
+.logout-button::after {
+  box-shadow: inset 0 0 0 1px var(--danger-color);
+}
+
+.logout-button::before {
+  background: var(--danger-color);
+  box-shadow: inset 0 0 0 60px var(--bg-card);
+}
+
+.logout-button:hover::before {
+  box-shadow: inset 0 0 0 1px var(--bg-card);
+}
+
+.logout-button i {
+  position: relative;
   color: var(--danger-color);
+  font-size: 30px;
+  line-height: 60px;
+  transition: all 0.25s ease;
+  z-index: 1;
+  display: inline-block;
+}
+
+.logout-button:hover i {
+  color: white;
+}
+
+.logout-button:not(:hover)::before,
+.logout-button:not(:hover)::after,
+.logout-button:not(:hover) i {
+  transition: all 0.25s ease;
+}
+
+.logout-button:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease;
 }
 </style>

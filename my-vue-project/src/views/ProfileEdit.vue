@@ -35,13 +35,33 @@
       </div>
 
       <form @submit.prevent="handleSave">
+        <!-- Новые поля: фамилия, имя, отчество -->
         <div class="form-group">
-          <label for="fullname">{{ $t('profileEdit.fullname') }}</label>
+          <label for="lastName">{{ $t('profileEdit.lastName') }}</label>
           <input
-            id="fullname"
-            v-model="form.fullname"
+            id="lastName"
+            v-model="form.lastName"
             type="text"
             required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="firstName">{{ $t('profileEdit.firstName') }}</label>
+          <input
+            id="firstName"
+            v-model="form.firstName"
+            type="text"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="patronymic">{{ $t('profileEdit.patronymic') }}</label>
+          <input
+            id="patronymic"
+            v-model="form.patronymic"
+            type="text"
           />
         </div>
 
@@ -155,13 +175,17 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import axios from 'axios';
 import ClassInput from '@/components/ClassInput.vue';
 import type { TeacherInfo } from '@/types';
+
 const baseUrl = 'http://localhost:8000';
 const { t } = useI18n();
 const authStore = useAuthStore();
 const router = useRouter();
 
+// Форма с раздельными полями
 const form = ref({
-  fullname: '',
+  lastName: '',
+  firstName: '',
+  patronymic: '',
   email: '',
   class: 0,
   speciality: '',
@@ -179,7 +203,6 @@ const avatarError = ref(false);
 
 // Для ролей учителя (без куратора)
 const selectedRoles = ref<string[]>([]);
-// Сохраняем текущее значение куратора, чтобы не потерять
 const currentCurator = ref(false);
 
 const isTeacher = computed(() => authStore.user?.is_teacher || false);
@@ -201,11 +224,23 @@ function toggleRole(role: string) {
   }
 }
 
+// Разбор полного имени на фамилию, имя, отчество
+function parseFullname(fullname: string) {
+  const parts = fullname.trim().split(/\s+/);
+  if (parts.length === 0) return { lastName: '', firstName: '', patronymic: '' };
+  if (parts.length === 1) return { lastName: parts[0], firstName: '', patronymic: '' };
+  if (parts.length === 2) return { lastName: parts[0], firstName: parts[1], patronymic: '' };
+  return { lastName: parts[0], firstName: parts[1], patronymic: parts[2] };
+}
+
 onMounted(() => {
   if (authStore.user) {
     const user = authStore.user;
+    const { lastName, firstName, patronymic } = parseFullname(user.fullname);
     form.value = {
-      fullname: user.fullname,
+      lastName,
+      firstName,
+      patronymic,
       email: user.email,
       class: user.is_teacher ? 0 : (user.class !== 0 ? user.class : 3.1),
       speciality: user.speciality || '',
@@ -244,7 +279,7 @@ const handleAvatarUpload = async (event: Event) => {
 
   try {
     const response = await axios.post(
-      `http://localhost:8000/users/${authStore.user!.id}/avatar`,
+      `${baseUrl}/users/${authStore.user!.id}/avatar`,
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -268,6 +303,13 @@ const handleSave = async () => {
   saving.value = true;
   errorMessage.value = '';
 
+  // Формируем полное имя
+  const fullNameParts = [form.value.lastName.trim(), form.value.firstName.trim()];
+  if (form.value.patronymic.trim()) {
+    fullNameParts.push(form.value.patronymic.trim());
+  }
+  const fullname = fullNameParts.join(' ');
+
   try {
     let response;
     if (isTeacher.value) {
@@ -276,18 +318,18 @@ const handleSave = async () => {
         curator: currentCurator.value
       };
       const updateData = {
-        fullname: form.value.fullname,
+        fullname: fullname,
         email: form.value.email,
         speciality: form.value.speciality,
         teacher_info: teacherInfo
       };
-      // Используем относительный путь (axios baseURL уже установлен)
       response = await axios.put(`/teachers/${authStore.user.id}`, updateData);
     } else {
-      const { class: classValue, ...rest } = form.value;
       const updateData = {
-        ...rest,
-        class_: classValue
+        fullname: fullname,
+        email: form.value.email,
+        speciality: form.value.speciality,
+        class_: form.value.class
       };
       response = await axios.put(`/students/${authStore.user.id}`, updateData);
     }
@@ -313,6 +355,7 @@ const goHome = () => {
 </script>
 
 <style scoped>
+/* Стили остаются без изменений – они уже есть в вашем исходном файле */
 .profile-edit-page {
   min-height: 100vh;
   background: var(--bg-page);
@@ -474,7 +517,6 @@ input:focus {
   box-shadow: 0 0 0 3px rgba(66, 185, 131, 0.2);
 }
 
-/* Стили для выбора ролей (как в регистрации) */
 .roles-selector {
   display: flex;
   flex-direction: column;

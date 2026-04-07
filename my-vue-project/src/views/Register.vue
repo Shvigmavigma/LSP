@@ -23,7 +23,6 @@
           :class="{ active: accountType === 'teacher' }"
           @click="accountType = 'teacher'"
         >
-
           <span class="type-label">{{ $t('register.teacher') }}</span>
         </button>
       </div>
@@ -39,7 +38,7 @@
               alt="Avatar preview"
             />
             <span v-else class="avatar-placeholder">
-              {{ form.nickname?.charAt(0)?.toUpperCase() || '?' }}
+              {{ form.firstName?.charAt(0)?.toUpperCase() || '?' }}
             </span>
           </div>
           <input
@@ -72,14 +71,38 @@
           />
         </div>
 
+        <!-- Новые поля: фамилия, имя, отчество -->
         <div class="form-group">
-          <label for="fullname">{{ $t('register.fullname') }}</label>
+          <label for="lastName">{{ $t('register.lastName') }}</label>
           <input
-            id="fullname"
-            v-model="form.fullname"
+            id="lastName"
+            v-model="form.lastName"
             type="text"
-            :placeholder="$t('register.fullnamePlaceholder')"
+            :placeholder="$t('register.lastNamePlaceholder')"
             required
+            @input="clearErrors"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="firstName">{{ $t('register.firstName') }}</label>
+          <input
+            id="firstName"
+            v-model="form.firstName"
+            type="text"
+            :placeholder="$t('register.firstNamePlaceholder')"
+            required
+            @input="clearErrors"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="patronymic">{{ $t('register.patronymic') }}</label>
+          <input
+            id="patronymic"
+            v-model="form.patronymic"
+            type="text"
+            :placeholder="$t('register.patronymicPlaceholder')"
             @input="clearErrors"
           />
         </div>
@@ -255,9 +278,11 @@ const { t } = useI18n();
 
 interface RegisterForm {
   nickname: string;
-  fullname: string;
+  lastName: string;
+  firstName: string;
+  patronymic: string;  // опционально, но для удобства храним строку
   email: string;
-  class_: number | null;  // изменено с number | undefined
+  class_: number | null;
   speciality: string;
   password: string;
 }
@@ -275,9 +300,11 @@ const showRoleError = ref(false);
 
 const form = reactive<RegisterForm>({
   nickname: '',
-  fullname: '',
+  lastName: '',
+  firstName: '',
+  patronymic: '',
   email: '',
-  class_: 3.1,  // начальное значение
+  class_: 3.1,
   speciality: '',
   password: '',
 });
@@ -374,6 +401,12 @@ const handleRegister = async () => {
     return;
   }
 
+  // Проверка обязательных полей
+  if (!form.lastName.trim() || !form.firstName.trim()) {
+    errorMessage.value = t('register.fillNameFields');
+    return;
+  }
+
   // Проверка email
   if (!form.email) {
     emailError.value = t('register.emailRequired');
@@ -432,10 +465,17 @@ const handleRegister = async () => {
 };
 
 const requestVerification = async (isTeacher: boolean) => {
+  // Формируем полное имя из фамилии, имени и отчества
+  const fullNameParts = [form.lastName.trim(), form.firstName.trim()];
+  if (form.patronymic.trim()) {
+    fullNameParts.push(form.patronymic.trim());
+  }
+  const fullname = fullNameParts.join(' ');
+
   // Подготовка данных пользователя
   const userData: any = {
     nickname: form.nickname,
-    fullname: form.fullname,
+    fullname: fullname,
     email: form.email,
     speciality: form.speciality,
     password: form.password,

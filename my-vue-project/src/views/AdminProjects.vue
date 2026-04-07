@@ -18,6 +18,7 @@
           <option value="all">{{ $t('adminProjects.filterAll') }}</option>
           <option value="active">{{ $t('adminProjects.filterActive') }}</option>
           <option value="hidden">{{ $t('adminProjects.filterHidden') }}</option>
+          <option value="old">{{ $t('adminProjects.filterOld') }}</option>
         </select>
       </div>
 
@@ -30,6 +31,7 @@
             <th>{{ $t('adminProjects.table.participants') }}</th>
             <th>{{ $t('adminProjects.table.tasks') }}</th>
             <th>{{ $t('adminProjects.table.status') }}</th>
+            <th>{{ $t('adminProjects.table.old') }}</th>
             <th>{{ $t('adminProjects.table.hiddenBy') }}</th>
             <th>{{ $t('adminProjects.table.actions') }}</th>
           </tr>
@@ -57,17 +59,38 @@
                 {{ project.is_hidden ? '👁️‍🗨️' : '🙈' }}
               </button>
             </td>
+            <td class="old-cell">
+              <span :class="project.is_old ? 'old-status' : 'not-old-status'">
+                {{ project.is_old ? $t('adminProjects.old') : $t('adminProjects.notOld') }}
+              </span>
+              <button
+                v-if="!project.is_old"
+                class="mark-old-btn"
+                @click="markAsOld(project.id)"
+                :title="$t('adminProjects.markAsOldTitle')"
+              >
+                📦
+              </button>
+              <button
+                v-else
+                class="unmark-old-btn"
+                @click="unmarkAsOld(project.id)"
+                :title="$t('adminProjects.unmarkAsOldTitle')"
+              >
+                🔄
+              </button>
+            </td>
             <td>
               <span v-if="project.hidden_by">{{ getUserNickname(project.hidden_by) }}</span>
               <span v-else>—</span>
             </td>
-            <td>
+            <td class="actions-cell">
               <button class="edit-btn" @click="editProject(project.id)" :title="$t('common.edit')">✎</button>
               <button class="delete-btn" @click="confirmDelete(project.id)" :title="$t('common.delete')">🗑</button>
             </td>
           </tr>
         </tbody>
-      </table>
+       </table>
     </div>
 
     <!-- Модальное подтверждение удаления -->
@@ -95,13 +118,14 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import axios from 'axios';
 import type { Project } from '@/types';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+
 const { t } = useI18n();
 const router = useRouter();
 const usersStore = useUsersStore();
 const projects = ref<Project[]>([]);
 const loading = ref(true);
 const search = ref('');
-const statusFilter = ref<'all' | 'active' | 'hidden'>('all');
+const statusFilter = ref<'all' | 'active' | 'hidden' | 'old'>('all');
 const showDeleteModal = ref(false);
 const projectToDelete = ref<number | null>(null);
 
@@ -136,6 +160,8 @@ const filteredProjects = computed(() => {
     filtered = filtered.filter(p => !p.is_hidden);
   } else if (statusFilter.value === 'hidden') {
     filtered = filtered.filter(p => p.is_hidden);
+  } else if (statusFilter.value === 'old') {
+    filtered = filtered.filter(p => p.is_old === true);
   }
   return filtered;
 });
@@ -153,6 +179,28 @@ async function toggleHide(project: Project) {
   } catch (error) {
     console.error('Failed to toggle hide', error);
     alert(t('adminProjects.toggleError'));
+  }
+}
+
+async function markAsOld(projectId: number) {
+  try {
+    await axios.put(`/projects/${projectId}/mark-old`);
+    const project = projects.value.find(p => p.id === projectId);
+    if (project) project.is_old = true;
+  } catch (error) {
+    console.error('Failed to mark as old', error);
+    alert(t('adminProjects.markOldError'));
+  }
+}
+
+async function unmarkAsOld(projectId: number) {
+  try {
+    await axios.put(`/projects/${projectId}/unmark-old`);
+    const project = projects.value.find(p => p.id === projectId);
+    if (project) project.is_old = false;
+  } catch (error) {
+    console.error('Failed to unmark as old', error);
+    alert(t('adminProjects.unmarkOldError'));
   }
 }
 
@@ -191,7 +239,7 @@ function goBack() {
 </script>
 
 <style scoped>
-/* Стили остаются без изменений */
+/* Существующие стили */
 .admin-projects-page {
   min-height: 100vh;
   background: var(--bg-page);
@@ -285,6 +333,9 @@ function goBack() {
   gap: 8px;
   white-space: nowrap;
 }
+.old-cell {
+  white-space: nowrap;
+}
 .hidden-status {
   color: #f44336;
   font-weight: 600;
@@ -293,7 +344,16 @@ function goBack() {
   color: #4caf50;
   font-weight: 600;
 }
-.toggle-visibility-btn {
+.old-status {
+  color: #ff9800;
+  font-weight: 600;
+}
+.not-old-status {
+  color: var(--text-secondary);
+}
+.toggle-visibility-btn,
+.mark-old-btn,
+.unmark-old-btn {
   background: none;
   border: none;
   cursor: pointer;
@@ -304,6 +364,12 @@ function goBack() {
   color: var(--text-secondary);
 }
 .toggle-visibility-btn:hover {
+  background: rgba(33, 150, 243, 0.2);
+}
+.mark-old-btn:hover {
+  background: rgba(255, 152, 0, 0.2);
+}
+.unmark-old-btn:hover {
   background: rgba(33, 150, 243, 0.2);
 }
 .edit-btn, .delete-btn {

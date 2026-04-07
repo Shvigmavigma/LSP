@@ -26,8 +26,39 @@
         "accept": "Принять",
         "reject": "Отклонить"
     },
+    "invitations": {
+        "title": "Приглашения",
+        "received": "Полученные",
+        "sent": "Отправленные",
+        "create": "Создать",
+        "createNew": "Новое приглашение",
+        "noReceived": "У вас нет полученных приглашений",
+        "noSent": "Вы ещё никого не пригласили",
+        "project": "Проект",
+        "from": "От",
+        "to": "Кому",
+        "role": "Роль",
+        "date": "Дата",
+        "status": "Статус",
+        "user": "Пользователь",
+        "searchUser": "Поиск пользователя по никнейму или email",
+        "selected": "Выбран",
+        "send": "Отправить приглашение",
+        "sentSuccess": "Приглашение успешно отправлено!",
+        "acceptError": "Ошибка при принятии приглашения",
+        "rejectError": "Ошибка при отклонении приглашения",
+        "cancelError": "Ошибка при отмене приглашения",
+        "sendError": "Ошибка при отправке приглашения",
+        "confirmCancel": "Вы уверены, что хотите отменить это приглашение?",
+        "statusPending": "Ожидает",
+        "statusAccepted": "Принято",
+        "statusRejected": "Отклонено",
+        "statusCancelled": "Отменено"
+    },
+
     "navigation": {
         "main_menu": "Главное меню",
+        "invitations": "Приглашения",
         "my_projects": "Мои проекты",
         "all_users": "Все пользователи",
         "old_projects": "Старые проекты",
@@ -100,12 +131,12 @@
     },
     "inviteModal": {
         "title": "Пригласить участника",
-        "emailLabel": "Email пользователя",
-        "emailPlaceholder": "user@example.com",
+        "userSearchLabel": "Поиск пользователя",
+        "userSearchPlaceholder": "Введите никнейм или email",
+        "selectedUser": "Выбранный пользователь",
         "roleLabel": "Роль",
         "sendButton": "Отправить приглашение",
-        "inviteCreated": "Приглашение создано, токен:",
-        "inviteError": "Ошибка при создании приглашения"
+        "inviteError": "Ошибка при отправке приглашения"
     },
     "projectForm": {
         "titleLabel": "Название",
@@ -289,6 +320,7 @@
         "filterAll": "Все проекты",
         "filterActive": "Только активные",
         "filterHidden": "Только скрытые",
+        "filterOld": "Только старые",
         "table": {
             "id": "ID",
             "title": "Название",
@@ -296,6 +328,7 @@
             "participants": "Участники",
             "tasks": "Задачи",
             "status": "Статус",
+            "old": "Старый",
             "hiddenBy": "Скрыл",
             "actions": "Действия"
         },
@@ -303,11 +336,17 @@
             "active": "Активен",
             "hidden": "Скрыт"
         },
+        "old": "Старый",
+        "notOld": "Не старый",
         "toggleShowTitle": "Показать проект",
         "toggleHideTitle": "Скрыть проект",
+        "markAsOldTitle": "Пометить как старый",
+        "unmarkAsOldTitle": "Снять пометку «старый»",
         "deleteConfirmTitle": "Удалить проект",
         "deleteConfirmMessage": "Вы уверены, что хотите удалить этот проект?",
         "toggleError": "Ошибка при изменении статуса видимости",
+        "markOldError": "Ошибка при пометке как старого",
+        "unmarkOldError": "Ошибка при снятии пометки",
         "deleteError": "Ошибка при удалении"
     },
 
@@ -443,6 +482,9 @@
     },
     "profileEdit": {
         "title": "Редактирование профиля",
+        "lastName": "Фамилия",
+        "firstName": "Имя",
+        "patronymic": "Отчество",
         "uploadAvatar": "Загрузить аватар",
         "fullname": "Полное имя",
         "email": "Email",
@@ -599,6 +641,13 @@
     },
     "register": {
         "title": "Регистрация",
+        "lastName": "Фамилия",
+        "lastNamePlaceholder": "Введите фамилию",
+        "firstName": "Имя",
+        "firstNamePlaceholder": "Введите имя",
+        "patronymic": "Отчество",
+        "patronymicPlaceholder": "Введите отчество (необязательно)",
+        "fillNameFields": "Пожалуйста, заполните фамилию и имя",
         "student": "Ученик",
         "teacher": "Учитель / Внешний представитель",
         "avatarOptional": "Аватар (необязательно)",
