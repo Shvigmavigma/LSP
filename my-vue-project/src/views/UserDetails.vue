@@ -62,7 +62,7 @@
                   <img
                     v-if="getUserAvatar(participant.user_id) && !avatarErrorMap[participant.user_id]"
                     :src="getUserAvatar(participant.user_id)"
-                    :alt="getUserNickname(participant.user_id)"
+                    :alt="getUserFullName(participant.user_id)"
                     @error="avatarErrorMap[participant.user_id] = true"
                   />
                   <span v-else>{{ getUserInitials(participant.user_id) }}</span>
@@ -70,7 +70,12 @@
                     {{ getRoleIcon(participant.role) }}
                   </span>
                 </div>
-                <span class="participant-name">{{ getUserNickname(participant.user_id) }}</span>
+                <span 
+                  class="participant-name" 
+                  :title="getUserFullName(participant.user_id)"
+                >
+                  {{ getUserShortName(participant.user_id) }}
+                </span>
               </div>
             </div>
           </div>
@@ -185,9 +190,24 @@ watch(() => route.params.id, async (newId) => {
   }
 });
 
-function getUserNickname(id: number): string {
+function getUserFullName(id: number): string {
   const u = usersStore.users.find(u => u.id === id);
-  return u ? u.nickname : `ID: ${id}`;
+  return u ? u.fullname : `ID: ${id}`;
+}
+
+function getUserShortName(id: number): string {
+  const u = usersStore.users.find(u => u.id === id);
+  if (!u) return `ID: ${id}`;
+  const fullname = u.fullname.trim();
+  const parts = fullname.split(/\s+/);
+  if (parts.length === 0) return u.nickname || '?';
+  const lastName = parts[0];
+  const firstNameInitial = parts[1] ? parts[1].charAt(0).toUpperCase() + '.' : '';
+  const patronymicInitial = parts[2] ? parts[2].charAt(0).toUpperCase() + '.' : '';
+  let shortName = lastName;
+  if (firstNameInitial) shortName += ' ' + firstNameInitial;
+  if (patronymicInitial) shortName += ' ' + patronymicInitial;
+  return shortName;
 }
 
 function getUserAvatar(id: number): string | undefined {
@@ -197,7 +217,16 @@ function getUserAvatar(id: number): string | undefined {
 
 function getUserInitials(id: number): string {
   const u = usersStore.users.find(u => u.id === id);
-  return u?.nickname?.charAt(0).toUpperCase() || '?';
+  if (!u) return '?';
+  const parts = u.fullname.trim().split(/\s+/);
+  if (parts.length === 0) return u.nickname?.charAt(0).toUpperCase() || '?';
+  const lastName = parts[0];
+  const firstName = parts[1] || '';
+  const patronymic = parts[2] || '';
+  let initials = lastName.charAt(0).toUpperCase();
+  if (firstName) initials += firstName.charAt(0).toUpperCase();
+  if (patronymic) initials += patronymic.charAt(0).toUpperCase();
+  return initials;
 }
 
 function getRoleIcon(role: ProjectRole): string {
@@ -392,14 +421,20 @@ const goHome = () => {
   margin-right: 4px;
   color: var(--text-secondary);
 }
+/* Горизонтальный скролл для участников */
 .participants-list {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: 8px;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  max-width: 100%;
+  padding-bottom: 4px;
 }
 .participant-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
@@ -407,6 +442,8 @@ const goHome = () => {
   border-radius: 4px;
   transition: background-color 0.2s;
   position: relative;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .participant-item:hover {
   background: rgba(128, 128, 128, 0.1);
@@ -450,7 +487,7 @@ const goHome = () => {
   color: var(--link-color);
   text-decoration: underline;
   font-size: 0.9rem;
-  max-width: 80px;
+  max-width: 120px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

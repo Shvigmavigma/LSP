@@ -21,7 +21,7 @@ from auth import get_current_admin
 
 load_dotenv()
 from sqlalchemy.orm.attributes import flag_modified
-from models import Base, User, Project, ProjectFile
+from models import Base, User, Project, ProjectFile, Invitation
 from database import engine, session_local
 from schemas import (
     StudentCreate, StudentResponse, StudentUpdate,
@@ -33,7 +33,7 @@ from schemas import (
     TokenResponse,
     Suggestion, SuggestionCreate, SuggestionStatus,
     InvitationCreate, InvitationInfo,
-    ProjectFileResponse
+    ProjectFileResponse, InvitationResponse, 
 )
 
 from willow import Image
@@ -1975,6 +1975,152 @@ async def update_accepted_student_emails(
         return {"message": "Файл успешно обновлён"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка записи файла: {str(e)}")
+# ==================== ПРИГЛАШЕНИЯ (НОВАЯ ВЕРСИЯ) ====================
 
+@app.post("/invitations", response_model=InvitationResponse, tags=["Invitations"])
+async def create_invitation(
+    invite: InvitationCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Проверяем, существует ли проект
+    project = db.query(Project).filter(Project.id == invite.project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    # Проверяем права приглашающего
+    if not (current_user.is_admin or is_curator(current_user)):
+        role = get_participant_role(project, current_user.id)
+        if role not in [ProjectRole.CUSTOMER.value, ProjectRole.SUPERVISOR.value]:
+            raise HTTPException(403, "Only customer, supervisor, curator or admin can invite")
+    # Проверяем, что приглашаемый существует
+    invited_user = db.query(User).filter(User.id == invite.invited_user_id).first()
+    if not invited_user:
+        raise HTTPException(404, "User not found")
+    # Проверяем, не является ли уже участником
+    if any(p.get("user_id") == invite.invited_user_id for p in (project.participants or [])):
+        raise HTTPException(400, "User is already a participant")
+    # Проверяем, нет ли уже pending приглашения
+    existing = db.query(Invitation).filter(
+        Invitation.project_id == invite.project_id,
+        Invitation.invited_user_id == invite.invited_user_id,
+        Invitation.status == "pending"
+    ).first()
+    if existing:
+        raise HTTPException(400, "Invitation already pending for this user in this project")
+    # Создаём приглашение
+    db_invite = Invitation(
+        project_id=invite.project_id,
+        invited_by=current_user.id,
+        invited_user_id=invite.invited_user_id,
+        role=invite.role.value,
+        status="pending"
+    )
+    db.add(db_invite)
+    db.commit()
+    db.refresh(db_invite)
+    # Подтягиваем название проекта и никнейм пригласившего для ответа
+    db_invite.project_title = project.title
+    db_invite.invited_by_nickname = current_user.nickname
+    return db_invite
+
+@app.get("/invitations", response_model=List[InvitationResponse], tags=["Invitations"])
+async def get_my_invitations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Приглашения, адресованные текущему пользователю (статус pending)."""
+    invites = db.query(Invitation).filter(
+        Invitation.invited_user_id == current_user.id,
+        Invitation.status == "pending"
+    ).all()
+    # Обогащаем данными проектов и пригласивших
+    for inv in invites:
+        proj = db.query(Project).filter(Project.id == inv.project_id).first()
+        inv.project_title = proj.title if proj else "Unknown"
+        inviter = db.query(User).filter(User.id == inv.invited_by).first()
+        inv.invited_by_nickname = inviter.nickname if inviter else "Unknown"
+    return invites
+
+@app.get("/invitations/sent", response_model=List[InvitationResponse], tags=["Invitations"])
+async def get_sent_invitations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Приглашения, отправленные текущим пользователем (все статусы)."""
+    invites = db.query(Invitation).filter(
+        Invitation.invited_by == current_user.id
+    ).all()
+    for inv in invites:
+        proj = db.query(Project).filter(Project.id == inv.project_id).first()
+        inv.project_title = proj.title if proj else "Unknown"
+        inv.invited_by_nickname = current_user.nickname
+    return invites
+
+@app.put("/invitations/{invitation_id}/accept", response_model=ProjectResponse, tags=["Invitations"])
+async def accept_invitation(
+    invitation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    invite = db.query(Invitation).filter(Invitation.id == invitation_id).first()
+    if not invite:
+        raise HTTPException(404, "Invitation not found")
+    if invite.invited_user_id != current_user.id:
+        raise HTTPException(403, "Not your invitation")
+    if invite.status != "pending":
+        raise HTTPException(400, "Invitation already processed")
+    project = db.query(Project).filter(Project.id == invite.project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    # Добавляем участника
+    if project.participants is None:
+        project.participants = []
+    project.participants.append({
+        "user_id": current_user.id,
+        "role": invite.role,
+        "joined_at": datetime.utcnow().isoformat(),
+        "invited_by": invite.invited_by
+    })
+    flag_modified(project, "participants")
+    # Меняем статус приглашения
+    invite.status = "accepted"
+    db.commit()
+    db.refresh(project)
+    return project
+
+@app.put("/invitations/{invitation_id}/reject", response_model=InvitationResponse, tags=["Invitations"])
+async def reject_invitation(
+    invitation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    invite = db.query(Invitation).filter(Invitation.id == invitation_id).first()
+    if not invite:
+        raise HTTPException(404, "Invitation not found")
+    if invite.invited_user_id != current_user.id:
+        raise HTTPException(403, "Not your invitation")
+    if invite.status != "pending":
+        raise HTTPException(400, "Invitation already processed")
+    invite.status = "rejected"
+    db.commit()
+    db.refresh(invite)
+    return invite
+
+@app.delete("/invitations/{invitation_id}", tags=["Invitations"])
+async def cancel_invitation(
+    invitation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    invite = db.query(Invitation).filter(Invitation.id == invitation_id).first()
+    if not invite:
+        raise HTTPException(404, "Invitation not found")
+    if invite.invited_by != current_user.id and not current_user.is_admin:
+        raise HTTPException(403, "Only the inviter or admin can cancel")
+    if invite.status != "pending":
+        raise HTTPException(400, "Can only cancel pending invitations")
+    db.delete(invite)
+    db.commit()
+    return {"message": "Invitation cancelled"}
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
