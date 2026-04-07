@@ -259,3 +259,21 @@ class JoinRequest(BaseModel):
     user_id: int
     created_at: datetime
     status: str  
+class InvitationCreate(BaseModel):
+    project_id: int
+    invited_user_id: int
+    role: ProjectRole
+
+class InvitationResponse(BaseModel):
+    id: int
+    project_id: int
+    project_title: Optional[str] = None
+    invited_by: int
+    invited_by_nickname: Optional[str] = None
+    invited_user_id: int
+    role: ProjectRole
+    status: str
+    created_at: datetime
+    expires_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)

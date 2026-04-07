@@ -39,15 +39,23 @@
                 <img
                   v-if="getUserAvatar(participant.user_id) && !avatarError[participant.user_id]"
                   :src="getUserAvatar(participant.user_id)"
-                  :alt="getUserNickname(participant.user_id)"
+                  :alt="getUserFullName(participant.user_id)"
                   @error="avatarError[participant.user_id] = true"
                 />
                 <span v-else>{{ getUserInitials(participant.user_id) }}</span>
-                <span class="role-badge" :title="$t(`roles.${participant.role}`)">
+                <span
+                  class="role-badge"
+                  :title="$t('roles.' + participant.role)"
+                >
                   {{ getRoleIcon(participant.role) }}
                 </span>
               </div>
-              <span class="participant-name">{{ getUserNickname(participant.user_id) }}</span>
+              <span 
+                class="participant-name" 
+                :title="getUserFullName(participant.user_id)"
+              >
+                {{ getUserShortName(participant.user_id) }}
+              </span>
             </div>
           </div>
         </div>
@@ -74,7 +82,6 @@ const router = useRouter();
 const projects = ref<Project[]>([]);
 const loading = ref(true);
 const avatarError = ref<Record<number, boolean>>({});
-
 const baseUrl = 'http://localhost:8000';
 
 onMounted(async () => {
@@ -85,9 +92,24 @@ onMounted(async () => {
   loading.value = false;
 });
 
-function getUserNickname(id: number): string {
+function getUserFullName(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
-  return user ? user.nickname : `ID: ${id}`;
+  return user ? user.fullname : `ID: ${id}`;
+}
+
+function getUserShortName(id: number): string {
+  const user = usersStore.users.find(u => u.id === id);
+  if (!user) return `ID: ${id}`;
+  const fullname = user.fullname.trim();
+  const parts = fullname.split(/\s+/);
+  if (parts.length === 0) return user.nickname || '?';
+  const lastName = parts[0];
+  const firstNameInitial = parts[1] ? parts[1].charAt(0).toUpperCase() + '.' : '';
+  const patronymicInitial = parts[2] ? parts[2].charAt(0).toUpperCase() + '.' : '';
+  let shortName = lastName;
+  if (firstNameInitial) shortName += ' ' + firstNameInitial;
+  if (patronymicInitial) shortName += ' ' + patronymicInitial;
+  return shortName;
 }
 
 function getUserAvatar(id: number): string | undefined {
@@ -98,7 +120,16 @@ function getUserAvatar(id: number): string | undefined {
 
 function getUserInitials(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
-  return user?.nickname?.charAt(0).toUpperCase() || '?';
+  if (!user) return '?';
+  const parts = user.fullname.trim().split(/\s+/);
+  if (parts.length === 0) return user.nickname?.charAt(0).toUpperCase() || '?';
+  const lastName = parts[0];
+  const firstName = parts[1] || '';
+  const patronymic = parts[2] || '';
+  let initials = lastName.charAt(0).toUpperCase();
+  if (firstName) initials += firstName.charAt(0).toUpperCase();
+  if (patronymic) initials += patronymic.charAt(0).toUpperCase();
+  return initials;
 }
 
 function getRoleIcon(role: ProjectRole): string {
@@ -277,15 +308,21 @@ const goToUser = (userId: number) => {
   flex-shrink: 0;
 }
 
+/* Горизонтальный скролл для участников */
 .participants-list {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: 8px;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  max-width: 100%;
+  padding-bottom: 4px;
 }
 
 .participant-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
@@ -293,6 +330,8 @@ const goToUser = (userId: number) => {
   border-radius: 4px;
   transition: background-color 0.2s;
   position: relative;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .participant-item:hover {
@@ -350,10 +389,7 @@ const goToUser = (userId: number) => {
   color: var(--link-color);
   text-decoration: underline;
   font-size: 0.9rem;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-  hyphens: auto;
-  max-width: 80px;
+  max-width: 120px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -23,6 +23,10 @@
       <template v-if="userRole || isAdmin || isCurator">
         <!-- Макет для участников, админов, кураторов -->
         <div class="author-layout">
+          <!-- Баннер для старого проекта (для всех, включая авторов) -->
+          <div v-if="project.is_old" class="old-project-banner">
+               {{ $t('projectDetails.oldProjectReadOnly') }}
+          </div>
           <h1 class="project-title-center">{{ project.title }}</h1>
           <div class="two-columns">
             <!-- Левая колонка -->
@@ -185,14 +189,14 @@
                   class="mark-old-button" 
                   @click="markAsOld"
                 >
-                  📦 {{ $t('projectDetails.markAsOld') }}
+                     {{ $t('projectDetails.markAsOld') }}
                 </button>
                 <button 
                   v-if="isAdminOrCurator && project.is_old" 
                   class="unmark-old-button" 
                   @click="unmarkAsOld"
                 >
-                  🔄 {{ $t('projectDetails.unmarkAsOld') }}
+                   {{ $t('projectDetails.unmarkAsOld') }}
                 </button>
               </div>
             </div>
@@ -445,7 +449,7 @@
         <div v-if="project.is_old" class="author-layout">
           <!-- Баннер для старого проекта -->
           <div class="old-project-banner">
-            📦 {{ $t('projectDetails.oldProjectReadOnly') }}
+            {{ $t('projectDetails.oldProjectReadOnly') }}
           </div>
           <h1 class="project-title-center">{{ project.title }}</h1>
           <div class="two-columns">
@@ -663,7 +667,6 @@
     />
   </div>
 </template>
-
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -1096,14 +1099,24 @@ const hideSuggestionComment = async () => {};
 
 // ---- Приглашения ----
 const showInviteModal = ref(false);
-const sendInvite = async (email: string, role: ProjectRole) => {
+const sendInvite = async (userId: number, role: ProjectRole) => {
   if (!project.value) return;
   try {
-    const response = await axios.post(`${baseUrl}/projects/${project.value.id}/invite`, { email, role });
-    alert(`${t('inviteModal.inviteCreated')} ${response.data.token}`);
-  } catch (error) {
-    alert(t('inviteModal.inviteError'));
+    await axios.post('/invitations', {
+      project_id: project.value.id,
+      invited_user_id: userId,
+      role: role
+    });
+    showNotification(t('inviteModal.inviteSuccess'), 'success');
+  } catch (error: any) {
+    const msg = error.response?.data?.detail || t('inviteModal.inviteError');
+    showNotification(msg, 'error');
   }
+  console.log('Sending invite:', {
+  project_id: project.value.id,
+  invited_user_id: userId,
+  role: role
+});
 };
 
 // ---- Ссылки проекта ----

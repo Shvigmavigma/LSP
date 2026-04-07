@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, JSON, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 
 Base = declarative_base()
@@ -41,16 +41,14 @@ class Project(Base):
     is_hidden = Column(Boolean, default=False)
     hidden_by = Column(Integer, nullable=True)
     hidden_by_users = Column(JSON, default=list)
-    is_old = Column(Boolean, default=False, nullable=False)
     
 class ProjectFile(Base):
     __tablename__ = "project_files"
 
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    task_id = Column(Integer, nullable=True)          # индекс задачи в массиве tasks
-    required_file_id = Column(String, nullable=True)  # <-- добавьте это поле
-    filename = Column(String, nullable=False)         # уникальное имя на диске
+    task_id = Column(Integer, nullable=True)
+    filename = Column(String, nullable=False)
     original_filename = Column(String, nullable=False)
     file_size = Column(Integer, nullable=False)
     mime_type = Column(String, nullable=False)
@@ -58,3 +56,19 @@ class ProjectFile(Base):
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     is_deleted = Column(Boolean, default=False)
     compressed = Column(Boolean, default=False)
+class Invitation(Base):
+    __tablename__ = "invitations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    invited_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    invited_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, nullable=False)  # ProjectRole value
+    status = Column(String, default="pending")  # pending, accepted, rejected, cancelled
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+
+    # Связи (опционально, для удобства)
+    project = relationship("Project", backref="invitations")
+    inviter = relationship("User", foreign_keys=[invited_by])
+    invitee = relationship("User", foreign_keys=[invited_user_id])

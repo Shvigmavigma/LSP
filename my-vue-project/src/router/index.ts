@@ -85,6 +85,12 @@ const routes: Array<RouteRecordRaw> = [
     component: AdminEmails,
     meta: { requiresAdmin: true }
   },
+  {
+  path: '/invitations',
+  name: 'Invitations',
+  component: () => import('@/views/Invitations.vue'),
+  meta: { requiresAuth: true }
+},
   ]
 
 const router = createRouter({

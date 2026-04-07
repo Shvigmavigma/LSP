@@ -56,12 +56,12 @@ const toggleTheme = () => {
 }
 
 .sun {
-  left: 5px;
-  top: calc(50% + 0px);
+  left: 8%;
+  top: calc(50% + 1px);
 }
 
 .moon {
-  right: 2px;
+  right: 3px;
 }
 
 .theme-toggle-switch .toggle-slider {
