@@ -508,7 +508,12 @@
         "markOldError": "Error marking project as old",
         "unmarkOldError": "Error removing old mark",
         "timelineUpdateError": "Error updating task dates",
-
+        "leaveProject": "Leave project",
+        "confirmLeaveProject": "Are you sure you want to leave this project?",
+        "leftProject": "You have left the project",
+        "leaveError": "Error leaving the project",
+        "cannotLeaveLastParticipant": "You cannot leave the project because you are the only participant",
+        "notParticipant": "You are not a participant of this project",
         "defaultTitle": "Project",
         "description": "Description",
         "additional": "Additional info",
