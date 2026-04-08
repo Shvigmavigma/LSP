@@ -501,6 +501,12 @@
     },
     "projectDetails": {
         "markAsOld": "📦 وضع علامة قديم",
+        "leaveProject": "مغادرة المشروع",
+        "confirmLeaveProject": "هل أنت متأكد من رغبتك في مغادرة هذا المشروع؟",
+        "leftProject": "لقد غادرت المشروع",
+        "leaveError": "خطأ في مغادرة المشروع",
+        "cannotLeaveLastParticipant": "لا يمكنك مغادرة المشروع لأنك المشارك الوحيد",
+        "notParticipant": "أنت لست مشاركًا في هذا المشروع",
         "unmarkAsOld": "🔄 إزالة علامة القديم",
         "oldProject": "مشروع قديم",
         "oldProjectReadOnly": "تم وضع علامة على هذا المشروع كقديم وهو للقراءة فقط. التحرير محظور.",
