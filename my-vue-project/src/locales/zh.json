@@ -501,6 +501,12 @@
     },
     "projectDetails": {
         "markAsOld": "📦 标记为旧项目",
+                "leaveProject": "退出项目",
+                "confirmLeaveProject": "您确定要退出此项目吗？",
+                "leftProject": "您已退出项目",
+                "leaveError": "退出项目时出错",
+                "cannotLeaveLastParticipant": "您不能退出项目，因为您是唯一的参与者",
+                "notParticipant": "您不是此项目的参与者",
         "unmarkAsOld": "🔄 取消旧标记",
         "oldProject": "旧项目",
         "oldProjectReadOnly": "此项目已标记为旧项目，仅可查看。禁止编辑。",

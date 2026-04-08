@@ -25,7 +25,7 @@
         <div class="author-layout">
           <!-- Баннер для старого проекта (для всех, включая авторов) -->
           <div v-if="project.is_old" class="old-project-banner">
-               {{ $t('projectDetails.oldProjectReadOnly') }}
+            {{ $t('projectDetails.oldProjectReadOnly') }}
           </div>
           <h1 class="project-title-center">{{ project.title }}</h1>
           <div class="two-columns">
@@ -189,14 +189,25 @@
                   class="mark-old-button" 
                   @click="markAsOld"
                 >
-                     {{ $t('projectDetails.markAsOld') }}
+                  {{ $t('projectDetails.markAsOld') }}
                 </button>
                 <button 
                   v-if="isAdminOrCurator && project.is_old" 
                   class="unmark-old-button" 
                   @click="unmarkAsOld"
                 >
-                   {{ $t('projectDetails.unmarkAsOld') }}
+                  {{ $t('projectDetails.unmarkAsOld') }}
+                </button>
+              </div>
+
+              <!-- НОВАЯ КНОПКА "ПОКИНУТЬ ПРОЕКТ" – ВИДНА ВСЕМ И ВСЕГДА -->
+              <div class="leave-project-wrapper">
+                <button 
+                  class="leave-project-button" 
+                  @click="leaveProject"
+                  :disabled="deleteInProgress"
+                >
+                  🚪 {{ $t('projectDetails.leaveProject') }}
                 </button>
               </div>
             </div>
@@ -433,7 +444,7 @@
             </div>
           </div>
 
-          <!-- Диаграмма Ганта (исправленное условие) -->
+          <!-- Диаграмма Ганта -->
           <GanttChart
             :tasks="activeTasks"
             :title="$t('projectDetails.timeline')"
@@ -1277,7 +1288,24 @@ const handleTaskUpdate = async (payload: { task: Task; index: number }) => {
     await loadProject(true);
   }
 };
-
+const leaveProject = async () => {
+  if (!project.value || !authStore.userId) return;
+  if (!confirm(t('projectDetails.confirmLeaveProject'))) return;
+  deleteInProgress.value = true;
+  try {
+    const updatedParticipants = project.value.participants.filter(p => p.user_id !== authStore.userId);
+    await axios.put(`${baseUrl}/projects/${project.value.id}`, {
+      participants: updatedParticipants
+    });
+    showNotification(t('projectDetails.leftProject'), 'success');
+    router.push('/my-projects');
+  } catch (error) {
+    console.error(error);
+    showNotification(t('projectDetails.leaveError'), 'error');
+  } finally {
+    deleteInProgress.value = false;
+  }
+};
 // ---- Вспомогательные для аватаров ----
 const avatarError = ref<Record<number, boolean>>({});
 const handleAuthorImageError = (id: number) => {
@@ -2140,5 +2168,26 @@ watch(() => route.params.id, () => {
   border-radius: 8px;
   font-weight: 500;
   box-shadow: var(--shadow);
+}
+.leave-project-button {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--danger-bg);
+  color: var(--danger-color);
+}
+.leave-project-button:hover {
+  background: transparent;
+  color: var(--danger-color);
+  border: 1px solid var(--danger-color);
 }
 </style>

@@ -113,34 +113,6 @@
           </div>
         </div>
 
-        <!-- Приглашение по email (только для существующих проектов) -->
-        <div v-if="isEdit" class="form-section">
-          <h2>{{ $t('projectEdit.inviteByEmail') }}</h2>
-          <div class="invite-section">
-            <div class="invite-row">
-              <input
-                v-model="inviteEmail"
-                type="email"
-                :placeholder="$t('projectEdit.emailPlaceholder')"
-                class="invite-input"
-              />
-              <select v-model="inviteRole">
-                <option value="executor">{{ $t('roles.executor') }}</option>
-                <option value="customer">{{ $t('roles.customer') }}</option>
-                <option value="supervisor">{{ $t('roles.supervisor') }}</option>
-                <option value="expert">{{ $t('roles.expert') }}</option>
-                <option value="curator">{{ $t('roles.curator') }}</option>
-              </select>
-              <button @click="sendInvite" :disabled="!inviteEmail || sendingInvite">
-                {{ sendingInvite ? $t('common.sending') : $t('projectEdit.sendInvite') }}
-              </button>
-            </div>
-            <div v-if="inviteResult" class="invite-result" :class="{ success: inviteSuccess, error: !inviteSuccess }">
-              {{ inviteResult }}
-            </div>
-          </div>
-        </div>
-
         <!-- Задачи -->
         <div class="form-section">
           <div class="tasks-header">
@@ -362,13 +334,6 @@ const searchQuery = ref('');
 const searchResults = ref<UserWithRoles[]>([]);
 const selectedUser = ref<UserWithRoles | null>(null);
 const selectedRole = ref<ProjectRole>('executor');
-
-// Приглашение
-const inviteEmail = ref('');
-const inviteRole = ref<ProjectRole>('executor');
-const sendingInvite = ref(false);
-const inviteResult = ref('');
-const inviteSuccess = ref(false);
 
 // Задачи – расширяем Task служебными полями для UI
 type EditableTask = Task & {
@@ -644,32 +609,6 @@ function getUserNickname(id: number): string {
 
 function getRoleDisplay(role: ProjectRole): string {
   return t(`roles.${role}`);
-}
-
-async function sendInvite() {
-  if (!inviteEmail.value || !isEdit.value) return;
-  sendingInvite.value = true;
-  inviteResult.value = '';
-  inviteSuccess.value = false;
-
-  try {
-    const response = await axios.post(`${baseUrl}/projects/${projectId}/invite`, {
-      email: inviteEmail.value,
-      role: inviteRole.value,
-    });
-    inviteResult.value = `${t('projectEdit.inviteCreated')} ${response.data.token}`;
-    inviteSuccess.value = true;
-    inviteEmail.value = '';
-    showNotification(t('projectEdit.inviteSuccess'), 'success');
-  } catch (error: any) {
-    console.error('Failed to create invite:', error);
-    const msg = error.response?.data?.detail || t('projectEdit.inviteError');
-    inviteResult.value = msg;
-    inviteSuccess.value = false;
-    showNotification(msg, 'error');
-  } finally {
-    sendingInvite.value = false;
-  }
 }
 
 // --- Функции для задач ---
@@ -977,64 +916,6 @@ const goBack = () => router.go(-1);
 }
 
 /* Остальные стили */
-.invite-section {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-.invite-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.invite-input {
-  flex: 2;
-  padding: 10px 12px;
-  border: 1px solid var(--input-border);
-  border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--text-primary);
-}
-.invite-row select {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid var(--input-border);
-  border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--text-primary);
-}
-.invite-row button {
-  flex: 1;
-  padding: 10px 16px;
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.invite-row button:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-.invite-row button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.invite-result {
-  padding: 10px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-}
-.invite-result.success {
-  background: rgba(76, 175, 80, 0.1);
-  color: #4caf50;
-  border: 1px solid #4caf50;
-}
-.invite-result.error {
-  background: rgba(244, 67, 54, 0.1);
-  color: #f44336;
-  border: 1px solid #f44336;
-}
 .participants-section {
   display: flex;
   flex-direction: column;
