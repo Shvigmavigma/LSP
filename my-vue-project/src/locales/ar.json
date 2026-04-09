@@ -134,6 +134,8 @@
         "userSearchLabel": "البحث عن مستخدم",
         "userSearchPlaceholder": "أدخل الاسم المستعار أو البريد الإلكتروني",
         "selectedUser": "المستخدم المختار",
+        "availableRoles": "الأدوار المتاحة",
+        "noAvailableRoles": "لا توجد أدوار متاحة لهذا المستخدم",
         "roleLabel": "الدور",
         "sendButton": "إرسال الدعوة",
         "inviteError": "خطأ في إرسال الدعوة"
@@ -239,6 +241,10 @@
         "userManagement": {
             "title": "إدارة المستخدمين",
             "desc": "عرض، تعديل، حذف، منح الصلاحيات"
+        },
+        "defaultTasks": {
+            "title": "المهام الافتراضية",
+            "desc": "إدارة قوالب المهام للصفوف"
         },
         "projectManagement": {
             "title": "إدارة المشاريع",
@@ -854,5 +860,44 @@
         "title": "معاينة الملف",
         "previewNotAvailable": "المعاينة غير متاحة",
         "downloadFile": "تحميل الملف"
+    },
+    "adminDefaultTasks": {
+        "title": "إدارة المهام الافتراضية",
+        "structure": "الهيكل",
+        "addDirection": "اتجاه",
+        "editTasks": "✎ المهام",
+        "editDirection": "تعديل اسم الاتجاه",
+        "addClass": "إضافة صف",
+        "editingTasksTitle": "تحرير المهام: {path}",
+        "taskNumber": "المهمة {number}",
+        "taskTitlePlaceholder": "عنوان المهمة",
+        "taskDescriptionLabel": "وصف المهمة",
+        "taskDescriptionPlaceholder": "وصف المهمة",
+        "startDate": "تاريخ البدء",
+        "endDate": "تاريخ الانتهاء",
+        "datePlaceholder": "يوم.شهر.سنة",
+        "requiredFiles": "الملفات المطلوبة",
+        "noRequiredFiles": "لا توجد ملفات مطلوبة",
+        "fileNamePlaceholder": "اسم الملف",
+        "fileDescriptionPlaceholder": "الوصف (اختياري)",
+        "addTask": "إضافة مهمة",
+        "promptAddClass": "أدخل اسم الصف",
+        "classNamePlaceholder": "اسم الصف (مثال: الصف التاسع)",
+        "errorClassExists": "يوجد صف بهذا الاسم بالفعل",
+        "errorAddClass": "خطأ في إضافة الصف",
+        "confirmDeleteClassTitle": "حذف الصف",
+        "confirmDeleteClassMessage": "هل أنت متأكد من حذف الصف \"{label}\"؟",
+        "errorDeleteClass": "خطأ في حذف الصف",
+        "promptAddDirection": "أدخل اسم الاتجاه",
+        "directionNamePlaceholder": "اسم الاتجاه (مثال: برمجة)",
+        "errorDirectionExists": "يوجد اتجاه بهذا الاسم بالفعل",
+        "errorAddDirection": "خطأ في إضافة الاتجاه",
+        "confirmDeleteDirectionTitle": "حذف الاتجاه",
+        "confirmDeleteDirectionMessage": "هل أنت متأكد من حذف الاتجاه \"{label}\"؟",
+        "errorDeleteDirection": "خطأ في حذف الاتجاه",
+        "promptEditDirection": "أدخل اسم الاتجاه الجديد",
+        "errorUpdateDirection": "خطأ في تحديث الاتجاه",
+        "saveSuccess": "تم الحفظ",
+        "saveError": "خطأ في الحفظ"
     }
 }

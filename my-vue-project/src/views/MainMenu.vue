@@ -10,6 +10,7 @@
         <LanguageSwitcher />
         <button class="invitations-button" @click="goTo('invitations')">
           ✉️ {{ $t('navigation.invitations') }}
+          <span v-if="invitationsCount > 0" class="invitations-badge">{{ invitationsCount }}</span>
         </button>
         <button class="profile-button" @click="goTo('profile')">{{ $t('navigation.profile') }}</button>
       </div>
@@ -17,14 +18,12 @@
 
     <div class="menu-container">
       <div class="menu-grid">
-        <!-- Для обычных пользователей -->
         <template v-if="!authStore.user?.is_admin">
           <button class="menu-item" @click="goTo('my-projects')">{{ $t('navigation.my_projects') }}</button>
           <button class="menu-item" @click="goTo('users')">{{ $t('navigation.all_users') }}</button>
           <button class="menu-item" @click="goTo('old-projects')">{{ $t('navigation.old_projects') }}</button>
           <button class="menu-item" @click="goTo('projects')">{{ $t('navigation.all_projects') }}</button>
         </template>
-        <!-- Для админов -->
         <template v-else>
           <button class="menu-item" @click="goTo('users')">{{ $t('navigation.all_users') }}</button>
           <button class="menu-item" @click="goTo('projects')">{{ $t('navigation.all_projects') }}</button>
@@ -34,7 +33,6 @@
       </div>
     </div>
 
-    <!-- Отзеркаленная кнопка выхода -->
     <button class="logout-button" @click="logout" :title="$t('navigation.logout')">
       <i class="fas fa-sign-out-alt fa-flip-horizontal"></i>
     </button>
@@ -42,17 +40,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import axios from 'axios';
 import '@fortawesome/fontawesome-free/css/all.css';
 
 const authStore = useAuthStore();
 const router = useRouter();
+const invitationsCount = ref(0);
 
-// Вычисляем имя и отчество из fullname (формат: "Фамилия Имя Отчество")
 const greetingName = computed(() => {
   const fullname = authStore.user?.fullname || '';
   const parts = fullname.trim().split(/\s+/);
@@ -72,10 +71,24 @@ const logout = () => {
   authStore.logout();
   router.push('/login');
 };
+
+const loadInvitationsCount = async () => {
+  if (!authStore.isAuthenticated) return;
+  try {
+    const response = await axios.get('/invitations');
+    invitationsCount.value = response.data.length;
+  } catch (error) {
+    console.error('Failed to load invitations count:', error);
+  }
+};
+
+onMounted(() => {
+  loadInvitationsCount();
+});
 </script>
 
 <style scoped>
-/* Стили остаются без изменений, но добавим стили для новой кнопки */
+/* ---- существующие стили (сохранить) ---- */
 .main-menu {
   min-height: 100vh;
   background: var(--bg-page);
@@ -114,7 +127,6 @@ const logout = () => {
   align-items: center;
 }
 
-/* Стили для кнопки "Приглашения" (аналогично profile-button) */
 .invitations-button,
 .profile-button {
   background: var(--accent-color);
@@ -127,11 +139,33 @@ const logout = () => {
   cursor: pointer;
   box-shadow: var(--shadow);
   transition: background 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
 }
 
 .invitations-button:hover,
 .profile-button:hover {
   background: var(--accent-hover);
+}
+
+/* Красная метка внутри кнопки (увеличенный кружок) */
+.invitations-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f44336;
+  color: white;
+  border-radius: 50%;
+  min-width: 26px;
+  height: 26px;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 0 6px;
+  margin-left: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  line-height: 1;
 }
 
 .menu-container {

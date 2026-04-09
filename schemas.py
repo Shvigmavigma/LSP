@@ -277,3 +277,14 @@ class InvitationResponse(BaseModel):
     expires_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+class RequiredFile(BaseModel):
+    name: str
+    description: Optional[str] = ""
+
+class TaskTemplate(BaseModel):
+    title: str
+    body: str
+    status: str = "ожидает"
+    timeline: str = ""
+    timelinend: str = ""
+    required_files: List[RequiredFile] = []

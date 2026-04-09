@@ -131,6 +131,8 @@
     "inviteModal": {
         "title": "Invite participant",
         "userSearchLabel": "Search user",
+        "availableRoles": "Available roles",
+        "noAvailableRoles": "No available roles for this user",
         "userSearchPlaceholder": "Enter nickname or email",
         "selectedUser": "Selected user",
         "roleLabel": "Role",
@@ -238,6 +240,10 @@
         "userManagement": {
             "title": "User management",
             "desc": "View, edit, delete, assign rights"
+        },
+        "defaultTasks": {
+            "title": "Default Tasks",
+            "desc": "Manage task templates for classes"
         },
         "projectManagement": {
             "title": "Project management",
@@ -854,6 +860,45 @@
         "title": "File preview",
         "previewNotAvailable": "Preview not available",
         "downloadFile": "Download file"
+    },
+    "adminDefaultTasks": {
+        "title": "Manage Default Tasks",
+        "structure": "Structure",
+        "addDirection": "direction",
+        "editTasks": "✎ tasks",
+        "editDirection": "Edit direction name",
+        "addClass": "Add class",
+        "editingTasksTitle": "Editing tasks: {path}",
+        "taskNumber": "Task {number}",
+        "taskTitlePlaceholder": "Task title",
+        "taskDescriptionLabel": "Task description",
+        "taskDescriptionPlaceholder": "Task description",
+        "startDate": "Start date",
+        "endDate": "End date",
+        "datePlaceholder": "DD.MM.YYYY",
+        "requiredFiles": "Required files",
+        "noRequiredFiles": "No required files",
+        "fileNamePlaceholder": "File name",
+        "fileDescriptionPlaceholder": "Description (optional)",
+        "addTask": "Add task",
+        "promptAddClass": "Enter class name",
+        "classNamePlaceholder": "Class name (e.g., 9th grade)",
+        "errorClassExists": "Class with this name already exists",
+        "errorAddClass": "Error adding class",
+        "confirmDeleteClassTitle": "Delete class",
+        "confirmDeleteClassMessage": "Are you sure you want to delete class \"{label}\"?",
+        "errorDeleteClass": "Error deleting class",
+        "promptAddDirection": "Enter direction name",
+        "directionNamePlaceholder": "Direction name (e.g., Programming)",
+        "errorDirectionExists": "Direction with this name already exists",
+        "errorAddDirection": "Error adding direction",
+        "confirmDeleteDirectionTitle": "Delete direction",
+        "confirmDeleteDirectionMessage": "Are you sure you want to delete direction \"{label}\"?",
+        "errorDeleteDirection": "Error deleting direction",
+        "promptEditDirection": "Enter new direction name",
+        "errorUpdateDirection": "Error updating direction",
+        "saveSuccess": "Saved",
+        "saveError": "Save error"
     }
 
 

@@ -199,17 +199,6 @@
                   {{ $t('projectDetails.unmarkAsOld') }}
                 </button>
               </div>
-
-              <!-- НОВАЯ КНОПКА "ПОКИНУТЬ ПРОЕКТ" – ВИДНА ВСЕМ И ВСЕГДА -->
-              <div class="leave-project-wrapper">
-                <button 
-                  class="leave-project-button" 
-                  @click="leaveProject"
-                  :disabled="deleteInProgress"
-                >
-                  🚪 {{ $t('projectDetails.leaveProject') }}
-                </button>
-              </div>
             </div>
 
             <!-- Правая колонка -->
@@ -676,8 +665,19 @@
       @close="showInviteModal = false"
       @invite="sendInvite"
     />
+
+    <!-- Фиксированная кнопка "Покинуть проект" (только для участников, не единственных) -->
+    <button
+      v-if="canLeaveProject"
+      class="floating-leave-button"
+      @click="leaveProject"
+      :disabled="deleteInProgress"
+    >
+      🚪 {{ $t('projectDetails.leaveProject') }}
+    </button>
   </div>
 </template>
+
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -775,7 +775,8 @@ const canHideComments = computed(() =>
 
 const canInvite = computed(() => 
   userRole.value === 'customer' || 
-  userRole.value === 'supervisor' || 
+  userRole.value === 'supervisor' ||
+  userRole.value == 'executor' ||
   isAdmin.value || 
   isCurator.value
 );
@@ -813,6 +814,14 @@ const isStudent = computed(() => {
 const userPendingRequest = computed(() => {
   if (!authStore.userId || !project.value?.join_requests) return false;
   return project.value.join_requests.some(r => r.user_id === authStore.userId && r.status === 'pending');
+});
+
+// ---- НОВОЕ: условие для отображения кнопки "Покинуть проект" ----
+const canLeaveProject = computed(() => {
+  if (!project.value) return false;
+  if (!userRole.value) return false;               // не участник
+  if (project.value.participants?.length === 1) return false; // единственный участник
+  return true;
 });
 
 // Задачи
@@ -1288,6 +1297,8 @@ const handleTaskUpdate = async (payload: { task: Task; index: number }) => {
     await loadProject(true);
   }
 };
+
+// ---- Выход из проекта ----
 const leaveProject = async () => {
   if (!project.value || !authStore.userId) return;
   if (!confirm(t('projectDetails.confirmLeaveProject'))) return;
@@ -1306,6 +1317,7 @@ const leaveProject = async () => {
     deleteInProgress.value = false;
   }
 };
+
 // ---- Вспомогательные для аватаров ----
 const avatarError = ref<Record<number, boolean>>({});
 const handleAuthorImageError = (id: number) => {
@@ -1321,43 +1333,6 @@ watch(() => route.params.id, () => {
   loadProject(true);
 });
 </script>
-
-<style scoped>
-/* Все стили остаются без изменений – они уже есть в вашем исходном файле */
-/* Добавим стили для новых кнопок */
-.mark-old-button,
-.unmark-old-button {
-  flex: 1;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 50px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.mark-old-button {
-  background: #ff9800;
-  color: white;
-}
-.mark-old-button:hover {
-  background: #e68900;
-}
-.unmark-old-button {
-  background: #2196f3;
-  color: white;
-}
-.unmark-old-button:hover {
-  background: #0b7dda;
-}
-
-/* Остальные стили (дублируются из вашего исходного файла) – они уже есть в вашем проекте */
-/* ... */
-</style>
 
 <style scoped>
 /* Все стили остаются без изменений – они уже есть в вашем исходном файле */
@@ -2169,25 +2144,35 @@ watch(() => route.params.id, () => {
   font-weight: 500;
   box-shadow: var(--shadow);
 }
-.leave-project-button {
-  flex: 1;
-  padding: 12px 20px;
-  border: none;
+
+/* Фиксированная кнопка "Покинуть проект" в правом нижнем углу */
+.floating-leave-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  padding: 12px 24px;
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  border: 1px solid var(--danger-color);
   border-radius: 50px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: var(--danger-bg);
-  color: var(--danger-color);
+  gap: 8px;
+  box-shadow: var(--shadow-strong);
 }
-.leave-project-button:hover {
+
+.floating-leave-button:hover:not(:disabled) {
   background: transparent;
   color: var(--danger-color);
-  border: 1px solid var(--danger-color);
+  border-color: var(--danger-color);
+}
+
+.floating-leave-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

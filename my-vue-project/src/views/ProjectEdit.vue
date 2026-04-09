@@ -119,7 +119,9 @@
             <h2>{{ $t('projectEdit.tasks') }}</h2>
             <div class="task-buttons">
               <button type="button" class="add-task-button" @click="addTask">+ {{ $t('projectEdit.addTask') }}</button>
-              <button type="button" class="add-default-tasks-button" @click="addDefaultTasks">📋 {{ $t('projectEdit.addDefaultTasks') }}</button>
+              <button type="button" class="add-default-tasks-button" @click="showDefaultTasksModal = true">
+                📋 {{ $t('projectEdit.addDefaultTasks') }}
+              </button>
             </div>
           </div>
 
@@ -223,6 +225,13 @@
         </div>
       </form>
     </div>
+
+    <!-- Модальное окно выбора дефолтных задач -->
+    <DefaultTasksModal
+      :show="showDefaultTasksModal"
+      @close="showDefaultTasksModal = false"
+      @add="addSelectedTasks"
+    />
   </div>
 </template>
 
@@ -236,6 +245,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import DefaultTasksModal from '@/components/DefaultTasksModal.vue';
 import type { Project, Task, User, Participant, ProjectRole, Suggestion } from '@/types';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
@@ -257,6 +267,7 @@ const isApplyingSuggestion = ref(false);
 const applyingSuggestionId = ref<string | null>(null);
 
 const saving = ref(false);
+const showDefaultTasksModal = ref(false);
 
 // Уведомления
 const notification = ref({
@@ -343,46 +354,6 @@ type EditableTask = Task & {
 };
 
 const tasks = ref<EditableTask[]>([]);
-
-// --- Дефолтные задачи (пользователь может отредактировать этот массив) ---
-const defaultTasks = ref<Partial<Task>[]>([
-  {
-    title: 'Предзащита 1',
-    body: 'Подготовить тему и техническое задание',
-    status: 'ожидает',
-    timeline: '01.09.2025',
-    timelinend: '20.11.2025',
-    required_files: [
-      { id: uuidv4(), name: 'Техническое задание', description: 'Документ с требованиями' },
-      { id: uuidv4(), name: 'Презентация', description: 'Презентация по теме' }
-    ]
-  },
-  {
-    title: 'Предзащита 2',
-    body: 'Подготовить ТЗ, начальный фрагмент кода и начать пояснительную записку',
-    status: 'ожидает',
-    timeline: '21.11.2025',
-    timelinend: '20.02.2026',
-    required_files: [
-      { id: uuidv4(), name: 'Техническое задание', description: 'Уточнённое ТЗ' },
-      { id: uuidv4(), name: 'Фрагмент кода', description: 'Рабочий прототип' },
-      { id: uuidv4(), name: 'Презентация', description: 'Презентация к предзащите 2' }
-    ]
-  },
-  {
-    title: 'Защита',
-    body: 'Полностью подготовить проект к защите',
-    status: 'ожидает',
-    timeline: '21.02.2026',
-    timelinend: '14.06.2026',
-    required_files: [
-      { id: uuidv4(), name: 'Техническое задание', description: 'Финальное ТЗ' },
-      { id: uuidv4(), name: 'Пояснительная записка', description: 'Полная ПЗ' },
-      { id: uuidv4(), name: 'Презентация', description: 'Итоговая презентация' },
-      { id: uuidv4(), name: 'Код проекта', description: 'Исходный код' }
-    ]
-  }
-]);
 
 // Роль текущего пользователя в проекте
 const userRole = ref<ProjectRole | null>(null);
@@ -667,47 +638,23 @@ function addTask() {
   });
 }
 
-function addDefaultTasks() {
-  // Получаем существующие названия задач (в нижнем регистре)
-  const existingTitles = tasks.value.map(t => t.title.trim().toLowerCase());
-  
-  // Фильтруем дефолтные задачи, оставляя только те, чьи названия не встречаются
-  const newTasksToAdd = defaultTasks.value
-    .filter(task => {
-      const title = task.title?.trim().toLowerCase() || 'новая задача';
-      return !existingTitles.includes(title);
-    })
-    .map(task => {
-      const requiredFiles = (task.required_files || []).map(rf => ({
-        id: uuidv4(),
-        name: rf.name,
-        description: rf.description || ''
-      }));
-      return {
-        title: task.title || 'Новая задача',
-        body: task.body || '',
-        status: task.status || 'ожидает',
-        timeline: task.timeline || '',
-        timelinend: task.timelinend || '',
-        progress: task.progress,
-        subtasks: task.subtasks,
-        comments: task.comments,
-        assigned_to: task.assigned_to,
-        id: task.id,
-        expanded: false,
-        startError: undefined,
-        endError: undefined,
-        required_files: requiredFiles,
-      };
-    });
-  
-  if (newTasksToAdd.length === 0) {
-    showNotification(t('projectEdit.allDefaultTasksAlreadyExist'), 'info');
-    return;
-  }
-  
-  tasks.value.push(...newTasksToAdd);
-  showNotification(t('taskEdit.defaultTasksAdded', { count: newTasksToAdd.length }), 'success');
+// Новая функция: добавление выбранных задач из модального окна
+function addSelectedTasks(newTasks: any[]) {
+  // Преобразуем задачи, добавляем id для обязательных файлов и устанавливаем expanded = false
+  const tasksToAdd = newTasks.map(task => ({
+    ...task,
+    id: undefined,
+    expanded: false,
+    startError: undefined,
+    endError: undefined,
+    required_files: (task.required_files || []).map((rf: any) => ({
+      id: uuidv4(),
+      name: rf.name,
+      description: rf.description || ''
+    }))
+  }));
+  tasks.value.push(...tasksToAdd);
+  showNotification(t('projectEdit.defaultTasksAdded', { count: tasksToAdd.length }), 'success');
 }
 
 function saveTask(index: number) {

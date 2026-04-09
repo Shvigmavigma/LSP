@@ -91,6 +91,12 @@ const routes: Array<RouteRecordRaw> = [
   component: () => import('@/views/Invitations.vue'),
   meta: { requiresAuth: true }
 },
+{
+  path: '/admin/default-tasks',
+  name: 'AdminDefaultTasks',
+  component: () => import('@/views/AdminDefaultTasks.vue'),
+  meta: { requiresAdmin: true }
+},
   ]
 
 const router = createRouter({
