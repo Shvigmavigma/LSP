@@ -22,8 +22,13 @@
                 class="search-result-item"
                 @click="selectUser(user)"
               >
-                <span class="user-nickname">{{ user.nickname }}</span>
-                <span class="user-email">{{ user.email }}</span>
+                <div class="result-info">
+                  <div class="user-nickname">{{ user.nickname }}</div>
+                  <div class="user-email">{{ user.email }}</div>
+                  <div class="user-available-roles">
+                    {{ getAvailableRolesHint(user) }}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -35,20 +40,25 @@
             <button type="button" class="clear-selection" @click="clearSelection">✕</button>
           </div>
 
-          <!-- Выбор роли -->
+          <!-- Выбор роли (только доступные) -->
           <div class="form-group">
             <label for="role">{{ $t('inviteModal.roleLabel') }}</label>
             <select id="role" v-model="role" required>
-              <option value="executor">{{ $t('roles.executor') }}</option>
-              <option value="customer">{{ $t('roles.customer') }}</option>
-              <option value="supervisor">{{ $t('roles.supervisor') }}</option>
-              <option value="expert">{{ $t('roles.expert') }}</option>
-              <option value="curator">{{ $t('roles.curator') }}</option>
+              <option
+                v-for="availableRole in availableRoles"
+                :key="availableRole"
+                :value="availableRole"
+              >
+                {{ getRoleDisplay(availableRole) }}
+              </option>
             </select>
+            <small v-if="availableRoles.length === 0" class="no-roles-hint">
+              {{ $t('inviteModal.noAvailableRoles') }}
+            </small>
           </div>
 
           <div class="modal-actions">
-            <button type="submit" class="invite-btn" :disabled="sending || !selectedUser">
+            <button type="submit" class="invite-btn" :disabled="sending || !selectedUser || availableRoles.length === 0">
               {{ sending ? $t('common.sending') : $t('inviteModal.sendButton') }}
             </button>
             <button type="button" class="cancel-btn" @click="close">{{ $t('common.cancel') }}</button>
@@ -63,12 +73,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'; // computed не нужен, но если ошибка остаётся, добавьте его
+import { ref, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAuthStore } from '@/stores/auth';
 import type { ProjectRole, User } from '@/types';
 import axios from 'axios';
 
 const { t } = useI18n();
+const authStore = useAuthStore();
 
 const props = defineProps<{
   show: boolean;
@@ -89,6 +101,56 @@ const errorMessage = ref('');
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Функция для получения доступных ролей пользователя
+function getAvailableRolesForUser(user: User): ProjectRole[] {
+  if (!user.is_teacher) {
+    // Ученики могут быть только исполнителями
+    return ['executor'];
+  }
+
+  const roles: ProjectRole[] = [];
+
+  // Роли из teacher_info
+  const teacherRoles = user.teacher_info?.roles || [];
+  if (teacherRoles.includes('customer')) roles.push('customer');
+  if (teacherRoles.includes('expert')) roles.push('expert');
+  if (teacherRoles.includes('supervisor')) roles.push('supervisor');
+
+  // Все учителя могут быть исполнителями (если не добавлена роль executor, добавляем)
+  if (!roles.includes('executor')) roles.push('executor');
+
+  // Кураторство – отдельная роль
+  if (user.teacher_info?.curator) {
+    roles.push('curator');
+  }
+
+  return roles;
+}
+
+// Текстовая подсказка для отображения в результатах поиска
+function getAvailableRolesHint(user: User): string {
+  const roles = getAvailableRolesForUser(user);
+  const roleNames = roles.map(r => getRoleDisplay(r));
+  return `${t('inviteModal.availableRoles')}: ${roleNames.join(', ')}`;
+}
+
+// Доступные роли для выбранного пользователя
+const availableRoles = computed<ProjectRole[]>(() => {
+  if (!selectedUser.value) return [];
+  return getAvailableRolesForUser(selectedUser.value);
+});
+
+// При выборе пользователя сбрасываем роль на первую доступную
+watch(selectedUser, (newUser) => {
+  if (newUser) {
+    const roles = getAvailableRolesForUser(newUser);
+    if (roles.length > 0) {
+      role.value = roles[0];
+    }
+  }
+});
+
+// Сброс состояния при открытии модалки
 watch(() => props.show, (val) => {
   if (val) {
     searchQuery.value = '';
@@ -103,16 +165,18 @@ watch(() => props.show, (val) => {
 async function searchUsers() {
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = setTimeout(async () => {
-    if (!searchQuery.value.trim()) {
+    const query = searchQuery.value.trim();
+    if (!query) {
       searchResults.value = [];
       return;
     }
     try {
       const response = await axios.get('/users/', {
-        params: { q: searchQuery.value }
+        params: { q: query }
       });
       // Исключаем текущего пользователя из результатов
-      searchResults.value = response.data.filter((u: User) => u.id !== props.projectId);
+      const currentUserId = authStore.user?.id;
+      searchResults.value = response.data.filter((u: User) => u.id !== currentUserId);
     } catch (err) {
       console.error('Error searching users:', err);
     }
@@ -152,6 +216,17 @@ async function submit() {
 
 function close() {
   emit('close');
+}
+
+function getRoleDisplay(role: ProjectRole): string {
+  const map: Record<ProjectRole, string> = {
+    customer: t('roles.customer'),
+    supervisor: t('roles.supervisor'),
+    expert: t('roles.expert'),
+    executor: t('roles.executor'),
+    curator: t('roles.curator'),
+  };
+  return map[role];
 }
 </script>
 
@@ -209,23 +284,11 @@ function close() {
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(66, 185, 131, 0.2);
 }
-.search-wrapper {
-  position: relative;
-}
-.search-spinner {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--text-secondary);
-  border-top-color: var(--accent-color);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-@keyframes spin {
-  to { transform: translateY(-50%) rotate(360deg); }
+.no-roles-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--danger-color);
+  font-size: 0.8rem;
 }
 .search-results {
   position: absolute;
@@ -253,18 +316,6 @@ function close() {
 .search-result-item:hover {
   background: var(--bg-page);
 }
-.result-avatar {
-  width: 32px;
-  height: 32px;
-  background: var(--accent-color);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 0.9rem;
-}
 .result-info {
   flex: 1;
 }
@@ -276,11 +327,10 @@ function close() {
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
-.no-results {
-  padding: 8px 12px;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  text-align: center;
+.user-available-roles {
+  font-size: 0.7rem;
+  color: var(--accent-color);
+  margin-top: 2px;
 }
 .selected-user {
   display: flex;
@@ -345,14 +395,6 @@ function close() {
 .invite-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-.btn-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid white;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
 }
 .cancel-btn {
   background: var(--bg-card);

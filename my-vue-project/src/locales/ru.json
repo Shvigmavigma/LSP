@@ -131,6 +131,8 @@
     },
     "inviteModal": {
         "title": "Пригласить участника",
+        "availableRoles": "Доступные роли",
+        "noAvailableRoles": "Для этого пользователя нет доступных ролей",
         "userSearchLabel": "Поиск пользователя",
         "userSearchPlaceholder": "Введите никнейм или email",
         "selectedUser": "Выбранный пользователь",
@@ -239,6 +241,10 @@
         "userManagement": {
             "title": "Управление пользователями",
             "desc": "Просмотр, редактирование, удаление, выдача прав"
+        },
+        "defaultTasks": {
+            "title": "Дефолтные задачи",
+            "desc": "Управление шаблонами задач для классов"
         },
         "projectManagement": {
             "title": "Управление проектами",
@@ -502,7 +508,7 @@
     },
     "projectDetails": {
         "markAsOld": "📦 Пометить как старый",
-          "leaveProject": "Покинуть проект",
+        "leaveProject": "Покинуть проект",
         "confirmLeaveProject": "Вы уверены, что хотите покинуть этот проект?",
         "leftProject": "Вы покинули проект",
         "leaveError": "Ошибка при выходе из проекта",
@@ -855,6 +861,45 @@
         "title": "Просмотр файла",
         "previewNotAvailable": "Предварительный просмотр недоступен",
         "downloadFile": "Скачать файл"
+    },
+    "adminDefaultTasks": {
+        "title": "Управление дефолтными задачами",
+        "structure": "Структура",
+        "addDirection": "направление",
+        "editTasks": "✎ задачи",
+        "editDirection": "Редактировать название направления",
+        "addClass": "Добавить класс",
+        "editingTasksTitle": "Редактирование задач: {path}",
+        "taskNumber": "Задача {number}",
+        "taskTitlePlaceholder": "Название задачи",
+        "taskDescriptionLabel": "Описание задачи",
+        "taskDescriptionPlaceholder": "Описание задачи",
+        "startDate": "Дата начала",
+        "endDate": "Дата окончания",
+        "datePlaceholder": "ДД.ММ.ГГГГ",
+        "requiredFiles": "Обязательные файлы",
+        "noRequiredFiles": "Нет обязательных файлов",
+        "fileNamePlaceholder": "Название файла",
+        "fileDescriptionPlaceholder": "Описание (необязательно)",
+        "addTask": "Добавить задачу",
+        "promptAddClass": "Введите название класса",
+        "classNamePlaceholder": "Название класса (например, 9 класс)",
+        "errorClassExists": "Класс с таким названием уже существует",
+        "errorAddClass": "Ошибка при добавлении класса",
+        "confirmDeleteClassTitle": "Удалить класс",
+        "confirmDeleteClassMessage": "Вы уверены, что хотите удалить класс \"{label}\"?",
+        "errorDeleteClass": "Ошибка при удалении класса",
+        "promptAddDirection": "Введите название направления",
+        "directionNamePlaceholder": "Название направления (например, Программирование)",
+        "errorDirectionExists": "Направление с таким названием уже существует",
+        "errorAddDirection": "Ошибка при добавлении направления",
+        "confirmDeleteDirectionTitle": "Удалить направление",
+        "confirmDeleteDirectionMessage": "Вы уверены, что хотите удалить направление \"{label}\"?",
+        "errorDeleteDirection": "Ошибка при удалении направления",
+        "promptEditDirection": "Введите новое название направления",
+        "errorUpdateDirection": "Ошибка при обновлении направления",
+        "saveSuccess": "Сохранено",
+        "saveError": "Ошибка сохранения"
     }
 
 }

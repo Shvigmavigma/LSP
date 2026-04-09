@@ -26,6 +26,11 @@
           <span class="card-desc">{{ $t('adminPanel.allowedEmails.desc') }}</span>
         </router-link>
 
+        <router-link to="/admin/default-tasks" class="menu-card">
+          <span class="card-title"> {{ $t('adminPanel.defaultTasks.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.defaultTasks.desc') }}</span>
+        </router-link>
+
         <div class="menu-card danger" @click="confirmDeleteAllUsers">
           <span class="card-title">{{ $t('adminPanel.deleteAllUsers.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.deleteAllUsers.desc') }}</span>
@@ -116,6 +121,7 @@ async function executeAction() {
 </script>
 
 <style scoped>
+/* стили без изменений */
 .admin-panel {
   min-height: 100vh;
   background: var(--bg-page);

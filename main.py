@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 import json
 from pathlib import Path
 from auth import get_current_admin
+import json
 
 load_dotenv()
 from sqlalchemy.orm.attributes import flag_modified
@@ -34,6 +35,7 @@ from schemas import (
     Suggestion, SuggestionCreate, SuggestionStatus,
     InvitationCreate, InvitationInfo,
     ProjectFileResponse, InvitationResponse, 
+    RequiredFile, TaskTemplate
 )
 
 from willow import Image
@@ -58,6 +60,7 @@ from core.memory_store import memory_store as redis_client
 
 app = FastAPI(title="School Platform API", description="API для управления учениками, учителями и проектами")
 ADMIN_INIT_PASSWORD = os.getenv("ADMIN_INIT_PASSWORD", "SuperMegaSilvaAdmin")
+DEFAULT_TASKS_FILE = "default_tasks.json"
 
 # Настройка CORS
 origins = [
@@ -121,7 +124,22 @@ def get_author_role(user: User, project: Project) -> str:
             }
             return role_names.get(role, role)
     return "Участник"
+def load_default_tasks() -> Dict[str, Any]:
+    if not os.path.exists(DEFAULT_TASKS_FILE):
+        initial = {
+            "8": {"label": "8 класс", "tasks": []},
+            "10": {"label": "10 класс", "directions": {}},
+            "11": {"label": "11 класс", "directions": {}}
+        }
+        with open(DEFAULT_TASKS_FILE, "w", encoding="utf-8") as f:
+            json.dump(initial, f, ensure_ascii=False, indent=2)
+        return initial
+    with open(DEFAULT_TASKS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
 
+def save_default_tasks(data: Dict[str, Any]):
+    with open(DEFAULT_TASKS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 # ==================== ЭНД ТОКЕНОВ ====================
 @app.post("/token", response_model=TokenResponse, tags=["Auth"])
 async def token_login(
@@ -457,6 +475,9 @@ async def check_student_email(request: dict):
         )
 
 # ==================== УЧЕНИКИ ====================
+@app.get("/default-tasks", tags=["DefaultTasks"])
+async def get_default_tasks(current_user: User = Depends(get_current_user)):
+    return load_default_tasks()
 @app.post("/students/", response_model=StudentResponse, tags=["Students"])
 async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     existing_nickname = db.query(User).filter(User.nickname == student.nickname.strip()).first()
@@ -1930,6 +1951,126 @@ async def get_accepted_teacher_emails(
         return {"accepted_emails": [], "domains": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка чтения файла: {str(e)}")
+@app.put("/admin/default-tasks/class/{class_key}/direction/{direction_key}", tags=["Admin"])
+async def update_direction(
+    class_key: str,
+    direction_key: str,
+    data: dict = Body(...),
+    admin: User = Depends(get_current_admin)
+):
+    default_tasks = load_default_tasks()
+    if class_key not in default_tasks:
+        raise HTTPException(404, "Class not found")
+    if "directions" not in default_tasks[class_key] or direction_key not in default_tasks[class_key]["directions"]:
+        raise HTTPException(404, "Direction not found")
+    
+    new_label = data.get("new_label")
+    new_key = data.get("new_key")
+    
+    if new_label:
+        default_tasks[class_key]["directions"][direction_key]["label"] = new_label
+    if new_key and new_key != direction_key:
+        if new_key in default_tasks[class_key]["directions"]:
+            raise HTTPException(400, "Direction key already exists")
+        default_tasks[class_key]["directions"][new_key] = default_tasks[class_key]["directions"][direction_key]
+        del default_tasks[class_key]["directions"][direction_key]
+    
+    save_default_tasks(default_tasks)
+    return {"message": "Direction updated"}
+@app.put("/admin/default-tasks", tags=["Admin"])
+async def update_default_tasks_full(
+    data: Dict[str, Any] = Body(...),
+    admin: User = Depends(get_current_admin)
+):
+    save_default_tasks(data)
+    return {"message": "Default tasks updated"}
+
+@app.post("/admin/default-tasks/class", tags=["Admin"])
+async def add_class(
+    class_key: str = Body(...),
+    label: str = Body(...),
+    admin: User = Depends(get_current_admin)
+):
+    data = load_default_tasks()
+    if class_key in data:
+        raise HTTPException(400, "Class already exists")
+    data[class_key] = {"label": label, "tasks": []}
+    save_default_tasks(data)
+    return {"message": "Class added"}
+
+@app.delete("/admin/default-tasks/class/{class_key}", tags=["Admin"])
+async def delete_class(
+    class_key: str,
+    admin: User = Depends(get_current_admin)
+):
+    data = load_default_tasks()
+    if class_key not in data:
+        raise HTTPException(404, "Class not found")
+    del data[class_key]
+    save_default_tasks(data)
+    return {"message": "Class deleted"}
+
+@app.post("/admin/default-tasks/class/{class_key}/direction", tags=["Admin"])
+async def add_direction(
+    class_key: str,
+    direction_key: str = Body(...),
+    label: str = Body(...),
+    admin: User = Depends(get_current_admin)
+):
+    data = load_default_tasks()
+    if class_key not in data:
+        raise HTTPException(404, "Class not found")
+    if "directions" not in data[class_key]:
+        data[class_key]["directions"] = {}
+    if direction_key in data[class_key]["directions"]:
+        raise HTTPException(400, "Direction already exists")
+    data[class_key]["directions"][direction_key] = {"label": label, "tasks": []}
+    save_default_tasks(data)
+    return {"message": "Direction added"}
+
+@app.delete("/admin/default-tasks/class/{class_key}/direction/{direction_key}", tags=["Admin"])
+async def delete_direction(
+    class_key: str,
+    direction_key: str,
+    admin: User = Depends(get_current_admin)
+):
+    data = load_default_tasks()
+    if class_key not in data or "directions" not in data[class_key]:
+        raise HTTPException(404, "Class or directions not found")
+    if direction_key not in data[class_key]["directions"]:
+        raise HTTPException(404, "Direction not found")
+    del data[class_key]["directions"][direction_key]
+    save_default_tasks(data)
+    return {"message": "Direction deleted"}
+
+@app.put("/admin/default-tasks/class/{class_key}/tasks", tags=["Admin"])
+async def update_class_tasks(
+    class_key: str,
+    tasks: List[TaskTemplate] = Body(...),
+    admin: User = Depends(get_current_admin)
+):
+    data = load_default_tasks()
+    if class_key not in data:
+        raise HTTPException(404, "Class not found")
+    data[class_key]["tasks"] = [t.dict() for t in tasks]
+    save_default_tasks(data)
+    return {"message": "Tasks updated"}
+
+@app.put("/admin/default-tasks/class/{class_key}/direction/{direction_key}/tasks", tags=["Admin"])
+async def update_direction_tasks(
+    class_key: str,
+    direction_key: str,
+    tasks: List[TaskTemplate] = Body(...),
+    admin: User = Depends(get_current_admin)
+):
+    data = load_default_tasks()
+    if class_key not in data or "directions" not in data[class_key]:
+        raise HTTPException(404, "Class or directions not found")
+    if direction_key not in data[class_key]["directions"]:
+        raise HTTPException(404, "Direction not found")
+    data[class_key]["directions"][direction_key]["tasks"] = [t.dict() for t in tasks]
+    save_default_tasks(data)
+    return {"message": "Tasks updated"}
 
 @app.put("/admin/accepted-emails/teachers", tags=["Admin"])
 async def update_accepted_teacher_emails(
@@ -1990,8 +2131,8 @@ async def create_invitation(
     # Проверяем права приглашающего
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
-        if role not in [ProjectRole.CUSTOMER.value, ProjectRole.SUPERVISOR.value]:
-            raise HTTPException(403, "Only customer, supervisor, curator or admin can invite")
+        if role not in [ProjectRole.CUSTOMER.value, ProjectRole.SUPERVISOR.value, ProjectRole.EXECUTOR.value]:
+            raise HTTPException(403, "Only customer, supervisor, executor, curator or admin can invite")
     # Проверяем, что приглашаемый существует
     invited_user = db.query(User).filter(User.id == invite.invited_user_id).first()
     if not invited_user:
@@ -2003,6 +2144,7 @@ async def create_invitation(
     existing = db.query(Invitation).filter(
         Invitation.project_id == invite.project_id,
         Invitation.invited_user_id == invite.invited_user_id,
+        Invitation.role == invite.role.value,
         Invitation.status == "pending"
     ).first()
     if existing:

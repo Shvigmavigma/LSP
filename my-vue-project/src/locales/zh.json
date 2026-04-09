@@ -132,6 +132,8 @@
     "inviteModal": {
         "title": "邀请参与者",
         "userSearchLabel": "搜索用户",
+        "availableRoles": "可用角色",
+        "noAvailableRoles": "此用户没有可用角色",
         "userSearchPlaceholder": "输入昵称或邮箱",
         "selectedUser": "已选用户",
         "roleLabel": "角色",
@@ -239,6 +241,10 @@
         "userManagement": {
             "title": "用户管理",
             "desc": "查看、编辑、删除、分配权限"
+        },
+        "defaultTasks": {
+            "title": "默认任务",
+            "desc": "管理班级任务模板"
         },
         "projectManagement": {
             "title": "项目管理",
@@ -501,12 +507,12 @@
     },
     "projectDetails": {
         "markAsOld": "📦 标记为旧项目",
-                "leaveProject": "退出项目",
-                "confirmLeaveProject": "您确定要退出此项目吗？",
-                "leftProject": "您已退出项目",
-                "leaveError": "退出项目时出错",
-                "cannotLeaveLastParticipant": "您不能退出项目，因为您是唯一的参与者",
-                "notParticipant": "您不是此项目的参与者",
+        "leaveProject": "退出项目",
+        "confirmLeaveProject": "您确定要退出此项目吗？",
+        "leftProject": "您已退出项目",
+        "leaveError": "退出项目时出错",
+        "cannotLeaveLastParticipant": "您不能退出项目，因为您是唯一的参与者",
+        "notParticipant": "您不是此项目的参与者",
         "unmarkAsOld": "🔄 取消旧标记",
         "oldProject": "旧项目",
         "oldProjectReadOnly": "此项目已标记为旧项目，仅可查看。禁止编辑。",
@@ -853,5 +859,45 @@
         "title": "文件预览",
         "previewNotAvailable": "无法预览",
         "downloadFile": "下载文件"
+    },
+    "adminDefaultTasks": {
+        "title": "管理默认任务",
+        "structure": "结构",
+        "addDirection": "方向",
+        "editTasks": "✎ 任务",
+        "editDirection": "编辑方向名称",
+        "addClass": "添加班级",
+        "editingTasksTitle": "编辑任务：{path}",
+        "taskNumber": "任务 {number}",
+        "taskTitlePlaceholder": "任务标题",
+        "taskDescriptionLabel": "任务描述",
+        "taskDescriptionPlaceholder": "任务描述",
+        "startDate": "开始日期",
+        "endDate": "结束日期",
+        "datePlaceholder": "日.月.年",
+        "requiredFiles": "必需文件",
+        "noRequiredFiles": "没有必需文件",
+        "fileNamePlaceholder": "文件名",
+        "fileDescriptionPlaceholder": "描述（可选）",
+        "addTask": "添加任务",
+        "promptAddClass": "输入班级名称",
+        "classNamePlaceholder": "班级名称（例如，9年级）",
+        "errorClassExists": "已存在同名的班级",
+        "errorAddClass": "添加班级时出错",
+        "confirmDeleteClassTitle": "删除班级",
+        "confirmDeleteClassMessage": "确定要删除班级“{label}”吗？",
+        "errorDeleteClass": "删除班级时出错",
+        "promptAddDirection": "输入方向名称",
+        "directionNamePlaceholder": "方向名称（例如，编程）",
+        "errorDirectionExists": "已存在同名的方向",
+        "errorAddDirection": "添加方向时出错",
+        "confirmDeleteDirectionTitle": "删除方向",
+        "confirmDeleteDirectionMessage": "确定要删除方向“{label}”吗？",
+        "errorDeleteDirection": "删除方向时出错",
+        "promptEditDirection": "输入新的方向名称",
+        "errorUpdateDirection": "更新方向时出错",
+        "saveSuccess": "已保存",
+        "saveError": "保存错误"
+
     }
 }

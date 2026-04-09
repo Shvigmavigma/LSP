@@ -577,13 +577,19 @@ async function handleSubmit() {
     }
   }
 
-  const projectData = {
+  // Базовый объект без is_old
+  const projectData: any = {
     title: form.title,
     body: form.body,
     underbody: form.underbody || '',
     participants: participants.value,
     tasks: tasks.value.map(({ expanded, startError, endError, id, ...task }) => task),
   };
+
+  // Только для нового проекта добавляем is_old: false
+  if (isNew) {
+    projectData.is_old = false;
+  }
 
   saving.value = true;
 
