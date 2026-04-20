@@ -2,33 +2,56 @@
   <div class="main-menu">
     <header class="menu-header">
       <div class="header-left"></div>
-      <h1 class="welcome-message">
-        {{ $t('common.welcome') }}, <span class="username">{{ greetingName }}</span>!
-      </h1>
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
         <button class="invitations-button" @click="goTo('invitations')">
-          ✉️ {{ $t('navigation.invitations') }}
+           {{ $t('navigation.invitations') }}
           <span v-if="invitationsCount > 0" class="invitations-badge">{{ invitationsCount }}</span>
         </button>
-        <button class="profile-button" @click="goTo('profile')">{{ $t('navigation.profile') }}</button>
+        <button class="profile-button" @click="goTo('profile')">
+           {{ greetingName }}
+        </button>
       </div>
     </header>
 
     <div class="menu-container">
       <div class="menu-grid">
         <template v-if="!authStore.user?.is_admin">
-          <button class="menu-item" @click="goTo('my-projects')">{{ $t('navigation.my_projects') }}</button>
-          <button class="menu-item" @click="goTo('users')">{{ $t('navigation.all_users') }}</button>
-          <button class="menu-item" @click="goTo('old-projects')">{{ $t('navigation.old_projects') }}</button>
-          <button class="menu-item" @click="goTo('projects')">{{ $t('navigation.all_projects') }}</button>
+          <button class="menu-item" @click="goTo('my-projects')">
+            <img class="menu-item-image" :src="myProjectsIcon" alt="My Projects" />
+            <span class="menu-item-text">{{ $t('navigation.my_projects') }}</span>
+          </button>
+          <button class="menu-item" @click="goTo('users')">
+            <img class="menu-item-image" :src="usersIcon" alt="Users" />
+            <span class="menu-item-text">{{ $t('navigation.all_users') }}</span>
+          </button>
+          <button class="menu-item" @click="goTo('old-projects')">
+            <img class="menu-item-image" :src="oldProjectsIcon" alt="Old Projects" />
+            <span class="menu-item-text">{{ $t('navigation.old_projects') }}</span>
+          </button>
+          <button class="menu-item" @click="goTo('projects')">
+            <img class="menu-item-image" :src="projectsIcon" alt="All Projects" />
+            <span class="menu-item-text">{{ $t('navigation.all_projects') }}</span>
+          </button>
         </template>
         <template v-else>
-          <button class="menu-item" @click="goTo('users')">{{ $t('navigation.all_users') }}</button>
-          <button class="menu-item" @click="goTo('projects')">{{ $t('navigation.all_projects') }}</button>
-          <button class="menu-item" @click="goTo('old-projects')">{{ $t('navigation.old_projects') }}</button>
-          <button class="menu-item admin-button" @click="goTo('admin')">⚙️ {{ $t('navigation.admin_panel') }}</button>
+          <button class="menu-item" @click="goTo('users')">
+            <img class="menu-item-image" src="https://www.svgrepo.com/show/78268/users.svg" alt="Users" />
+            <span class="menu-item-text">{{ $t('navigation.all_users') }}</span>
+          </button>
+          <button class="menu-item" @click="goTo('projects')">
+            <img class="menu-item-image" src="https://www.svgrepo.com/show/146205/document.svg" alt="All Projects" />
+            <span class="menu-item-text">{{ $t('navigation.all_projects') }}</span>
+          </button>
+          <button class="menu-item" @click="goTo('old-projects')">
+            <img class="menu-item-image" src="https://www.svgrepo.com/show/146205/document.svg" alt="Old Projects" />
+            <span class="menu-item-text">{{ $t('navigation.old_projects') }}</span>
+          </button>
+          <button class="menu-item admin-button" @click="goTo('admin')">
+            <img class="menu-item-image" src="https://www.svgrepo.com/show/146205/document.svg" alt="Admin Panel" />
+            <span class="menu-item-text">⚙️ {{ $t('navigation.admin_panel') }}</span>
+          </button>
         </template>
       </div>
     </div>
@@ -46,6 +69,10 @@ import { useRouter } from 'vue-router';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import axios from 'axios';
+import usersIcon from '@/assets/imgs/users.svg';
+import projectsIcon from '@/assets/imgs/projects.png';
+import oldProjectsIcon from '@/assets/imgs/projectsOLD.png';
+import myProjectsIcon from '@/assets/imgs/myProjects.svg';
 import '@fortawesome/fontawesome-free/css/all.css';
 
 const authStore = useAuthStore();
@@ -88,11 +115,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ---- существующие стили (сохранить) ---- */
 .main-menu {
   min-height: 100vh;
   background: var(--bg-page);
-  padding: 2rem;
+  padding: clamp(1rem, 4vw, 2rem);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -100,57 +126,58 @@ onMounted(() => {
 }
 
 .menu-header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  margin-bottom: 3rem;
+  margin-bottom: clamp(1.5rem, 5vw, 3rem);
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.welcome-message {
-  font-size: 2rem;
-  font-weight: 400;
-  color: var(--heading-color);
-  margin: 0;
-  text-align: center;
-}
-
-.username {
-  font-weight: 500;
-  color: var(--heading-color);
+.header-left {
+  flex: 1;
 }
 
 .header-actions {
   display: flex;
-  gap: 10px;
-  justify-self: end;
+  gap: clamp(0.5rem, 2vw, 1rem);
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .invitations-button,
 .profile-button {
-  background: var(--accent-color);
-  border: none;
-  border-radius: 40px;
-  padding: 0.8rem 1.8rem;
-  font-size: 1.1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: clamp(0.5rem, 1.5vw, 0.8rem) clamp(1rem, 2.5vw, 1.8rem);
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
   font-weight: 500;
-  color: var(--button-text);
+  color: var(--text-primary);
   cursor: pointer;
   box-shadow: var(--shadow);
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   position: relative;
+  white-space: nowrap;
 }
 
 .invitations-button:hover,
 .profile-button:hover {
-  background: var(--accent-hover);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-strong);
+  border-color: var(--accent-color);
+  color: var(--heading-color);
 }
 
-/* Красная метка внутри кнопки (увеличенный кружок) */
+.invitations-button:active,
+.profile-button:active {
+  transform: none;
+}
+
 .invitations-badge {
   display: inline-flex;
   align-items: center;
@@ -158,14 +185,30 @@ onMounted(() => {
   background-color: #f44336;
   color: white;
   border-radius: 50%;
-  min-width: 26px;
-  height: 26px;
-  font-size: 13px;
+  min-width: 20px;
+  height: 20px;
+  font-size: 11px;
   font-weight: bold;
-  padding: 0 6px;
+  padding: 0 4px;
   margin-left: 6px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .invitations-button,
+  .profile-button {
+    white-space: normal;
+    word-break: keep-all;
+  }
+}
+
+@media (max-width: 480px) {
+  .invitations-badge {
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
 }
 
 .menu-container {
@@ -178,43 +221,97 @@ onMounted(() => {
 .menu-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: clamp(1rem, 3vw, 2rem);
   width: 100%;
   align-items: stretch;
+}
+
+@media (max-width: 600px) {
+  .menu-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 }
 
 .menu-item {
   background: var(--bg-card);
   backdrop-filter: blur(4px);
   border: 1px solid var(--border-color);
-  border-radius: 32px;
-  padding: 2rem 1rem;
-  font-size: 1.8rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  border-radius: 24px;
+  padding: clamp(1rem, 4vw, 2rem);
   cursor: pointer;
   box-shadow: var(--shadow);
-  transition: background 0.2s ease, box-shadow 0.2s ease;
-  text-align: center;
+  transition: all 0.2s ease;
+  text-align: left;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  width: 100%;
+  min-height: 200px;
+  word-break: break-word;
+  position: relative;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.menu-item-image {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  opacity: 0.3;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 0;
+}
+
+.menu-item-text {
+  font-size: clamp(1rem, 4vw, 1.8rem);
+  font-weight: 600;
+  color: white;
+  display: block;
+  margin: 0;
+  line-height: 1.3;
+  text-align: left;
+  position: relative;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
 }
 
 .menu-item:hover {
   background: var(--bg-card);
   box-shadow: var(--shadow-strong);
   border-color: var(--accent-color);
-  color: var(--heading-color);
+}
+
+.menu-item:hover .menu-item-text {
+  color: white;
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.menu-item:hover .menu-item-image {
+  opacity: 0.5;
+  transform: scale(1.05);
+}
+
+.menu-item:active {
+  transform: none;
 }
 
 .admin-button {
   background: var(--danger-color) !important;
-  color: white;
 }
+
+.admin-button .menu-item-text {
+  color: white;
+  background: rgba(0, 0, 0, 0.7);
+}
+
 .admin-button:hover {
   background: var(--danger-hover) !important;
 }
@@ -223,15 +320,17 @@ onMounted(() => {
   cursor: pointer;
   position: relative;
   display: inline-block;
-  width: 60px;
-  height: 60px;
-  border-radius: 30px;
+  width: clamp(50px, 8vw, 60px);
+  height: clamp(50px, 8vw, 60px);
+  border-radius: 20px;
   overflow: hidden;
   align-self: flex-end;
-  margin-top: 2rem;
+  margin-top: clamp(1rem, 3vw, 2rem);
   background: transparent;
   border: none;
   padding: 0;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
 }
 
 .logout-button::before,
@@ -243,7 +342,7 @@ onMounted(() => {
   height: 100%;
   width: 100%;
   transition: all 0.25s ease;
-  border-radius: 30px;
+  border-radius: 20px;
 }
 
 .logout-button::after {
@@ -262,25 +361,22 @@ onMounted(() => {
 .logout-button i {
   position: relative;
   color: var(--danger-color);
-  font-size: 30px;
-  line-height: 60px;
+  font-size: clamp(24px, 5vw, 30px);
+  line-height: 1;
   transition: all 0.25s ease;
   z-index: 1;
   display: inline-block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .logout-button:hover i {
   color: white;
 }
 
-.logout-button:not(:hover)::before,
-.logout-button:not(:hover)::after,
-.logout-button:not(:hover) i {
-  transition: all 0.25s ease;
-}
-
 .logout-button:active {
-  transform: scale(0.95);
-  transition: transform 0.1s ease;
+  transform: none;
 }
 </style>
