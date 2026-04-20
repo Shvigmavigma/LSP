@@ -60,9 +60,9 @@
         "main_menu": "Главное меню",
         "invitations": "Приглашения",
         "my_projects": "Мои проекты",
-        "all_users": "Все пользователи",
+        "all_users": "пользователи",
         "old_projects": "Старые проекты",
-        "all_projects": "Все проекты",
+        "all_projects": "проекты",
         "admin_panel": "Админ-панель",
         "profile": "Профиль",
         "logout": "Выйти"

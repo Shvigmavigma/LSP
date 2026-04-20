@@ -1,88 +1,158 @@
 <template>
-  <button
-    class="theme-toggle-switch"
-    @click="toggleTheme"
-    :title="titleText"
-    :aria-label="titleText"
-    role="switch"
-    :aria-checked="isDark"
-  >
-    <span v-if="!isDark" class="theme-icon sun">☀️</span>
-    <span v-else class="theme-icon moon">🌙</span>
-    <span class="toggle-slider" :class="{ dark: isDark }"></span>
-  </button>
+  <div class="theme-switch-wrapper">
+    <input
+      type="checkbox"
+      :id="switchId"
+      :checked="isDark"
+      @change="toggleTheme"
+    />
+    <label :for="switchId">
+      <div id="star">
+        <div class="star" id="star-1"></div>
+      </div>
+      <div id="moon"></div>
+    </label>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { useThemeStore } from '@/stores/theme';
-import { useI18n } from 'vue-i18n';
 import { computed } from 'vue';
 
 const themeStore = useThemeStore();
-const { t } = useI18n();
 
 const isDark = computed(() => themeStore.isDark);
+const switchId = computed(() => `toggle_checkbox_${Math.random()}`);
 
-const titleText = computed(() =>
-  isDark.value ? t('theme.light') : t('theme.dark')
-);
-
-const toggleTheme = () => {
-  themeStore.toggleTheme();
+const toggleTheme = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.checked !== isDark.value) {
+    themeStore.toggleTheme();
+  }
 };
 </script>
 
 <style scoped>
-.theme-toggle-switch {
+* {
+  user-select: none;
+}
+
+.theme-switch-wrapper {
+  display: inline-block;
   position: relative;
-  width: 72px;
-  height: 34px;
-  border-radius: 34px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  width: 116px;
+  height: 56px;
+}
+
+#toggle_checkbox {
+  display: none;
+}
+
+.theme-switch-wrapper label {
+  display: block;
+  position: relative;
+  width: 116px;
+  height: 56px;
+  background-color: var(--bg-card);
+  border-radius: 56px;
   cursor: pointer;
-  transition: background 0.2s;
-  box-shadow: var(--shadow);
+  transition: 0.3s ease background-color;
+  overflow: hidden;
 }
 
-.theme-icon {
+.theme-switch-wrapper #star {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 1.2rem;
-  line-height: 1;
-  z-index: 2;
-  transition: opacity 0.2s;
-}
-
-.sun {
-  left: 8%;
-  top: calc(50% + 1px);
-}
-
-.moon {
-  right: 3px;
-}
-
-.theme-toggle-switch .toggle-slider {
-  position: absolute;
-  top: 2px;
-  left: 5px;
-  width: 28px;
-  height: 28px;
+  top: 8px;
+  left: 8px;
+  width: 40px;
+  height: 40px;
+  background-color: #fdc10f;
+  transform: scale(1);
   border-radius: 50%;
-  background: var(--accent-color);
-  transition: transform 0.25s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: 0.3s ease top, 0.3s ease left, 0.3s ease transform, 0.3s ease background-color;
   z-index: 1;
 }
 
-/* Уменьшенный диапазон перемещения: 28px вместо 37 */
-.theme-toggle-switch .toggle-slider.dark {
-  transform: translateX(35px);
+.theme-switch-wrapper #star-1 {
+  position: relative;
 }
 
-.theme-toggle-switch:hover {
-  box-shadow: var(--shadow-strong);
+.theme-switch-wrapper #star-2 {
+  position: absolute;
+  transform: rotateZ(36deg);
+}
+
+.theme-switch-wrapper .star {
+  top: -3px;
+  left: -5px;
+  font-size: 54px;
+  line-height: 28px;
+  color: #fafd0f;
+  transition: 0.3s ease color;
+}
+
+.theme-switch-wrapper #moon {
+  position: absolute;
+  bottom: -52px;
+  right: 8px;
+  width: 40px;
+  height: 40px;
+  background-color: #fff;
+  border-radius: 50%;
+  transition: 0.3s ease bottom;
+}
+
+.theme-switch-wrapper #moon:before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  left: -17px;
+  width: 40px;
+  height: 40px;
+  background-color: var(--bg-card);
+  border-radius: 50%;
+  transition: 0.3s ease background-color;
+}
+
+/* Тёмная тема (когда чекбокс отмечен) */
+.theme-switch-wrapper input:checked + label {
+  background-color: var(--bg-card);
+}
+
+.theme-switch-wrapper input:checked + label #star {
+  top: 3px;
+  left: 64px;
+  transform: scale(0.3);
+  background-color: yellow;
+}
+
+.theme-switch-wrapper input:checked + label .star {
+  color: yellow;
+}
+
+.theme-switch-wrapper input:checked + label #moon {
+  bottom: 8px;
+}
+
+.theme-switch-wrapper input:checked + label #moon:before {
+  background-color: var(--bg-card);
+}
+
+/* Скрываем стандартный чекбокс */
+.theme-switch-wrapper input {
+  display: none;
+}
+
+/* Адаптация для маленьких экранов */
+@media (max-width: 768px) {
+  .theme-switch-wrapper {
+    transform: scale(0.8);
+  }
+}
+
+@media (max-width: 480px) {
+  .theme-switch-wrapper {
+    transform: scale(0.7);
+  }
 }
 </style>
