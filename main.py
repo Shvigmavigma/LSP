@@ -40,7 +40,7 @@ from schemas import (
 
 from willow import Image
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
-
+#sosal
 from auth import (
     verify_password,
     get_password_hash,
