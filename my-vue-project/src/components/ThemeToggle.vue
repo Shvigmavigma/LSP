@@ -40,8 +40,8 @@ const toggleTheme = (event: Event) => {
 .theme-switch-wrapper {
   display: inline-block;
   position: relative;
-  width: 116px;
-  height: 56px;
+  width: 100px;
+  height: 45px;
 }
 
 #toggle_checkbox {
@@ -51,10 +51,10 @@ const toggleTheme = (event: Event) => {
 .theme-switch-wrapper label {
   display: block;
   position: relative;
-  width: 116px;
-  height: 56px;
+  width: 100px;
+  height: 45px;
   background-color: var(--bg-card);
-  border-radius: 56px;
+  border-radius: 25px;
   cursor: pointer;
   transition: 0.3s ease background-color;
   overflow: hidden;
@@ -62,10 +62,10 @@ const toggleTheme = (event: Event) => {
 
 .theme-switch-wrapper #star {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 40px;
-  height: 40px;
+  top: 7.5px;
+  left: 7.5px;
+  width: 30px;
+  height: 30px;
   background-color: #fdc10f;
   transform: scale(1);
   border-radius: 50%;
@@ -83,20 +83,20 @@ const toggleTheme = (event: Event) => {
 }
 
 .theme-switch-wrapper .star {
-  top: -3px;
-  left: -5px;
+  top: 0px;
+  left: 10px;
   font-size: 54px;
   line-height: 28px;
-  color: #fafd0f;
+  color: #fdc10f;
   transition: 0.3s ease color;
 }
 
 .theme-switch-wrapper #moon {
   position: absolute;
   bottom: -52px;
-  right: 8px;
-  width: 40px;
-  height: 40px;
+  right: 7.5px;
+  width: 30px;
+  height: 30px;
   background-color: #fff;
   border-radius: 50%;
   transition: 0.3s ease bottom;
@@ -105,10 +105,10 @@ const toggleTheme = (event: Event) => {
 .theme-switch-wrapper #moon:before {
   content: "";
   position: absolute;
-  top: -12px;
-  left: -17px;
-  width: 40px;
-  height: 40px;
+  top: -6px;
+  left: -8px;
+  width: 30px;
+  height: 30px;
   background-color: var(--bg-card);
   border-radius: 50%;
   transition: 0.3s ease background-color;
@@ -120,18 +120,18 @@ const toggleTheme = (event: Event) => {
 }
 
 .theme-switch-wrapper input:checked + label #star {
-  top: 3px;
-  left: 64px;
+  top: 2.5px;
+  left: 56px;
   transform: scale(0.3);
-  background-color: yellow;
+  background-color: #fdc10f;
 }
 
 .theme-switch-wrapper input:checked + label .star {
-  color: yellow;
+  color: #fdc10f;
 }
 
 .theme-switch-wrapper input:checked + label #moon {
-  bottom: 8px;
+  bottom: 7.5px;
 }
 
 .theme-switch-wrapper input:checked + label #moon:before {

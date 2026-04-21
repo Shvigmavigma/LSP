@@ -65,7 +65,8 @@
         "all_projects": "جميع المشاريع",
         "admin_panel": "لوحة الإدارة",
         "profile": "الملف الشخصي",
-        "logout": "تسجيل الخروج"
+        "logout": "تسجيل الخروج",
+        "old_projects_hover":"المشاريع القديمة"
     },
     "project": {
         "title": "عنوان المشروع",
@@ -205,6 +206,15 @@
         "light": "الوضع الفاتح",
         "dark": "الوضع الداكن"
     },
+    
+  "defaultTasksModal": {
+    "title": "إضافة مهمة افتراضية",
+    "selectClass": "اختر الفصل",
+    "preview": "المهام الافتراضية",
+    "add": "إضافة",
+    "requiredFiles": "الملفات المطلوبة"
+  },
+
     "adminEmails": {
         "title": "إدارة البريد الإلكتروني المسموح به",
         "tabs": {
