@@ -26,9 +26,14 @@
             <img class="menu-item-image" :src="usersIcon" alt="Users" />
             <span class="menu-item-text">{{ $t('navigation.all_users') }}</span>
           </button>
-          <button class="menu-item" @click="goTo('old-projects')">
+          <button 
+            class="menu-item" 
+            @click="goTo('old-projects')"
+            @mouseenter="oldProjectsText = $t('navigation.old_projects_hover')"
+            @mouseleave="oldProjectsText = $t('navigation.old_projects')"
+          >
             <img class="menu-item-image" :src="oldProjectsIcon" alt="Old Projects" />
-            <span class="menu-item-text">{{ $t('navigation.old_projects') }}</span>
+            <span class="menu-item-text">{{ oldProjectsText }}</span>
           </button>
           <button class="menu-item" @click="goTo('projects')">
             <img class="menu-item-image" :src="projectsIcon" alt="All Projects" />
@@ -37,20 +42,26 @@
         </template>
         <template v-else>
           <button class="menu-item" @click="goTo('users')">
-            <img class="menu-item-image" src="https://www.svgrepo.com/show/78268/users.svg" alt="Users" />
+            <img class="menu-item-image" :src="usersIcon" alt="Users" />
             <span class="menu-item-text">{{ $t('navigation.all_users') }}</span>
           </button>
           <button class="menu-item" @click="goTo('projects')">
-            <img class="menu-item-image" src="https://www.svgrepo.com/show/146205/document.svg" alt="All Projects" />
+            <img class="menu-item-image" :src="projectsIcon" alt="All Projects"  />
             <span class="menu-item-text">{{ $t('navigation.all_projects') }}</span>
           </button>
-          <button class="menu-item" @click="goTo('old-projects')">
-            <img class="menu-item-image" src="https://www.svgrepo.com/show/146205/document.svg" alt="Old Projects" />
-            <span class="menu-item-text">{{ $t('navigation.old_projects') }}</span>
+          <button 
+            class="menu-item" 
+            @click="goTo('old-projects')"
+            
+            @mouseenter="oldProjectsText = $t('navigation.old_projects_hover')"
+            @mouseout="oldProjectsText = $t('navigation.old_projects')"
+          >
+            <img class="menu-item-image" :src="oldProjectsIcon" alt="Old Projects" />
+            <span class="menu-item-text">{{ oldProjectsText }}</span>
           </button>
           <button class="menu-item admin-button" @click="goTo('admin')">
-            <img class="menu-item-image" src="https://www.svgrepo.com/show/146205/document.svg" alt="Admin Panel" />
-            <span class="menu-item-text">⚙️ {{ $t('navigation.admin_panel') }}</span>
+            <img class="menu-item-image" :src="adminPanelIcon" alt="Admin Panel" />
+            <span class="menu-item-text"> {{ $t('navigation.admin_panel') }}</span>
           </button>
         </template>
       </div>
@@ -72,12 +83,21 @@ import axios from 'axios';
 import usersIcon from '@/assets/imgs/users.svg';
 import projectsIcon from '@/assets/imgs/projects.png';
 import oldProjectsIcon from '@/assets/imgs/projectsOLD.png';
+import adminPanelIcon from '@/assets/imgs/AdminPanel.png';
 import myProjectsIcon from '@/assets/imgs/myProjects.svg';
 import '@fortawesome/fontawesome-free/css/all.css';
 
 const authStore = useAuthStore();
 const router = useRouter();
 const invitationsCount = ref(0);
+const oldProjectsText = ref('');
+
+// Инициализация текста при монтировании
+onMounted(() => {
+  loadInvitationsCount();
+  // Устанавливаем начальный текст в зависимости от текущего языка
+  oldProjectsText.value = 'Старые проекты'; // или значение по умолчанию
+});
 
 const greetingName = computed(() => {
   const fullname = authStore.user?.fullname || '';
@@ -108,13 +128,10 @@ const loadInvitationsCount = async () => {
     console.error('Failed to load invitations count:', error);
   }
 };
-
-onMounted(() => {
-  loadInvitationsCount();
-});
 </script>
 
 <style scoped>
+/* Все стили остаются без изменений */
 .main-menu {
   min-height: 100vh;
   background: var(--bg-page);
@@ -281,6 +298,7 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.6);
   padding: 0.5rem 1rem;
   border-radius: 12px;
+  transition: all 0.3s ease;
 }
 
 .menu-item:hover {

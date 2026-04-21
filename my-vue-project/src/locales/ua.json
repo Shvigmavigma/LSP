@@ -64,7 +64,8 @@
         "all_projects": "Усі проєкти",
         "admin_panel": "Адмін-панель",
         "profile": "Профіль",
-        "logout": "Вийти"
+        "logout": "Вийти",
+        "old_projects_hover":"Старі проєкти"
     },
     "project": {
         "title": "Назва проєкту",
@@ -128,6 +129,15 @@
         "expert": "Експерт",
         "curator": "Куратор"
     },
+    
+  "defaultTasksModal": {
+    "title": "Додати завдання за замовчуванням",
+    "selectClass": "Виберіть клас",
+    "preview": "Завдання за замовчуванням",
+    "add": "Додати",
+    "requiredFiles": "Обов'язкові файли"
+  },
+
     "inviteModal": {
         "title": "Запросити учасника",
         "userSearchLabel": "Пошук користувача",
