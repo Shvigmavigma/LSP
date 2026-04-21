@@ -65,7 +65,8 @@
         "all_projects": "所有项目",
         "admin_panel": "管理面板",
         "profile": "个人资料",
-        "logout": "退出"
+        "logout": "退出",
+        "old_projects_hover":"旧项目"
     },
     "project": {
         "title": "项目名称",
@@ -122,6 +123,13 @@
         "markReadError": "标记评论已读时出错",
         "permanentDeleteSuccess": "评论已永久删除"
     },
+      "defaultTasksModal": {
+    "title": "添加默认任务",
+    "selectClass": "选择班级",
+    "preview": "默认任务",
+    "add": "添加",
+    "requiredFiles": "必需文件"
+  },
     "roles": {
         "executor": "执行者",
         "customer": "客户",

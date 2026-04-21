@@ -64,7 +64,8 @@
         "all_projects": "All Projects",
         "admin_panel": "Admin Panel",
         "profile": "Profile",
-        "logout": "Logout"
+        "logout": "Logout",
+        "old_projects_hover":"Old Projects"
     },
     "project": {
         "title": "Project Title",
@@ -76,6 +77,14 @@
         "create": "Create Project",
         "edit": "Edit Project"
     },
+    
+  "defaultTasksModal": {
+    "title": "Add Default Task",
+    "selectClass": "Select Class",
+    "preview": "Default Tasks",
+    "add": "Add",
+    "requiredFiles": "Required Files"
+  },
     "language": {
         "select": "Select language",
         "russian": "Russian",
