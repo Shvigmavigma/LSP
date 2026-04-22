@@ -1,41 +1,54 @@
-# migrate_add_is_old.py
+"""
+Миграция: добавление столбца required_file_id в таблицу project_files
+Запустить один раз: python migrate_add_required_file_id.py
+"""
+
+import sqlite3
 import os
-from sqlalchemy import create_engine, inspect, text
+from pathlib import Path
+from sqlalchemy import create_engine, text, inspect
 from dotenv import load_dotenv
-from models import Base, Project  # импорт вашей модели Project
 
 load_dotenv()
 
+# Настройка подключения – замените на ваш URL базы данных, если он отличается
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./my_database.db")
-engine = create_engine(DATABASE_URL)
 
-def add_is_old_column():
-    # Создаём все таблицы, если их нет (чтобы models были зарегистрированы)
-    Base.metadata.create_all(engine)
+def run_migration():
+    engine = create_engine(DATABASE_URL)
     
+    # Проверяем, есть ли уже столбец required_file_id
     inspector = inspect(engine)
-    if 'projects' not in inspector.get_table_names():
-        print("Таблица 'projects' не найдена и не была создана")
+    columns = [col['name'] for col in inspector.get_columns('project_files')]
+    
+    if 'required_file_id' in columns:
+        print("✅ Столбец 'required_file_id' уже существует. Миграция не требуется.")
         return
     
-    columns = [col['name'] for col in inspector.get_columns('projects')]
-    if 'is_old' in columns:
-        print("Колонка 'is_old' уже существует")
-        return
+    # Определяем тип столбца в зависимости от диалекта
+    if engine.dialect.name == 'sqlite':
+        alter_query = "ALTER TABLE project_files ADD COLUMN required_file_id VARCHAR;"
+    elif engine.dialect.name == 'postgresql':
+        alter_query = "ALTER TABLE project_files ADD COLUMN required_file_id VARCHAR;"
+    elif engine.dialect.name == 'mysql':
+        alter_query = "ALTER TABLE project_files ADD COLUMN required_file_id VARCHAR(255);"
+    else:
+        # Для других СУБД используем универсальный синтаксис
+        alter_query = "ALTER TABLE project_files ADD COLUMN required_file_id VARCHAR(255);"
     
     with engine.connect() as conn:
-        # Для SQLite
-        if engine.dialect.name == 'sqlite':
-            conn.execute(text("ALTER TABLE projects ADD COLUMN is_old BOOLEAN NOT NULL DEFAULT 0"))
-        elif engine.dialect.name == 'postgresql':
-            conn.execute(text("ALTER TABLE projects ADD COLUMN is_old BOOLEAN NOT NULL DEFAULT false"))
-        elif engine.dialect.name == 'mysql':
-            conn.execute(text("ALTER TABLE projects ADD COLUMN is_old BOOLEAN NOT NULL DEFAULT FALSE"))
-        else:
-            conn.execute(text("ALTER TABLE projects ADD COLUMN is_old BOOLEAN DEFAULT 0"))
-        conn.commit()
-    
-    print("Колонка 'is_old' успешно добавлена")
+        # Начинаем транзакцию (для поддержки отката в случае ошибки)
+        trans = conn.begin()
+        try:
+            conn.execute(text(alter_query))
+            trans.commit()
+            print("✅ Столбец 'required_file_id' успешно добавлен в таблицу project_files.")
+        except Exception as e:
+            trans.rollback()
+            print(f"❌ Ошибка при выполнении миграции: {e}")
+            raise
 
 if __name__ == "__main__":
-    add_is_old_column()
+    # Убедимся, что мы в правильной директории
+    print(f"Текущая директория: {os.getcwd()}")
+    run_migration()

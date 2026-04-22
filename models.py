@@ -57,6 +57,7 @@ class ProjectFile(Base):
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     is_deleted = Column(Boolean, default=False)
     compressed = Column(Boolean, default=False)
+    required_file_id = Column(String, nullable=True)
 class Invitation(Base):
     __tablename__ = "invitations"
 
