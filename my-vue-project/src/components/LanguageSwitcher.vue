@@ -55,7 +55,7 @@ const languages: { code: Locale; name: string }[] = [
   { code: 'ru', name: 'Русский' },
   { code: 'en', name: 'English' },
   { code: 'zh', name: '中文' },
-  { code: 'by', name: 'беларуская' },
+  { code: 'by', name: 'Беларуский' },
   { code: 'ar', name: 'العربية' }
 ]
 
