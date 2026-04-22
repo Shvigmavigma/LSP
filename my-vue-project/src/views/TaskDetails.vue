@@ -16,7 +16,7 @@
         <router-link v-if="canEditTask && !isOldReadOnly" :to="`/project/${projectId}/task/${taskIndex}/edit`">
           <button class="icon-button edit-task-button" :title="$t('common.edit')">✎</button>
         </router-link>
-        <button class="icon-button home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
         <button class="icon-button back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
@@ -289,6 +289,7 @@ import CommentsSection from '@/components/CommentsSection.vue';
 import FilePreviewModal from '@/components/FilePreviewModal.vue';
 import type { Task, SubTask, Comment, ProjectRole, RequiredFile, TaskAttachment } from '@/types';
 import axios from 'axios';
+import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
 const baseUrl = 'http://localhost:8000';
@@ -861,7 +862,6 @@ const confirmExtraChange = async () => {
 };
 
 const goBack = () => router.push(`/project/${projectId}`);
-const goHome = () => router.push('/main');
 </script>
 
 <style scoped>

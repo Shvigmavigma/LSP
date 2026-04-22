@@ -52,6 +52,10 @@ function goHome() {
   height: 40px;
   object-fit: contain;
   display: block;
+    mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  background-color: var(--primary-text);
 }
 
 .home-button:hover .home-button-image {
