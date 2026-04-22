@@ -5,7 +5,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
         <button class="back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
@@ -166,6 +166,7 @@ import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import axios from 'axios';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import HomeButton from '@/components/HomeButton.vue';
 const { t } = useI18n();
 const router = useRouter();
 
@@ -319,7 +320,7 @@ function goBack() {
   display: flex;
   gap: 10px;
 }
-.home-button, .back-button {
+.back-button {
   background: none;
   border: none;
   font-size: 2rem;
@@ -334,7 +335,7 @@ function goBack() {
   transition: background 0.2s;
   color: var(--text-primary);
 }
-.home-button:hover, .back-button:hover {
+.back-button:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 .email-tabs {
