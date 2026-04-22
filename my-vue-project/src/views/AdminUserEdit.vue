@@ -5,7 +5,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
         <button class="back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
@@ -94,6 +94,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import ClassInput from '@/components/ClassInput.vue';
 import axios from 'axios';
 import type { User } from '@/types';
+import HomeButton from '@/components/HomeButton.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 
 const { t } = useI18n();
@@ -206,7 +207,7 @@ function goBack() {
   display: flex;
   gap: 10px;
 }
-.home-button, .back-button {
+ .back-button {
   background: none;
   border: none;
   font-size: 2rem;

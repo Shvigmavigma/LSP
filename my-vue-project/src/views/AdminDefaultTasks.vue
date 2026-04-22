@@ -5,7 +5,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome">🏠</button>
+        <HomeButton/>
         <button class="back-button" @click="goBack">◀</button>
       </div>
     </header>
@@ -145,6 +145,7 @@ import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -448,8 +449,7 @@ onMounted(loadData);
   display: flex;
   gap: 12px;
 }
-
-.home-button, .back-button {
+.back-button {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -463,7 +463,7 @@ onMounted(loadData);
   transition: background 0.2s, border-color 0.2s;
   color: var(--text-primary);
 }
-.home-button:hover, .back-button:hover {
+.back-button:hover {
   background: var(--accent-color);
   color: white;
   border-color: var(--accent-color);

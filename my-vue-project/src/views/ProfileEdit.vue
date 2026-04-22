@@ -5,7 +5,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -175,6 +175,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import axios from 'axios';
 import ClassInput from '@/components/ClassInput.vue';
 import type { TeacherInfo } from '@/types';
+import HomeButton from '@/components/HomeButton.vue';
 
 const baseUrl = 'http://localhost:8000';
 const { t } = useI18n();
@@ -383,29 +384,7 @@ const goHome = () => {
   gap: 10px;
 }
 
-.home-button {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  color: var(--text-primary);
-}
 
-.home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.light-theme .home-button:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
 
 .edit-card {
   background: var(--bg-card);

@@ -4,7 +4,7 @@
       <h1>{{ $t('allProjects.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -99,6 +99,7 @@ import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import axios from 'axios';
 import type { Project, ProjectRole } from '@/types';
+import HomeButton from '@/components/HomeButton.vue';
 
 const router = useRouter();
 const usersStore = useUsersStore();
@@ -249,24 +250,7 @@ function goHome() {
   display: flex;
   gap: 10px;
 }
-.home-button {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  color: var(--text-primary);
-}
-.home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+
 .search-container {
   max-width: 600px;
   margin: 0 auto 30px;

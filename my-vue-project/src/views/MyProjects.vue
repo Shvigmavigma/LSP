@@ -5,7 +5,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -81,6 +81,8 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import axios from 'axios';
 import type { Project, ProjectRole } from '@/types';
+import HomeButton from '@/components/HomeButton.vue';
+
 
 const { t } = useI18n();
 const router = useRouter();
@@ -244,9 +246,6 @@ function createProject() {
   router.push('/project/edit/new');
 }
 
-function goHome() {
-  router.push('/main');
-}
 </script>
 
 <style scoped>
@@ -278,29 +277,7 @@ function goHome() {
   align-items: center;
 }
 
-.home-button {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  color: var(--text-primary);
-}
 
-.home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.light-theme .home-button:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
 
 .create-section {
   max-width: 1200px;

@@ -5,7 +5,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -73,6 +73,9 @@ import { useRouter } from 'vue-router';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import type { Project, ProjectRole } from '@/types';
+import HomeButton from '@/components/HomeButton.vue';
+
+
 
 const { t } = useI18n();
 const projectsStore = useProjectsStore();

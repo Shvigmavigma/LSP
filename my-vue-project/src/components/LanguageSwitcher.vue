@@ -41,13 +41,13 @@ const currentLocale = computed(() => languageStore.currentLocale)
 const isOpen = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
 
-type Locale = 'ru' | 'en' | 'zh' | 'ua' | 'ar'
+type Locale = 'ru' | 'en' | 'zh' | 'by' | 'ar'
 
 const flagCode: Record<Locale, string> = {
   ru: 'ru',
   en: 'gb',
   zh: 'cn',
-  ua: 'ua',
+  by: 'by',
   ar: 'sa'
 }
 
@@ -55,7 +55,7 @@ const languages: { code: Locale; name: string }[] = [
   { code: 'ru', name: 'Русский' },
   { code: 'en', name: 'English' },
   { code: 'zh', name: '中文' },
-  { code: 'ua', name: 'Українська' },
+  { code: 'by', name: 'беларуская' },
   { code: 'ar', name: 'العربية' }
 ]
 
