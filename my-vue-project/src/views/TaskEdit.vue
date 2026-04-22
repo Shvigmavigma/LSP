@@ -13,7 +13,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
         <button class="back-button" @click="goBack" :title="$t('common.back')">◀</button>
       </div>
     </header>
@@ -227,6 +227,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import type { Project, Task, SubTask, ProjectRole, RequiredFile } from '@/types';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
 const baseUrl = 'http://localhost:8000';
@@ -572,8 +573,7 @@ const goHome = () => router.push('/main');
   gap: 10px;
   align-items: center;
 }
-
-.home-button, .back-button {
+ .back-button {
   background: none;
   border: none;
   font-size: 2rem;
@@ -589,11 +589,7 @@ const goHome = () => router.push('/main');
   color: var(--text-primary);
 }
 
-.home-button:hover, .back-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
 
-.light-theme .home-button:hover,
 .light-theme .back-button:hover {
   background: rgba(0, 0, 0, 0.05);
 }
