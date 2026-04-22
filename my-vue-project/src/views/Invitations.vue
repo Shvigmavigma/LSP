@@ -5,7 +5,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" title="Главная">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -56,6 +56,7 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
+import HomeButton from '@/components/HomeButton.vue';
 import { useProjectsStore } from '@/stores/projects';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
@@ -149,25 +150,7 @@ function goHome() {
   gap: 10px;
 }
 
-.home-button {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  color: var(--text-primary);
-}
 
-.home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
 
 .invites-list {
   max-width: 1000px;

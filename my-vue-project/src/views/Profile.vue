@@ -3,7 +3,7 @@
     <div class="header-actions">
       <ThemeToggle />
       <LanguageSwitcher />
-      <button class="home-button" @click="goToMain" :title="$t('common.home')">🏠</button>
+      <HomeButton/>
     </div>
 
     <div class="profile-card">
@@ -98,6 +98,7 @@ import { computed, ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import HomeButton from '@/components/HomeButton.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import AvatarModal from '@/components/AvatarModal.vue';
@@ -246,27 +247,6 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   display: flex;
   gap: 10px;
   z-index: 10;
-}
-
-.home-button {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  font-size: 28px;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s, box-shadow 0.2s;
-  color: var(--text-primary);
-}
-
-.home-button:hover {
-  background: var(--bg-card);
-  box-shadow: var(--shadow-strong);
 }
 
 .profile-card {

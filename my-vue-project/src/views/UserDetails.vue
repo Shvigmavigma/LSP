@@ -5,7 +5,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -100,6 +100,7 @@ import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import AvatarModal from '@/components/AvatarModal.vue';
+import HomeButton from '@/components/HomeButton.vue';
 import type { User, Project, TeacherInfo, ProjectRole } from '@/types';
 import axios from 'axios';
 
@@ -287,24 +288,7 @@ const goHome = () => {
   display: flex;
   gap: 10px;
 }
-.home-button {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  color: var(--text-primary);
-}
-.home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+
 .user-info-card {
   background: var(--bg-card);
   border-radius: 24px;

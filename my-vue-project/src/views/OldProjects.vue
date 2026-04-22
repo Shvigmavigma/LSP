@@ -5,7 +5,7 @@
       <div class="header-buttons">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -37,6 +37,7 @@ import axios from 'axios';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import type { Project } from '@/types';
+import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -92,24 +93,6 @@ onMounted(fetchOldProjects);
   align-items: center;
 }
 
-.home-button {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  color: var(--text-primary);
-}
-.home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
 
 .projects-grid {
   display: grid;

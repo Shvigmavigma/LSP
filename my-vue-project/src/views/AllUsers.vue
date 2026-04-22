@@ -4,7 +4,7 @@
       <h1>{{ $t('allUsers.title') }}</h1>
       <div class="header-actions">
         <ThemeToggle />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -85,6 +85,7 @@ import { useUsersStore } from '@/stores/users';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import type { User } from '@/types';
+import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -190,35 +191,10 @@ function getRolesText(user: User): string {
 .header-actions {
   display: flex;
   gap: 10px;
-}
-
-.home-button {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  color: var(--text-primary);
 }
 
-.home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
 
-.dark-theme .home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.light-theme .home-button:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
 
 .filter-tabs {
   display: flex;

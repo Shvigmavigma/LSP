@@ -13,7 +13,7 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -249,6 +249,7 @@ import DefaultTasksModal from '@/components/DefaultTasksModal.vue';
 import type { Project, Task, User, Participant, ProjectRole, Suggestion } from '@/types';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
 const baseUrl = 'http://localhost:8000';
@@ -999,27 +1000,7 @@ const goBack = () => router.go(-1);
   gap: 10px;
   align-items: center;
 }
-.home-button {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  color: var(--text-primary);
-}
-.home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-.light-theme .home-button:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
+
 .edit-card {
   background: var(--bg-card);
   border-radius: 32px;

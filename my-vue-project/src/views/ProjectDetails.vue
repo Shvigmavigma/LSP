@@ -6,7 +6,7 @@
       <div class="header-buttons">
         <ThemeToggle />
         <LanguageSwitcher />
-        <button class="home-button" @click="goHome" :title="$t('common.home')">🏠</button>
+        <HomeButton/>
       </div>
     </header>
 
@@ -693,6 +693,7 @@ import InviteModal from '@/components/InviteModal.vue';
 import GanttChart from '@/components/GanttChart.vue';
 import type { Project, Task, Comment, ProjectRole, JoinRequest } from '@/types';
 import axios from 'axios';
+import HomeButton from '@/components/HomeButton.vue';
 import { v4 as uuidv4 } from 'uuid';
 import githubIcon from '@/assets/icons/icons8-github-30.png';
 import driveIcon from '@/assets/icons/icons8-google-drive-48.png';
@@ -1411,27 +1412,7 @@ watch(() => route.params.id, () => {
   gap: 10px;
   align-items: center;
 }
-.home-button {
-  background: none;
-  border: none;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  color: var(--text-primary);
-}
-.home-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-.light-theme .home-button:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
+
 .project-section {
   margin-bottom: 28px;
 }

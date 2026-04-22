@@ -239,6 +239,7 @@ import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
+import HomeButton from '@/components/HomeButton.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import type { Project, Task, User, Participant, ProjectRole } from '@/types';
 import axios from 'axios';
@@ -890,7 +891,7 @@ const goBack = () => router.push('/admin/projects');
   gap: 10px;
   align-items: center;
 }
-.home-button, .back-button {
+.back-button {
   background: none;
   border: none;
   font-size: 2rem;
@@ -905,10 +906,9 @@ const goBack = () => router.push('/admin/projects');
   transition: background 0.2s;
   color: var(--text-primary);
 }
-.home-button:hover, .back-button:hover {
+.back-button:hover {
   background: rgba(255, 255, 255, 0.1);
 }
-.light-theme .home-button:hover,
 .light-theme .back-button:hover {
   background: rgba(0, 0, 0, 0.05);
 }

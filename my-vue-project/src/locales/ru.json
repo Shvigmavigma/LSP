@@ -245,7 +245,7 @@
         "domainPlaceholder": "example.com"
     },
     "adminPanel": {
-        "title": "Административная панель",
+        "title": "Админ панель",
         "userManagement": {
             "title": "Управление пользователями",
             "desc": "Просмотр, редактирование, удаление, выдача прав"
