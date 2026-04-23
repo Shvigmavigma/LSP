@@ -1,0 +1,26 @@
+0000000000000000000000000000000000000000 a46bfb19ff28eb334cde3e84a508d9f538ffb9b7 Shvigmavigma <luckinmatvej2@gmail.com> 1774158801 +0300	commit (initial): importing from projecttry 1
+a46bfb19ff28eb334cde3e84a508d9f538ffb9b7 ef6d99918077d5420d2fbc695aeca80fe0fe106e Shvigmavigma <luckinmatvej2@gmail.com> 1774181408 +0300	commit: small refract with new Email codes verefication
+ef6d99918077d5420d2fbc695aeca80fe0fe106e 62f56aa24927e03db11ff6a42bbac83743737460 Shvigmavigma <luckinmatvej2@gmail.com> 1774184103 +0300	commit: email regitser check for students
+62f56aa24927e03db11ff6a42bbac83743737460 231e68bf1556b1b0cd538d1f165318f396f3dbea Shvigmavigma <luckinmatvej2@gmail.com> 1774184982 +0300	commit: redact of accepted email and domens
+231e68bf1556b1b0cd538d1f165318f396f3dbea 91923c410c0efb93db929abb265dd705d2962616 Shvigmavigma <luckinmatvej2@gmail.com> 1774294770 +0300	commit: Project hiding
+91923c410c0efb93db929abb265dd705d2962616 4bad0653727f883dbf32879c7717e1aa163aa044 Shvigmavigma <luckinmatvej2@gmail.com> 1774299940 +0300	commit: return_comment
+4bad0653727f883dbf32879c7717e1aa163aa044 e5b4fa93d2f9ef9f3bb4b67a54fee97041de29e1 Shvigmavigma <luckinmatvej2@gmail.com> 1774354245 +0300	commit: email add in list
+e5b4fa93d2f9ef9f3bb4b67a54fee97041de29e1 e5b4fa93d2f9ef9f3bb4b67a54fee97041de29e1 Shvigmavigma <luckinmatvej2@gmail.com> 1774388763 +0300	reset: moving to HEAD
+e5b4fa93d2f9ef9f3bb4b67a54fee97041de29e1 e5b4fa93d2f9ef9f3bb4b67a54fee97041de29e1 Shvigmavigma <luckinmatvej2@gmail.com> 1774391988 +0300	reset: moving to HEAD
+e5b4fa93d2f9ef9f3bb4b67a54fee97041de29e1 08707992ed72ec972dfc3f12cd157d4c95cd53ac Shvigmavigma <luckinmatvej2@gmail.com> 1774538462 +0300	pull: Fast-forward
+08707992ed72ec972dfc3f12cd157d4c95cd53ac a97c9c055c1302d0b566645acc2fa9296cdd12cd Shvigmavigma <luckinmatvej2@gmail.com> 1774538667 +0300	pull: Fast-forward
+a97c9c055c1302d0b566645acc2fa9296cdd12cd 347efbe3593d223e86eb573fb519183e7ec28594 Shvigmavigma <luckinmatvej2@gmail.com> 1774556874 +0300	commit: language
+347efbe3593d223e86eb573fb519183e7ec28594 99d0cd4f65925c242eccaf105debd3b28f3181bc Shvigmavigma <luckinmatvej2@gmail.com> 1774724317 +0300	pull --tags origin main: Fast-forward
+99d0cd4f65925c242eccaf105debd3b28f3181bc 316c1cd5b64fc0b47740bf0cbeeef04975687c25 Shvigmavigma <luckinmatvej2@gmail.com> 1774732916 +0300	commit: files
+316c1cd5b64fc0b47740bf0cbeeef04975687c25 5c5963db2168fd52064730c8e419316322e40785 Shvigmavigma <luckinmatvej2@gmail.com> 1774755904 +0300	commit: files final maybe
+5c5963db2168fd52064730c8e419316322e40785 341b20b91185ce7033ed812ddbeb7f788d91d3fd Shvigmavigma <luckinmatvej2@gmail.com> 1775160193 +0300	pull: Fast-forward
+341b20b91185ce7033ed812ddbeb7f788d91d3fd 2552b31ac175c9e193550d0fc7ce22a3462656f7 Shvigmavigma <luckinmatvej2@gmail.com> 1775299086 +0300	commit: OLD PROJECT SYSTEM
+2552b31ac175c9e193550d0fc7ce22a3462656f7 5f030b8857f6a5a780e741512feff5314482cea7 Shvigmavigma <luckinmatvej2@gmail.com> 1775600404 +0300	commit: New user Mask + Invitation sys but not full
+5f030b8857f6a5a780e741512feff5314482cea7 0097d7318a96eb6057f3a7fe9af0f5f024152e8d Shvigmavigma <luckinmatvej2@gmail.com> 1775688741 +0300	pull bum main: Fast-forward
+0097d7318a96eb6057f3a7fe9af0f5f024152e8d fa5f963a3ea62a416c364899559aa31d48c2add8 Shvigmavigma <luckinmatvej2@gmail.com> 1775708568 +0300	commit: face of default task
+fa5f963a3ea62a416c364899559aa31d48c2add8 fa5f963a3ea62a416c364899559aa31d48c2add8 Shvigmavigma <luckinmatvej2@gmail.com> 1776881070 +0300	checkout: moving from main to zenasy
+fa5f963a3ea62a416c364899559aa31d48c2add8 fa5f963a3ea62a416c364899559aa31d48c2add8 Shvigmavigma <luckinmatvej2@gmail.com> 1776881117 +0300	reset: moving to HEAD
+fa5f963a3ea62a416c364899559aa31d48c2add8 7d2e95bf625383677b8a34d0cab9416cc71a799c Shvigmavigma <luckinmatvej2@gmail.com> 1776881122 +0300	pull bum zenasy: Fast-forward
+7d2e95bf625383677b8a34d0cab9416cc71a799c d7969a217d8a6181520044801f627621686dbe80 Shvigmavigma <luckinmatvej2@gmail.com> 1776882790 +0300	commit: file remake
+d7969a217d8a6181520044801f627621686dbe80 d7969a217d8a6181520044801f627621686dbe80 Shvigmavigma <luckinmatvej2@gmail.com> 1776953312 +0300	reset: moving to HEAD
+d7969a217d8a6181520044801f627621686dbe80 fa5f963a3ea62a416c364899559aa31d48c2add8 Shvigmavigma <luckinmatvej2@gmail.com> 1776953316 +0300	checkout: moving from zenasy to main
