@@ -170,6 +170,7 @@ class ProjectFileResponse(BaseModel):
     task_id: Optional[int] = None
     required_file_id: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+    is_old_vision : bool = False
 class ProjectBase(BaseModel):
     ignore_file_limits: bool = False
     title: str = Field(..., min_length=1, json_schema_extra={"example": "Космическая программа"})

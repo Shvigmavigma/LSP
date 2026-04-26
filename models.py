@@ -59,6 +59,8 @@ class ProjectFile(Base):
     is_deleted = Column(Boolean, default=False)
     compressed = Column(Boolean, default=False)
     required_file_id = Column(String, nullable=True)
+    is_old_vision = Column(Boolean, default=False)
+
 class Invitation(Base):
     __tablename__ = "invitations"
 
