@@ -31,6 +31,12 @@
           <span class="card-desc">{{ $t('adminPanel.defaultTasks.desc') }}</span>
         </router-link>
 
+        <!-- Новая карточка: Лимиты файлов -->
+        <router-link to="/admin/file-limits" class="menu-card">
+          <span class="card-title">{{ $t('adminPanel.fileLimits.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.fileLimits.desc') }}</span>
+        </router-link>
+
         <div class="menu-card danger" @click="confirmDeleteAllUsers">
           <span class="card-title">{{ $t('adminPanel.deleteAllUsers.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.deleteAllUsers.desc') }}</span>

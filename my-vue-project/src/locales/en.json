@@ -65,7 +65,7 @@
         "admin_panel": "Admin Panel",
         "profile": "Profile",
         "logout": "Logout",
-        "old_projects_hover":"Old Projects"
+        "old_projects_hover": "Old Projects"
     },
     "project": {
         "title": "Project Title",
@@ -77,14 +77,14 @@
         "create": "Create Project",
         "edit": "Edit Project"
     },
-    
-  "defaultTasksModal": {
-    "title": "Add Default Task",
-    "selectClass": "Select Class",
-    "preview": "Default Tasks",
-    "add": "Add",
-    "requiredFiles": "Required Files"
-  },
+
+    "defaultTasksModal": {
+        "title": "Add Default Task",
+        "selectClass": "Select Class",
+        "preview": "Default Tasks",
+        "add": "Add",
+        "requiredFiles": "Required Files"
+    },
     "language": {
         "select": "Select language",
         "russian": "Russian",
@@ -250,6 +250,14 @@
             "title": "User management",
             "desc": "View, edit, delete, assign rights"
         },
+        "fileLimits": {
+            "title": "File Size Limits",
+            "desc": "Maximum upload size per file type",
+            "hint": "Change the maximum file size for each type (in megabytes).",
+            "loadError": "Error loading limits",
+            "saveSuccess": "Limits saved",
+            "saveError": "Error saving limits"
+        },
         "defaultTasks": {
             "title": "Default Tasks",
             "desc": "Manage task templates for classes"
@@ -331,12 +339,19 @@
     "adminProjects": {
         "title": "Project management",
         "searchPlaceholder": "Search by title",
+        "deleteAllFilesTitle": "Delete all project files",
+        "deleteAllFilesConfirmTitle": "Delete all files",
+        "deleteAllFilesConfirmMessage": "Are you sure you want to delete ALL files of this project? This action cannot be undone.",
+        "filesDeletedSuccess": "Files deleted successfully",
+        "filesDeletedError": "Error deleting files",
         "filterAll": "All projects",
+        "toggleUnlimitedError": "Error toggling upload limit",
         "filterActive": "Only active",
         "filterHidden": "Only hidden",
         "filterOld": "Only old",
         "table": {
             "id": "ID",
+            "unlimitedUpload": "Unlimited upload",
             "title": "Title",
             "description": "Description",
             "participants": "Participants",
@@ -709,6 +724,13 @@
     },
     "taskDetails": {
         "title": "Task details",
+        "notAttached": "Not attached",
+        "noRequirement": "No requirement",
+        "requirementUpdated": "Requirement updated",
+        "requirementUpdateError": "Error updating requirement",
+        "dragFilesHere": "Drag files here",
+        "dropToUpload": "Drop to upload",
+        "fileNotFound": "File not found",
         "oldProjectReadOnly": "This project is marked as old and is read-only.",
         "confirmDeleteFile": "Are you sure you want to delete this file?",
         "requiredFilesLabel": "Required files",

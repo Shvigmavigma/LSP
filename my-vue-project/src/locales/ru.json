@@ -66,7 +66,7 @@
         "admin_panel": "Админ-панель",
         "profile": "Профиль",
         "logout": "Выйти",
-        "old_projects_hover":"Проект Прошлых Лет"
+        "old_projects_hover": "Проект Прошлых Лет"
     },
     "project": {
         "title": "Название проекта",
@@ -206,12 +206,12 @@
         "light": "Светлая тема",
         "dark": "Тёмная тема"
     },
-    "defaultTasksModal":{
-        "title":"Добавить задачу по умолчанию",
-        "selectClass":"Выберите класс",
-        "preview":"Задачи по умолчанию",
-        "add":"Добавить",
-        "requiredFiles":"Обязательные файлы"
+    "defaultTasksModal": {
+        "title": "Добавить задачу по умолчанию",
+        "selectClass": "Выберите класс",
+        "preview": "Задачи по умолчанию",
+        "add": "Добавить",
+        "requiredFiles": "Обязательные файлы"
     },
     "adminEmails": {
         "title": "Управление разрешёнными email",
@@ -250,8 +250,16 @@
             "title": "Управление пользователями",
             "desc": "Просмотр, редактирование, удаление, выдача прав"
         },
+        "fileLimits": {
+            "title": "Лимиты файлов",
+            "desc": "Максимальный размер загружаемых файлов по типам",
+            "hint": "Измените максимальный размер файла для каждого типа (в мегабайтах).",
+            "loadError": "Ошибка загрузки лимитов",
+            "saveSuccess": "Лимиты сохранены",
+            "saveError": "Ошибка сохранения"
+        },
         "defaultTasks": {
-            "title": "Задачи по умолчанию" ,
+            "title": "Задачи по умолчанию",
             "desc": "Управление шаблонами задач для классов"
         },
         "projectManagement": {
@@ -330,13 +338,20 @@
     },
     "adminProjects": {
         "title": "Управление проектами",
+        "toggleUnlimitedError": "Ошибка изменения лимита загрузки",
         "searchPlaceholder": "Поиск по названию",
+        "deleteAllFilesTitle": "Удалить все файлы проекта",
+        "deleteAllFilesConfirmTitle": "Удаление всех файлов",
+        "deleteAllFilesConfirmMessage": "Вы уверены, что хотите удалить ВСЕ файлы этого проекта? Это действие необратимо.",
+        "filesDeletedSuccess": "Файлы удалены",
+        "filesDeletedError": "Ошибка при удалении файлов",
         "filterAll": "Все проекты",
         "filterActive": "Только активные",
         "filterHidden": "Только скрытые",
         "filterOld": "Только старые",
         "table": {
             "id": "ID",
+            "unlimitedUpload": "Безлимитная загрузка",
             "title": "Название",
             "description": "Описание",
             "participants": "Участники",
@@ -710,6 +725,13 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы уверены, что хотите удалить этот файл?",
+        "dragFilesHere": "Перетащите файлы сюда",
+        "notAttached": "Не прикреплён",
+        "noRequirement": "Без требования",
+        "requirementUpdated": "Требование изменено",
+        "requirementUpdateError": "Ошибка изменения требования",
+        "dropToUpload": "Отпустите для загрузки",
+        "fileNotFound": "Файл не найден",
         "oldProjectReadOnly": "Этот проект помечен как старый и доступен только для просмотра.",
         "title": "Детали задачи",
         "files": "Файлы задачи",

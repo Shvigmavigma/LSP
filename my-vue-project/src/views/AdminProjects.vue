@@ -31,8 +31,9 @@
             <th>{{ $t('adminProjects.table.participants') }}</th>
             <th>{{ $t('adminProjects.table.tasks') }}</th>
             <th>{{ $t('adminProjects.table.status') }}</th>
-            <th>{{ $t('adminProjects.table.old') }}</th>
             <th>{{ $t('adminProjects.table.hiddenBy') }}</th>
+            <th>{{ $t('adminProjects.table.old') }}</th>
+            <th>{{ $t('adminProjects.table.unlimitedUpload') }}</th>
             <th>{{ $t('adminProjects.table.actions') }}</th>
           </tr>
         </thead>
@@ -59,6 +60,10 @@
                 {{ project.is_hidden ? '👁️‍🗨️' : '🙈' }}
               </button>
             </td>
+            <td>
+              <span v-if="project.hidden_by">{{ getUserNickname(project.hidden_by) }}</span>
+              <span v-else>—</span>
+            </td>
             <td class="old-cell">
               <span :class="project.is_old ? 'old-status' : 'not-old-status'">
                 {{ project.is_old ? $t('adminProjects.old') : $t('adminProjects.notOld') }}
@@ -80,20 +85,24 @@
                 🔄
               </button>
             </td>
-            <td>
-              <span v-if="project.hidden_by">{{ getUserNickname(project.hidden_by) }}</span>
-              <span v-else>—</span>
+            <td class="unlimited-cell">
+              <input
+                type="checkbox"
+                :checked="project.ignore_file_limits"
+                @change="toggleUnlimited(project.id)"
+              />
             </td>
             <td class="actions-cell">
               <button class="edit-btn" @click="editProject(project.id)" :title="$t('common.edit')">✎</button>
+              <button class="delete-files-btn" @click="confirmDeleteFiles(project.id)" :title="$t('adminProjects.deleteAllFilesTitle')">🗂️</button>
               <button class="delete-btn" @click="confirmDelete(project.id)" :title="$t('common.delete')">🗑</button>
             </td>
           </tr>
         </tbody>
-       </table>
+      </table>
     </div>
 
-    <!-- Модальное подтверждение удаления -->
+    <!-- Модальное подтверждение удаления проекта -->
     <Teleport to="body">
       <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
         <div class="modal-content">
@@ -102,6 +111,22 @@
           <div class="modal-actions">
             <button class="confirm-btn" @click="deleteProject">{{ $t('common.delete') }}</button>
             <button class="cancel-btn" @click="closeDeleteModal">{{ $t('common.cancel') }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Модальное подтверждение удаления всех файлов проекта -->
+    <Teleport to="body">
+      <div v-if="showDeleteFilesModal" class="modal-overlay" @click.self="closeDeleteFilesModal">
+        <div class="modal-content">
+          <h3>{{ $t('adminProjects.deleteAllFilesConfirmTitle') }}</h3>
+          <p>{{ $t('adminProjects.deleteAllFilesConfirmMessage') }}</p>
+          <div class="modal-actions">
+            <button class="confirm-btn" @click="deleteAllFiles" :disabled="deletingFiles">
+              {{ $t('common.delete') }}
+            </button>
+            <button class="cancel-btn" @click="closeDeleteFilesModal">{{ $t('common.cancel') }}</button>
           </div>
         </div>
       </div>
@@ -129,6 +154,11 @@ const search = ref('');
 const statusFilter = ref<'all' | 'active' | 'hidden' | 'old'>('all');
 const showDeleteModal = ref(false);
 const projectToDelete = ref<number | null>(null);
+
+// Новые переменные для удаления всех файлов
+const showDeleteFilesModal = ref(false);
+const projectForFilesDeletion = ref<number | null>(null);
+const deletingFiles = ref(false);
 
 onMounted(async () => {
   await usersStore.fetchAllUsers();
@@ -205,10 +235,25 @@ async function unmarkAsOld(projectId: number) {
   }
 }
 
+async function toggleUnlimited(projectId: number) {
+  try {
+    const response = await axios.patch(`/admin/projects/${projectId}/toggle-file-limits`);
+    const updatedProject = response.data;
+    const index = projects.value.findIndex(p => p.id === projectId);
+    if (index !== -1) {
+      projects.value[index].ignore_file_limits = updatedProject.ignore_file_limits;
+    }
+  } catch (error) {
+    console.error('Failed to toggle file limits', error);
+    alert(t('adminProjects.toggleUnlimitedError') || 'Ошибка изменения лимита');
+  }
+}
+
 function editProject(id: number) {
   router.push(`/admin/projects/${id}/edit`);
 }
 
+// Удаление проекта
 function confirmDelete(id: number) {
   projectToDelete.value = id;
   showDeleteModal.value = true;
@@ -231,16 +276,39 @@ async function deleteProject() {
   }
 }
 
-function goHome() {
-  router.push('/main');
+// Удаление всех файлов проекта
+function confirmDeleteFiles(projectId: number) {
+  projectForFilesDeletion.value = projectId;
+  showDeleteFilesModal.value = true;
 }
+
+function closeDeleteFilesModal() {
+  showDeleteFilesModal.value = false;
+  projectForFilesDeletion.value = null;
+}
+
+async function deleteAllFiles() {
+  if (!projectForFilesDeletion.value) return;
+  deletingFiles.value = true;
+  try {
+    await axios.delete(`/admin/projects/${projectForFilesDeletion.value}/files`);
+    closeDeleteFilesModal();
+    alert(t('adminProjects.filesDeletedSuccess'));
+  } catch (error) {
+    console.error('Failed to delete all files', error);
+    alert(t('adminProjects.filesDeletedError'));
+  } finally {
+    deletingFiles.value = false;
+  }
+}
+
 function goBack() {
   router.push('/admin');
 }
 </script>
 
 <style scoped>
-/* Существующие стили */
+/* Существующие стили плюс новые */
 .admin-projects-page {
   min-height: 100vh;
   background: var(--bg-page);
@@ -329,10 +397,25 @@ function goBack() {
   text-decoration: underline;
 }
 .status-cell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   white-space: nowrap;
+}
+.status-cell > span {
+  margin-right: 8px;
+}
+.toggle-visibility-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  color: var(--text-secondary);
+  display: inline-block;
+  vertical-align: middle;
+}
+.toggle-visibility-btn:hover {
+  background: rgba(33, 150, 243, 0.2);
 }
 .old-cell {
   white-space: nowrap;
@@ -352,7 +435,6 @@ function goBack() {
 .not-old-status {
   color: var(--text-secondary);
 }
-.toggle-visibility-btn,
 .mark-old-btn,
 .unmark-old-btn {
   background: none;
@@ -364,16 +446,15 @@ function goBack() {
   transition: background 0.2s;
   color: var(--text-secondary);
 }
-.toggle-visibility-btn:hover {
-  background: rgba(33, 150, 243, 0.2);
-}
 .mark-old-btn:hover {
   background: rgba(255, 152, 0, 0.2);
 }
 .unmark-old-btn:hover {
   background: rgba(33, 150, 243, 0.2);
 }
-.edit-btn, .delete-btn {
+.edit-btn,
+.delete-files-btn,
+.delete-btn {
   background: none;
   border: none;
   font-size: 1.2rem;
@@ -381,12 +462,25 @@ function goBack() {
   padding: 4px 8px;
   border-radius: 4px;
   transition: background 0.2s;
+  color: var(--text-secondary);
 }
 .edit-btn:hover {
   background: rgba(33, 150, 243, 0.2);
 }
+.delete-files-btn:hover {
+  background: rgba(244, 67, 54, 0.2);
+}
 .delete-btn:hover {
   background: rgba(244, 67, 54, 0.2);
+}
+.unlimited-cell {
+  text-align: center;
+}
+.unlimited-cell input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent-color);
 }
 .modal-overlay {
   position: fixed;

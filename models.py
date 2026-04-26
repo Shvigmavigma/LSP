@@ -29,6 +29,7 @@ class Project(Base):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
+    ignore_file_limits = Column(Boolean, default=False)
     title = Column(String, nullable=False, index=True)
     body = Column(String, nullable=False)
     underbody = Column(String, default="")
