@@ -114,10 +114,10 @@
       </section>
 
       <!-- ========== ВСЕ ФАЙЛЫ ПРОЕКТА + DRAG & DROP + КНОПКА ЗАГРУЗКИ ========== -->
-      <section v-if="taskFiles.length || !isOldReadOnly" class="task-section attachments-section">
+      <section v-if="visibleFiles.length || !isOldReadOnly" class="task-section attachments-section">
         <h3>{{ $t('taskDetails.attachments') }}</h3>
         <div class="attachments-list">
-          <div v-for="file in taskFiles" :key="file.id" class="attachment-item">
+          <div v-for="file in visibleFiles" :key="file.id" class="attachment-item">
             <a href="#" @click.prevent="previewProjectFile(file)">{{ file.original_filename }}</a>
             <span class="attachment-meta">
               ({{ formatFileSize(file.file_size) }})
@@ -125,6 +125,14 @@
                 📎 {{ getRequiredFileName(file.required_file_id) }}
               </span>
             </span>
+            <button
+              v-if="isAdminOrCurator && project?.is_old"
+              class="toggle-old-vision-btn"
+              @click="toggleFileOldVision(file.id)"
+              :title="file.is_old_vision ? $t('taskDetails.hideFromOldProject') : $t('taskDetails.showInOldProject')"
+            >
+              {{ file.is_old_vision ? '👁️' : '👁️‍🗨️' }}
+            </button>
             <div v-if="canEditTask && !isOldReadOnly" class="file-actions">
               <select
                 class="req-select"
@@ -204,9 +212,8 @@
               <span class="subtask-percent">{{ subtask.progressPercent }}%</span>
             </div>
             <p v-if="subtask.description" class="subtask-description">{{ subtask.description }}</p>
-            <!-- Показываем количество файлов, прикреплённых к задаче (общее для всех подзадач) -->
-            <div class="subtask-files-badge" v-if="taskFiles.length > 0">
-              📎 {{ $t('taskDetails.filesAttached', { count: taskFiles.length }) }}
+            <div class="subtask-files-badge" v-if="visibleFiles.length > 0">
+              📎 {{ $t('taskDetails.filesAttached', { count: visibleFiles.length }) }}
             </div>
           </div>
         </div>
@@ -320,7 +327,7 @@ import axios from 'axios';
 import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
-const baseUrl = 'http://localhost:8000';
+const baseUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}`;
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
 const route = useRoute();
@@ -341,7 +348,7 @@ const showRenewOptions = ref(false);
 const showTaskComments = ref(false);
 const previewModalVisible = ref(false);
 const previewFile = ref<any>(null);
-const taskFiles = ref<any[]>([]);   // все файлы проекта
+const taskFiles = ref<any[]>([]);
 
 const savedProgress = ref(0);
 const sliderValue = ref(0);
@@ -351,7 +358,6 @@ const showConfirmDialog = ref(false);
 const showDeleteFileModal = ref(false);
 const fileToDelete = ref<number | null>(null);
 
-// Drag & Drop состояние
 const isDragOver = ref(false);
 
 const requiredFiles = computed<RequiredFile[]>(() => task.value?.required_files || []);
@@ -360,7 +366,7 @@ const attachments = computed<TaskAttachment[]>(() => task.value?.attachments || 
 const areAllRequiredFilesAttached = computed(() => {
   if (!requiredFiles.value.length) return true;
   return requiredFiles.value.every(req =>
-    taskFiles.value.some(file => file.required_file_id === req.id)
+    visibleFiles.value.some(file => file.required_file_id === req.id)
   );
 });
 
@@ -385,7 +391,7 @@ function closeNotification() {
   }
 }
 
-// Роль текущего пользователя в проекте
+// Роль текущего пользователя
 const userRole = computed<ProjectRole | null>(() => {
   if (!authStore.userId || !project.value) return null;
   const participant = project.value.participants?.find((p: any) => p.user_id === authStore.userId);
@@ -402,7 +408,6 @@ const isCurator = computed(() => {
 const isAdminOrCurator = computed(() => isAdmin.value || isCurator.value);
 const hasFullAccess = computed(() => !!userRole.value || isAdmin.value || isCurator.value);
 
-// Блокировка редактирования для старых проектов (обычные пользователи)
 const isOldReadOnly = computed(() => project.value?.is_old === true && !isAdminOrCurator.value);
 
 const canEditTask = computed(() => 
@@ -426,7 +431,6 @@ const unreadTaskCommentsCount = computed(() => {
   return comments.filter(c => !c.hidden && !c.isRead).length;
 });
 
-// Вспомогательные функции
 function parseDate(dateStr?: string): Date | null {
   if (!dateStr) return null;
   const parts = dateStr.split('.');
@@ -463,7 +467,12 @@ const maxExtra = computed(() => {
 const totalProgress = computed(() => completedSubtasksPercent.value + sliderValue.value);
 const showManualProgress = computed(() => task.value?.status === 'в работе' && maxExtra.value > 0);
 
-// Загрузка задачи + всех файлов проекта
+// Фильтрация файлов для старых проектов
+const visibleFiles = computed(() => {
+  if (!isOldReadOnly.value) return taskFiles.value;
+  return taskFiles.value.filter(file => file.is_old_vision);
+});
+
 async function loadTask() {
   if (isNaN(projectId) || isNaN(taskIndex) || taskIndex < 0) {
     error.value = t('taskDetails.invalidParams');
@@ -487,8 +496,6 @@ async function loadTask() {
       } else {
         sliderValue.value = savedProgress.value;
       }
-      
-      // Загружаем ВСЕ файлы проекта (без фильтра task_id)
       try {
         const filesResponse = await axios.get(`${baseUrl}/projects/${projectId}/files`);
         taskFiles.value = filesResponse.data;
@@ -507,7 +514,7 @@ async function loadTask() {
 onMounted(loadTask);
 watch(() => route.params.id, loadTask);
 
-// Статусы задачи
+// Статусы задачи (полные)
 const isInvalid = computed(() => {
   const tsk = task.value;
   if (!tsk) return false;
@@ -592,7 +599,7 @@ function getCompleteButtonTitle(): string {
   return '';
 }
 
-// --- Методы для задач ---
+// --- Методы задач (полные) ---
 const toggleSubtask = async (subtask: SubTask) => {
   if (!canEditTask.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyEditorsCanEditSubtasks'), 'info'); 
@@ -678,7 +685,7 @@ const updateTaskStatus = async (newStatus: string) => {
   } finally { actionInProgress.value = false; }
 };
 
-// --- Функции для работы с комментариями ---
+// --- Комментарии (полные) ---
 const addTaskComment = async (content: string) => {
   if (!hasFullAccess.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyParticipantsCanComment'), 'info'); 
@@ -770,7 +777,7 @@ const restoreTaskComment = async (commentId: string) => {
 
 // === Файловые методы ===
 function isRequiredFileSatisfied(requiredId: string): boolean {
-  return taskFiles.value.some(file => file.required_file_id === requiredId);
+  return visibleFiles.value.some(file => file.required_file_id === requiredId);
 }
 
 function getRequiredFileName(reqId: string): string {
@@ -778,7 +785,6 @@ function getRequiredFileName(reqId: string): string {
   return req ? req.name : reqId;
 }
 
-// Изменение привязки существующего файла к требованию
 async function updateFileRequirement(fileId: number, requiredId: string) {
   try {
     await axios.patch(`${baseUrl}/files/${fileId}/set-requirement`, {
@@ -792,7 +798,19 @@ async function updateFileRequirement(fileId: number, requiredId: string) {
   }
 }
 
-// Drag & Drop handlers
+async function toggleFileOldVision(fileId: number) {
+  try {
+    const response = await axios.patch(`${baseUrl}/files/${fileId}/toggle-old-vision`);
+    const updatedFile = response.data;
+    const index = taskFiles.value.findIndex(f => f.id === fileId);
+    if (index !== -1) {
+      taskFiles.value[index] = updatedFile;
+    }
+  } catch (e) {
+    showNotification(t('taskDetails.oldVisionToggleError'), 'error');
+  }
+}
+
 function onDragEnter() { isDragOver.value = true; }
 function onDragOver() { isDragOver.value = true; }
 function onDragLeave() { isDragOver.value = false; }
@@ -805,7 +823,6 @@ async function onDrop(event: DragEvent) {
   await handleFileUpload(file);
 }
 
-// Универсальная загрузка файла (drag & drop)
 async function handleFileUpload(file: File) {
   const key = 'generic';
   uploadingFiles.value[key] = true;
@@ -824,7 +841,6 @@ async function handleFileUpload(file: File) {
   }
 }
 
-// Кнопка "Загрузить файл"
 function uploadGenericFile() {
   if (isOldReadOnly.value) return;
   const input = document.createElement('input');
@@ -871,7 +887,6 @@ async function deleteAttachment(fileId: number) {
     } else {
       sliderValue.value = savedProgress.value;
     }
-    // обновляем кеш файлов
     try {
       const filesResponse = await axios.get(`${baseUrl}/projects/${projectId}/files`);
       taskFiles.value = filesResponse.data;
@@ -957,7 +972,8 @@ const goBack = () => router.push(`/project/${projectId}`);
   font-size: 1.2rem;
 }
 
-.required-files-section, .attachments-section {
+.required-files-section,
+.attachments-section {
   margin-bottom: 28px;
 }
 .required-files-list {
@@ -1058,7 +1074,21 @@ const goBack = () => router.push(`/project/${projectId}`);
   background: rgba(244, 67, 54, 0.2);
 }
 
-/* Панель drag-and-drop + кнопка */
+.toggle-old-vision-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+.toggle-old-vision-btn:hover {
+  opacity: 1;
+  background: rgba(0,0,0,0.1);
+}
+
 .upload-actions-row {
   display: flex;
   align-items: stretch;
@@ -1107,7 +1137,7 @@ const goBack = () => router.push(`/project/${projectId}`);
   cursor: not-allowed;
 }
 
-/* Остальные стили без изменений */
+/* Остальные стили (сохранены из предыдущего файла) */
 .task-details-page {
   min-height: 100vh;
   background: var(--bg-page);
@@ -1513,7 +1543,8 @@ const goBack = () => router.push(`/project/${projectId}`);
   margin-top: 30px;
   text-align: center;
 }
-.complete-button, .renew-button {
+.complete-button,
+.renew-button {
   background: var(--accent-color);
   color: var(--button-text);
   border: none;
@@ -1525,10 +1556,12 @@ const goBack = () => router.push(`/project/${projectId}`);
   transition: background 0.2s;
   box-shadow: var(--shadow);
 }
-.complete-button:hover:not(:disabled), .renew-button:hover:not(:disabled) {
+.complete-button:hover:not(:disabled),
+.renew-button:hover:not(:disabled) {
   background: var(--accent-hover);
 }
-.complete-button:disabled, .renew-button:disabled {
+.complete-button:disabled,
+.renew-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -1659,7 +1692,8 @@ const goBack = () => router.push(`/project/${projectId}`);
 .fade-leave-to {
   opacity: 0;
 }
-.loading, .error {
+.loading,
+.error {
   text-align: center;
   color: var(--text-primary);
   font-size: 1.2rem;
@@ -1705,7 +1739,8 @@ const goBack = () => router.push(`/project/${projectId}`);
   gap: 12px;
   justify-content: flex-end;
 }
-.modal-confirm, .modal-cancel {
+.modal-confirm,
+.modal-cancel {
   padding: 10px 25px;
   border: none;
   border-radius: 30px;

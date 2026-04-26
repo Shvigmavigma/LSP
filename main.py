@@ -65,16 +65,7 @@ FILE_SIZE_LIMITS_FILE = "file_size_limits.json"
 
 # Настройка CORS
 origins = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:5174",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
+    "*"
 ]
 
 app.add_middleware(
@@ -1707,14 +1698,23 @@ async def get_project_files(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
+
+    # Проверка прав: участники, админы, кураторы имеют доступ; для старых проектов доступ открыт всем
     if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
-        raise HTTPException(403, "Not enough permissions")
+        if not project.is_old:
+            raise HTTPException(403, "Not enough permissions")
+
     query = db.query(ProjectFile).filter(
         ProjectFile.project_id == project_id,
         ProjectFile.is_deleted == False
     )
     if task_id is not None:
         query = query.filter(ProjectFile.task_id == task_id)
+
+    # Для старых проектов не-администраторы/не-кураторы видят только is_old_vision=True
+    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
+        query = query.filter(ProjectFile.is_old_vision == True)
+
     files = query.all()
     return files
 
@@ -1771,35 +1771,6 @@ async def set_file_requirement(
     new_required_id = data.get("required_file_id")
     file_record.required_file_id = new_required_id
 
-    # Если файл привязан к задаче – обновить attachment
-    if file_record.task_id is not None and project:
-        task = project.tasks[file_record.task_id]
-        for att in task.get("attachments", []):
-            if att.get("file_id") == file_id:
-                att["required_file_id"] = new_required_id
-                break
-        flag_modified(project, "tasks")
-
-    db.commit()
-    return {"message": "Requirement updated"}
-
-@app.patch("/files/{file_id}/set-requirement", tags=["Projects"])
-async def set_file_requirement(
-    file_id: int,
-    data: dict = Body(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    file_record = db.query(ProjectFile).filter(ProjectFile.id == file_id).first()
-    if not file_record:
-        raise HTTPException(404, "File not found")
-    project = db.query(Project).filter(Project.id == file_record.project_id).first()
-    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
-        raise HTTPException(403, "Not enough permissions")
-
-    new_required_id = data.get("required_file_id")
-    file_record.required_file_id = new_required_id
-
     # если файл привязан к задаче, обновить attachment в JSON задачи
     if file_record.task_id is not None and project:
         task = project.tasks[file_record.task_id]
@@ -1812,20 +1783,43 @@ async def set_file_requirement(
     db.commit()
     return {"message": "Requirement updated"}
 
+@app.patch("/files/{file_id}/toggle-old-vision", tags=["Projects"])
+async def toggle_file_old_vision(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    file_record = db.query(ProjectFile).filter(ProjectFile.id == file_id).first()
+    if not file_record:
+        raise HTTPException(404, "File not found")
+
+    # Разрешаем только админу или куратору
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(403, "Only admin or curator can change file visibility in old projects")
+
+    file_record.is_old_vision = not file_record.is_old_vision
+    db.commit()
+    db.refresh(file_record)
+    return file_record
+
 @app.get("/files/{file_id}", tags=["Projects"])
 async def download_file(
     file_id: int,
     request: Request,
     token: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_user_from_query_or_header)  # <-- авторизация через query или заголовок
+    current_user: User = Depends(get_user_from_query_or_header)
 ):
     file_record = db.query(ProjectFile).filter(ProjectFile.id == file_id).first()
     if not file_record:
         raise HTTPException(404, "File not found")
     project = db.query(Project).filter(Project.id == file_record.project_id).first()
     if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
-        raise HTTPException(403, "Not enough permissions")
+        if not project.is_old:
+            raise HTTPException(403, "Not enough permissions")
+        # Запрещаем скачивать скрытые от старых проектов файлы
+        if not file_record.is_old_vision:
+            raise HTTPException(403, "File not available in old project")
 
     file_path = os.path.join("uploads", file_record.filename)
     if not os.path.exists(file_path):
