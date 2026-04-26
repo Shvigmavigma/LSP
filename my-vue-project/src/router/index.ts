@@ -97,6 +97,12 @@ const routes: Array<RouteRecordRaw> = [
   component: () => import('@/views/AdminDefaultTasks.vue'),
   meta: { requiresAdmin: true }
 },
+{
+  path: '/admin/file-limits',
+  name: 'AdminFileLimits',
+  component: () => import('@/views/AdminFileLimits.vue'),
+  meta: { requiresAdmin: true }
+},
   ]
 
 const router = createRouter({

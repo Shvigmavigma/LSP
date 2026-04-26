@@ -76,6 +76,7 @@ const selectedFile = ref<any>(null);
 const showDeleteModal = ref(false);
 const fileToDelete = ref<any>(null);
 
+// Расширенный список типов файлов
 const acceptedTypes = [
   'text/plain',
   'application/pdf',
@@ -83,6 +84,12 @@ const acceptedTypes = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-powerpoint',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'image/png',
+  'image/jpeg',
+  'image/x-icon',
+  'image/vnd.microsoft.icon',
+  'audio/mpeg',
+  'video/mp4',
 ].join(',');
 
 const fetchFiles = async () => {
@@ -101,6 +108,7 @@ const triggerFileInput = () => {
   fileInput.value?.click();
 };
 
+// Сжатие изображений на клиенте (оставим для уменьшения трафика)
 const compressImage = async (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
@@ -178,9 +186,8 @@ const uploadFile = async (event: Event) => {
   }
   uploading.value = true;
   try {
-    await axios.post(`/projects/${props.projectId}/files`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    // ❗️ УБРАН headers: { 'Content-Type': ... }
+    await axios.post(`/projects/${props.projectId}/files`, formData);
     await fetchFiles();
     emit('upload');
   } catch (err: any) {
@@ -236,6 +243,7 @@ onMounted(fetchFiles);
 </script>
 
 <style scoped>
+/* ... все стили без изменений ... */
 .file-uploader {
   margin-top: 12px;
 }
@@ -306,4 +314,4 @@ onMounted(fetchFiles);
 .delete-file:hover {
   background: var(--danger-bg);
 }
-</style>  
+</style>

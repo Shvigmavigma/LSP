@@ -168,8 +168,10 @@ class ProjectFileResponse(BaseModel):
     uploaded_at: datetime
     uploaded_by: int
     task_id: Optional[int] = None
+    required_file_id: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 class ProjectBase(BaseModel):
+    ignore_file_limits: bool = False
     title: str = Field(..., min_length=1, json_schema_extra={"example": "Космическая программа"})
     body: str = Field(..., min_length=1, json_schema_extra={"example": "Подробное описание..."})
     underbody: str = Field("", json_schema_extra={"example": "Дополнительные материалы"})
@@ -217,6 +219,7 @@ class ProjectUpdate(BaseModel):
     is_old: Optional[bool] = None
     links: Optional[Dict[str, str]] = None
     comments: Optional[List[Comment]] = None
+    ignore_file_limits: Optional[bool] = None
 
 # ---------- Email верификация ----------
 class EmailVerificationCodeRequest(BaseModel):

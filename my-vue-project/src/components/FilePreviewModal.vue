@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div v-if="show" class="file-preview-overlay" @click.self="close">
-      <div class="file-preview-modal" :class="{ 'wide-modal': isPdf }">
+      <div class="file-preview-modal" :class="{ 'wide-modal': isPdf || isVideo }">
         <div class="modal-header">
           <h3>{{ file?.original_filename || $t('filePreview.title') }}</h3>
           <button class="close-btn" @click="close">✕</button>
@@ -10,7 +10,7 @@
           <div v-if="loadingPreview" class="preview-loading">
             {{ $t('common.loading') }}
           </div>
-          <!-- Изображения -->
+          <!-- Изображения (включая .ico) -->
           <div v-else-if="isImage" class="image-container">
             <img :src="imageBlobUrl" :alt="file?.original_filename" />
           </div>
@@ -18,7 +18,7 @@
           <div v-else-if="isText" class="text-container">
             <pre>{{ textContent }}</pre>
           </div>
-          <!-- PDF через iframe (более надёжно) -->
+          <!-- PDF через iframe -->
           <div v-else-if="isPdf" class="pdf-container">
             <iframe
               v-if="pdfBlobUrl"
@@ -32,11 +32,31 @@
               <button class="download-link" @click="downloadFile">{{ $t('filePreview.downloadFile') }}</button>
             </div>
           </div>
-          <!-- Офисные документы через Google Docs Viewer (только для публичных URL) -->
+          <!-- Аудио (mp3) - прямая ссылка с токеном -->
+          <div v-else-if="isAudio" class="audio-container">
+            <audio v-if="audioStreamUrl" :src="audioStreamUrl" controls class="audio-player">
+              {{ $t('filePreview.audioNotSupported') }}
+            </audio>
+            <div v-else class="fallback-message">
+              <p>{{ $t('filePreview.previewNotAvailable') }}</p>
+              <button class="download-link" @click="downloadFile">{{ $t('filePreview.downloadFile') }}</button>
+            </div>
+          </div>
+          <!-- Видео (mp4) - прямая ссылка с токеном, стриминг -->
+          <div v-else-if="isVideo" class="video-container">
+            <video v-if="videoStreamUrl" :src="videoStreamUrl" controls class="video-player">
+              {{ $t('filePreview.videoNotSupported') }}
+            </video>
+            <div v-else class="fallback-message">
+              <p>{{ $t('filePreview.previewNotAvailable') }}</p>
+              <button class="download-link" @click="downloadFile">{{ $t('filePreview.downloadFile') }}</button>
+            </div>
+          </div>
+          <!-- Офисные документы (только Word, без презентаций) через Google Docs Viewer -->
           <div v-else-if="isOfficeDocument && isPublicUrl" class="office-container">
             <iframe :src="googleDocsUrl" frameborder="0" class="office-viewer"></iframe>
           </div>
-          <!-- Остальные файлы -->
+          <!-- Все остальные файлы (включая презентации, неизвестные типы) -->
           <div v-else class="fallback-message">
             <p>{{ $t('filePreview.previewNotAvailable') }}</p>
             <button class="download-link" @click="downloadFile" :disabled="downloading">
@@ -78,18 +98,30 @@ const imageBlobUrl = ref<string>();
 const textContent = ref('');
 const pdfBlobUrl = ref<string>();
 
-const fileUrl = computed(() => `${props.baseUrl}/files/${props.file.id}`);
+// Базовый URL для файла
+const fileBaseUrl = computed(() => `${props.baseUrl}/files/${props.file?.id}`);
+
+// Добавляем токен в query-параметр для мультимедиа
+const streamToken = computed(() => {
+  const token = localStorage.getItem('access_token');
+  return token ? `?token=${encodeURIComponent(token)}` : '';
+});
+
+const audioStreamUrl = computed(() => isAudio.value ? `${fileBaseUrl.value}${streamToken.value}` : '');
+const videoStreamUrl = computed(() => isVideo.value ? `${fileBaseUrl.value}${streamToken.value}` : '');
+
+const fileUrl = computed(() => fileBaseUrl.value); // для скачивания и Google Docs
 
 const isImage = computed(() => props.file?.mime_type?.startsWith('image/'));
 const isText = computed(() => props.file?.mime_type === 'text/plain');
 const isPdf = computed(() => props.file?.mime_type === 'application/pdf');
+const isAudio = computed(() => props.file?.mime_type === 'audio/mpeg');
+const isVideo = computed(() => props.file?.mime_type === 'video/mp4');
 const isOfficeDocument = computed(() => {
   const type = props.file?.mime_type;
   return (
     type === 'application/msword' ||
-    type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    type === 'application/vnd.ms-powerpoint' ||
-    type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   );
 });
 
@@ -102,6 +134,7 @@ const googleDocsUrl = computed(() => {
   return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl.value)}&embedded=true`;
 });
 
+// Загрузка изображения через blob (остаётся как раньше)
 const loadImage = async () => {
   if (!props.file || !isImage.value) return;
   loadingPreview.value = true;
@@ -121,6 +154,7 @@ const loadImage = async () => {
   }
 };
 
+// Текстовый файл (blob)
 const loadText = async () => {
   if (!props.file || !isText.value) return;
   loadingPreview.value = true;
@@ -139,6 +173,7 @@ const loadText = async () => {
   }
 };
 
+// PDF через blob
 const loadPdf = async () => {
   if (!props.file || !isPdf.value) return;
   loadingPreview.value = true;
@@ -165,6 +200,7 @@ const handlePdfError = () => {
   alert(t('filePreview.previewNotAvailable') || 'Невозможно отобразить PDF. Попробуйте скачать файл.');
 };
 
+// Скачивание файла (полная загрузка)
 const downloadFile = async () => {
   downloading.value = true;
   try {
@@ -201,6 +237,7 @@ const close = () => {
   emit('close');
 };
 
+// Загружаем контент при открытии, очищаем при закрытии
 watch(
   () => props.show,
   (newVal) => {
@@ -208,7 +245,9 @@ watch(
       if (isImage.value) loadImage();
       else if (isText.value) loadText();
       else if (isPdf.value) loadPdf();
+      // Аудио и видео не требуют предзагрузки – просто прямая ссылка
     } else {
+      // Очистка blob-ов
       if (imageBlobUrl.value) {
         URL.revokeObjectURL(imageBlobUrl.value);
         imageBlobUrl.value = undefined;
@@ -228,7 +267,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Объединённые стили */
+/* Общие стили */
 .file-preview-overlay {
   position: fixed;
   top: 0;
@@ -256,7 +295,6 @@ onUnmounted(() => {
   animation: scaleIn 0.2s ease;
 }
 
-/* Широкое модальное окно для PDF и офисных документов */
 .file-preview-modal.wide-modal {
   width: 90vw;
   max-width: none;
@@ -303,9 +341,10 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-/* Для PDF и офисных документов убираем отступы */
+/* Для широких контейнеров убираем отступы */
 .modal-body:has(.pdf-container),
-.modal-body:has(.office-container) {
+.modal-body:has(.office-container),
+.modal-body:has(.video-container) {
   padding: 0;
 }
 
@@ -318,6 +357,7 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 
+/* Изображения */
 .image-container img {
   max-width: 100%;
   max-height: 70vh;
@@ -325,6 +365,7 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 
+/* Текстовые файлы */
 .text-container {
   width: 100%;
   max-height: 70vh;
@@ -341,7 +382,7 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
-/* PDF просмотрщик */
+/* PDF */
 .pdf-container {
   width: 100%;
   height: 100%;
@@ -354,6 +395,36 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 
+/* Аудио */
+.audio-container {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 20px;
+}
+.audio-player {
+  width: 100%;
+  outline: none;
+}
+
+/* Видео */
+.video-container {
+  width: 100%;
+  height: 100%;
+  min-height: 70vh;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-player {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
+}
+
+/* Офисные документы (Word) */
 .office-container {
   width: 100%;
   height: 100%;
@@ -366,6 +437,7 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 
+/* Запасной блок */
 .fallback-message {
   text-align: center;
   color: var(--text-secondary);

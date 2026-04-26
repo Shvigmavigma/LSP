@@ -66,7 +66,7 @@
         "admin_panel": "管理面板",
         "profile": "个人资料",
         "logout": "退出",
-        "old_projects_hover":"旧项目"
+        "old_projects_hover": "旧项目"
     },
     "project": {
         "title": "项目名称",
@@ -123,13 +123,13 @@
         "markReadError": "标记评论已读时出错",
         "permanentDeleteSuccess": "评论已永久删除"
     },
-      "defaultTasksModal": {
-    "title": "添加默认任务",
-    "selectClass": "选择班级",
-    "preview": "默认任务",
-    "add": "添加",
-    "requiredFiles": "必需文件"
-  },
+    "defaultTasksModal": {
+        "title": "添加默认任务",
+        "selectClass": "选择班级",
+        "preview": "默认任务",
+        "add": "添加",
+        "requiredFiles": "必需文件"
+    },
     "roles": {
         "executor": "执行者",
         "customer": "客户",
@@ -250,6 +250,14 @@
             "title": "用户管理",
             "desc": "查看、编辑、删除、分配权限"
         },
+        "fileLimits": {
+            "title": "文件大小限制",
+            "desc": "按类型设置上传文件的最大大小",
+            "hint": "更改每种文件类型的最大大小（以兆字节为单位）。",
+            "loadError": "加载限制失败",
+            "saveSuccess": "限制已保存",
+            "saveError": "保存限制失败"
+        },
         "defaultTasks": {
             "title": "默认任务",
             "desc": "管理班级任务模板"
@@ -333,10 +341,17 @@
         "searchPlaceholder": "按标题搜索",
         "filterAll": "所有项目",
         "filterActive": "仅活跃",
+        "deleteAllFilesTitle": "删除项目所有文件",
+        "deleteAllFilesConfirmTitle": "删除所有文件",
+        "deleteAllFilesConfirmMessage": "确定要删除此项目的所有文件吗？此操作不可撤销。",
+        "filesDeletedSuccess": "文件已删除",
+        "filesDeletedError": "删除文件时出错",
         "filterHidden": "仅隐藏",
+        "toggleUnlimitedError": "切换无限制上传失败",
         "filterOld": "仅旧项目",
         "table": {
             "id": "ID",
+            "unlimitedUpload": "无限制上传",
             "title": "标题",
             "description": "描述",
             "participants": "参与者",
@@ -709,6 +724,13 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "您确定要删除此文件吗？",
+        "notAttached": "未附上",
+        "noRequirement": "无要求",
+        "requirementUpdated": "要求已更新",
+        "requirementUpdateError": "更新要求时出错",
+        "dragFilesHere": "拖放文件到此处",
+        "dropToUpload": "释放以上传",
+        "fileNotFound": "文件未找到",
         "oldProjectReadOnly": "此项目已标记为旧项目，仅可查看。",
         "requiredFilesLabel": "所需文件",
         "noRequiredFiles": "没有必需的文件。请添加要求。",

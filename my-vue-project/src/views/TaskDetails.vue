@@ -87,7 +87,7 @@
         />
       </section>
 
-      <!-- ========== ОБЯЗАТЕЛЬНЫЕ ФАЙЛЫ ========== -->
+      <!-- ========== ОБЯЗАТЕЛЬНЫЕ ФАЙЛЫ (только статус) ========== -->
       <section v-if="requiredFiles.length" class="task-section required-files-section">
         <h3>{{ $t('taskDetails.requiredFiles') }}</h3>
         <div class="required-files-list">
@@ -102,44 +102,68 @@
               <span v-if="req.description" class="rf-desc">{{ req.description }}</span>
             </div>
             <div class="rf-actions">
-              <button
-                v-if="!isRequiredFileSatisfied(req.id) && !isOldReadOnly"
-                class="upload-file-btn"
-                @click="uploadFileForRequired(req.id)"
-                :disabled="uploadingFiles[req.id]"
-              >
-                {{ uploadingFiles[req.id] ? $t('common.sending') : '📎 ' + $t('common.upload') }}
-              </button>
-              <span v-else-if="isRequiredFileSatisfied(req.id)" class="satisfied-badge">✅ {{ $t('taskDetails.attached') }}</span>
+              <span v-if="isRequiredFileSatisfied(req.id)" class="satisfied-badge">
+                ✅ {{ $t('taskDetails.attached') }}
+              </span>
+              <span v-else class="not-satisfied-text">
+                ⚠️ {{ $t('taskDetails.notAttached') }}
+              </span>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ========== ПРИКРЕПЛЁННЫЕ ФАЙЛЫ ========== -->
-      <section v-if="attachments.length" class="task-section attachments-section">
+      <!-- ========== ВСЕ ФАЙЛЫ ПРОЕКТА + DRAG & DROP + КНОПКА ЗАГРУЗКИ ========== -->
+      <section v-if="taskFiles.length || !isOldReadOnly" class="task-section attachments-section">
         <h3>{{ $t('taskDetails.attachments') }}</h3>
         <div class="attachments-list">
-          <div v-for="att in attachments" :key="att.id" class="attachment-item">
-            <a href="#" @click.prevent="previewAttachment(att)">{{ att.original_filename }}</a>
-            <span class="attachment-meta">({{ formatFileSize(att.size) }})</span>
-            <button
-              v-if="canEditTask && !isOldReadOnly"
-              class="delete-attachment"
-              @click="openDeleteFileModal(att.file_id)"
-              :disabled="deletingAttachment"
-              :title="$t('common.delete')"
-            >🗑</button>
+          <div v-for="file in taskFiles" :key="file.id" class="attachment-item">
+            <a href="#" @click.prevent="previewProjectFile(file)">{{ file.original_filename }}</a>
+            <span class="attachment-meta">
+              ({{ formatFileSize(file.file_size) }})
+              <span v-if="file.required_file_id" class="req-badge">
+                📎 {{ getRequiredFileName(file.required_file_id) }}
+              </span>
+            </span>
+            <div v-if="canEditTask && !isOldReadOnly" class="file-actions">
+              <select
+                class="req-select"
+                :value="file.required_file_id || ''"
+                @change="updateFileRequirement(file.id, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">{{ $t('taskDetails.noRequirement') }}</option>
+                <option v-for="req in requiredFiles" :key="req.id" :value="req.id">
+                  {{ req.name }}
+                </option>
+              </select>
+              <button
+                class="delete-attachment"
+                @click="openDeleteFileModal(file.id)"
+                :disabled="deletingAttachment"
+                :title="$t('common.delete')"
+              >🗑</button>
+            </div>
           </div>
         </div>
-      </section>
 
-      <!-- Кнопка загрузки любого файла (только для редактирования) -->
-      <div v-if="!isOldReadOnly" class="upload-generic-btn-wrapper">
-        <button class="upload-generic-btn" @click="uploadGenericFile" :disabled="uploadingFiles['generic']">
-          {{ uploadingFiles['generic'] ? $t('common.sending') : '📁 ' + $t('taskDetails.uploadFile') }}
-        </button>
-      </div>
+        <!-- Единая панель: drag-and-drop + кнопка загрузки -->
+        <div v-if="!isOldReadOnly" class="upload-actions-row">
+          <div
+            class="drop-zone"
+            :class="{ 'drop-zone-active': isDragOver }"
+            @dragover.prevent="onDragOver"
+            @dragenter.prevent="onDragEnter"
+            @dragleave.prevent="onDragLeave"
+            @drop.prevent="onDrop"
+          >
+            <span v-if="!isDragOver">📂 {{ $t('taskDetails.dragFilesHere') }}</span>
+            <span v-else>📥 {{ $t('taskDetails.dropToUpload') }}</span>
+          </div>
+          <button class="upload-generic-btn" @click="uploadGenericFile" :disabled="uploadingFiles['generic']">
+            {{ uploadingFiles['generic'] ? $t('common.sending') : '📁 ' + $t('taskDetails.uploadFile') }}
+          </button>
+        </div>
+      </section>
 
       <!-- Диаграмма Ганта, подзадачи, прогресс -->
       <section class="gantt-section">
@@ -180,6 +204,10 @@
               <span class="subtask-percent">{{ subtask.progressPercent }}%</span>
             </div>
             <p v-if="subtask.description" class="subtask-description">{{ subtask.description }}</p>
+            <!-- Показываем количество файлов, прикреплённых к задаче (общее для всех подзадач) -->
+            <div class="subtask-files-badge" v-if="taskFiles.length > 0">
+              📎 {{ $t('taskDetails.filesAttached', { count: taskFiles.length }) }}
+            </div>
           </div>
         </div>
         <div class="subtasks-summary">
@@ -244,7 +272,7 @@
       </section>
     </div>
 
-    <!-- Модальные окна (без изменений) -->
+    <!-- Модальные окна -->
     <div v-if="showConfirmDialog" class="modal-overlay" @click.self="closeConfirmDialog">
       <div class="modal-content">
         <h3>{{ $t('common.confirm') }}</h3>
@@ -313,6 +341,7 @@ const showRenewOptions = ref(false);
 const showTaskComments = ref(false);
 const previewModalVisible = ref(false);
 const previewFile = ref<any>(null);
+const taskFiles = ref<any[]>([]);   // все файлы проекта
 
 const savedProgress = ref(0);
 const sliderValue = ref(0);
@@ -322,13 +351,16 @@ const showConfirmDialog = ref(false);
 const showDeleteFileModal = ref(false);
 const fileToDelete = ref<number | null>(null);
 
+// Drag & Drop состояние
+const isDragOver = ref(false);
+
 const requiredFiles = computed<RequiredFile[]>(() => task.value?.required_files || []);
 const attachments = computed<TaskAttachment[]>(() => task.value?.attachments || []);
 
 const areAllRequiredFilesAttached = computed(() => {
   if (!requiredFiles.value.length) return true;
   return requiredFiles.value.every(req =>
-    attachments.value.some(att => att.required_file_id === req.id)
+    taskFiles.value.some(file => file.required_file_id === req.id)
   );
 });
 
@@ -394,7 +426,7 @@ const unreadTaskCommentsCount = computed(() => {
   return comments.filter(c => !c.hidden && !c.isRead).length;
 });
 
-// Вспомогательные функции (без изменений)
+// Вспомогательные функции
 function parseDate(dateStr?: string): Date | null {
   if (!dateStr) return null;
   const parts = dateStr.split('.');
@@ -431,7 +463,7 @@ const maxExtra = computed(() => {
 const totalProgress = computed(() => completedSubtasksPercent.value + sliderValue.value);
 const showManualProgress = computed(() => task.value?.status === 'в работе' && maxExtra.value > 0);
 
-// Загрузка задачи
+// Загрузка задачи + всех файлов проекта
 async function loadTask() {
   if (isNaN(projectId) || isNaN(taskIndex) || taskIndex < 0) {
     error.value = t('taskDetails.invalidParams');
@@ -455,6 +487,15 @@ async function loadTask() {
       } else {
         sliderValue.value = savedProgress.value;
       }
+      
+      // Загружаем ВСЕ файлы проекта (без фильтра task_id)
+      try {
+        const filesResponse = await axios.get(`${baseUrl}/projects/${projectId}/files`);
+        taskFiles.value = filesResponse.data;
+      } catch (fileErr) {
+        console.error('Failed to load project files:', fileErr);
+        taskFiles.value = [];
+      }
     }
   } catch (err) {
     error.value = t('taskDetails.loadError');
@@ -466,7 +507,7 @@ async function loadTask() {
 onMounted(loadTask);
 watch(() => route.params.id, loadTask);
 
-// Статусы задачи (без изменений)
+// Статусы задачи
 const isInvalid = computed(() => {
   const tsk = task.value;
   if (!tsk) return false;
@@ -551,7 +592,7 @@ function getCompleteButtonTitle(): string {
   return '';
 }
 
-// --- Методы для задач (все проверяют isOldReadOnly) ---
+// --- Методы для задач ---
 const toggleSubtask = async (subtask: SubTask) => {
   if (!canEditTask.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyEditorsCanEditSubtasks'), 'info'); 
@@ -569,9 +610,7 @@ const toggleSubtask = async (subtask: SubTask) => {
     }) || [];
 
     const newCompletedSum = updatedSubtasks.filter(st => st.completed).reduce((sum, st) => sum + (st.progressPercent || 0), 0);
-
     if (sliderValue.value > (100 - newCompletedSum)) sliderValue.value = 100 - newCompletedSum;
-
     const newTotal = newCompletedSum + sliderValue.value;
 
     const updatedTask = { ...currentTask, subtasks: updatedSubtasks, progress: newTotal };
@@ -639,7 +678,7 @@ const updateTaskStatus = async (newStatus: string) => {
   } finally { actionInProgress.value = false; }
 };
 
-// --- Функции для работы с комментариями (проверка isOldReadOnly уже в пропе can-comment) ---
+// --- Функции для работы с комментариями ---
 const addTaskComment = async (content: string) => {
   if (!hasFullAccess.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyParticipantsCanComment'), 'info'); 
@@ -729,42 +768,73 @@ const restoreTaskComment = async (commentId: string) => {
   }
 };
 
-// === Файловые методы (загрузка/удаление) – заблокированы для isOldReadOnly ===
+// === Файловые методы ===
 function isRequiredFileSatisfied(requiredId: string): boolean {
-  return attachments.value.some(att => att.required_file_id === requiredId);
+  return taskFiles.value.some(file => file.required_file_id === requiredId);
 }
 
-function uploadFileForRequired(requiredId: string) {
+function getRequiredFileName(reqId: string): string {
+  const req = task.value?.required_files?.find((r: any) => r.id === reqId);
+  return req ? req.name : reqId;
+}
+
+// Изменение привязки существующего файла к требованию
+async function updateFileRequirement(fileId: number, requiredId: string) {
+  try {
+    await axios.patch(`${baseUrl}/files/${fileId}/set-requirement`, {
+      required_file_id: requiredId || null
+    });
+    const file = taskFiles.value.find(f => f.id === fileId);
+    if (file) file.required_file_id = requiredId || null;
+    showNotification(t('taskDetails.requirementUpdated'), 'success');
+  } catch (e) {
+    showNotification(t('taskDetails.requirementUpdateError'), 'error');
+  }
+}
+
+// Drag & Drop handlers
+function onDragEnter() { isDragOver.value = true; }
+function onDragOver() { isDragOver.value = true; }
+function onDragLeave() { isDragOver.value = false; }
+
+async function onDrop(event: DragEvent) {
+  isDragOver.value = false;
+  if (!event.dataTransfer?.files.length) return;
+  const file = event.dataTransfer.files[0];
+  if (!file) return;
+  await handleFileUpload(file);
+}
+
+// Универсальная загрузка файла (drag & drop)
+async function handleFileUpload(file: File) {
+  const key = 'generic';
+  uploadingFiles.value[key] = true;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('task_id', String(taskIndex));
+  try {
+    await axios.post(`${baseUrl}/projects/${projectId}/files`, formData);
+    await loadTask();
+    showNotification(t('taskDetails.fileUploaded'), 'success');
+  } catch (err: any) {
+    console.error(err);
+    showNotification(err.response?.data?.detail || t('taskDetails.uploadError'), 'error');
+  } finally {
+    uploadingFiles.value[key] = false;
+  }
+}
+
+// Кнопка "Загрузить файл"
+function uploadGenericFile() {
   if (isOldReadOnly.value) return;
   const input = document.createElement('input');
   input.type = 'file';
   input.onchange = async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    const key = requiredId || 'generic';
-    uploadingFiles.value[key] = true;
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('task_id', String(taskIndex));
-    if (requiredId) formData.append('required_file_id', requiredId);
-    try {
-      await axios.post(`${baseUrl}/projects/${projectId}/files`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      await loadTask();
-      showNotification(t('taskDetails.fileUploaded'), 'success');
-    } catch (err: any) {
-      console.error(err);
-      showNotification(err.response?.data?.detail || t('taskDetails.uploadError'), 'error');
-    } finally {
-      uploadingFiles.value[key] = false;
-    }
+    await handleFileUpload(file);
   };
   input.click();
-}
-
-function uploadGenericFile() {
-  uploadFileForRequired('');
 }
 
 function openDeleteFileModal(fileId: number) {
@@ -801,6 +871,11 @@ async function deleteAttachment(fileId: number) {
     } else {
       sliderValue.value = savedProgress.value;
     }
+    // обновляем кеш файлов
+    try {
+      const filesResponse = await axios.get(`${baseUrl}/projects/${projectId}/files`);
+      taskFiles.value = filesResponse.data;
+    } catch {}
     showNotification(t('taskDetails.fileDeleted'), 'success');
   } catch (err: any) {
     console.error(err);
@@ -810,8 +885,8 @@ async function deleteAttachment(fileId: number) {
   }
 }
 
-function previewAttachment(att: TaskAttachment) {
-  previewFile.value = { id: att.file_id, original_filename: att.original_filename };
+function previewProjectFile(file: any) {
+  previewFile.value = file;
   previewModalVisible.value = true;
 }
 
@@ -865,8 +940,6 @@ const goBack = () => router.push(`/project/${projectId}`);
 </script>
 
 <style scoped>
-/* Все существующие стили остаются без изменений */
-/* Добавим стиль для уведомления о режиме только для чтения */
 .readonly-notice {
   max-width: 800px;
   margin: 0 auto 20px;
@@ -884,7 +957,6 @@ const goBack = () => router.push(`/project/${projectId}`);
   font-size: 1.2rem;
 }
 
-/* Остальные стили (диаграмма Ганта, подзадачи, прогресс) – без изменений */
 .required-files-section, .attachments-section {
   margin-bottom: 28px;
 }
@@ -918,19 +990,12 @@ const goBack = () => router.push(`/project/${projectId}`);
   color: #4caf50;
   font-weight: 500;
 }
-.upload-file-btn, .upload-generic-btn {
-  background: var(--accent-color);
-  color: var(--button-text);
-  border: none;
-  border-radius: 20px;
-  padding: 6px 12px;
+.not-satisfied-text {
+  color: var(--text-secondary);
   font-size: 0.8rem;
-  cursor: pointer;
-  transition: background 0.2s;
+  font-weight: 500;
 }
-.upload-file-btn:hover, .upload-generic-btn:hover {
-  background: var(--accent-hover);
-}
+
 .attachments-list {
   display: flex;
   flex-direction: column;
@@ -955,6 +1020,31 @@ const goBack = () => router.push(`/project/${projectId}`);
 .attachment-meta {
   font-size: 0.75rem;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.req-badge {
+  font-size: 0.7rem;
+  background: var(--accent-color);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.req-select {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  max-width: 140px;
 }
 .delete-attachment {
   background: none;
@@ -967,12 +1057,57 @@ const goBack = () => router.push(`/project/${projectId}`);
 .delete-attachment:hover {
   background: rgba(244, 67, 54, 0.2);
 }
-.upload-generic-btn-wrapper {
-  margin-bottom: 28px;
-  text-align: right;
+
+/* Панель drag-and-drop + кнопка */
+.upload-actions-row {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 14px;
+}
+.drop-zone {
+  flex: 1;
+  margin-top: 0;
+  padding: 14px;
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--bg-page);
+  transition: background 0.2s, border-color 0.2s;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.drop-zone:hover {
+  border-color: var(--accent-color);
+}
+.drop-zone-active {
+  background: rgba(var(--accent-color-rgb, 66,185,131), 0.08);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+.upload-generic-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  align-self: stretch;
+  border-radius: 20px;
+  background: var(--accent-color);
+  color: var(--button-text);
+  border: none;
+  padding: 6px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.upload-generic-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.upload-generic-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-/* ---------- Общие стили ---------- */
+/* Остальные стили без изменений */
 .task-details-page {
   min-height: 100vh;
   background: var(--bg-page);

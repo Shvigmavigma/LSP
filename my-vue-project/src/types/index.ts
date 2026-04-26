@@ -149,7 +149,8 @@ export interface Project {
   join_requests?: JoinRequest[]; 
   is_hidden?: boolean;
   is_old: boolean;
-  hidden_by?: number;  
+  hidden_by?: number;
+  ignore_file_limits: boolean;  
 }
 
 export interface ProjectLinks {

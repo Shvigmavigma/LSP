@@ -66,7 +66,7 @@
         "admin_panel": "لوحة الإدارة",
         "profile": "الملف الشخصي",
         "logout": "تسجيل الخروج",
-        "old_projects_hover":"المشاريع القديمة"
+        "old_projects_hover": "المشاريع القديمة"
     },
     "project": {
         "title": "عنوان المشروع",
@@ -206,14 +206,14 @@
         "light": "الوضع الفاتح",
         "dark": "الوضع الداكن"
     },
-    
-  "defaultTasksModal": {
-    "title": "إضافة مهمة افتراضية",
-    "selectClass": "اختر الفصل",
-    "preview": "المهام الافتراضية",
-    "add": "إضافة",
-    "requiredFiles": "الملفات المطلوبة"
-  },
+
+    "defaultTasksModal": {
+        "title": "إضافة مهمة افتراضية",
+        "selectClass": "اختر الفصل",
+        "preview": "المهام الافتراضية",
+        "add": "إضافة",
+        "requiredFiles": "الملفات المطلوبة"
+    },
 
     "adminEmails": {
         "title": "إدارة البريد الإلكتروني المسموح به",
@@ -251,6 +251,14 @@
         "userManagement": {
             "title": "إدارة المستخدمين",
             "desc": "عرض، تعديل، حذف، منح الصلاحيات"
+        },
+        "fileLimits": {
+            "title": "حدود حجم الملفات",
+            "desc": "الحد الأقصى لحجم الملفات المرفوعة حسب النوع",
+            "hint": "قم بتغيير الحد الأقصى لحجم الملف لكل نوع (بالميجابايت).",
+            "loadError": "خطأ في تحميل الحدود",
+            "saveSuccess": "تم حفظ الحدود",
+            "saveError": "خطأ في حفظ الحدود"
         },
         "defaultTasks": {
             "title": "المهام الافتراضية",
@@ -332,6 +340,12 @@
     },
     "adminProjects": {
         "title": "إدارة المشاريع",
+        "deleteAllFilesTitle": "حذف جميع ملفات المشروع",
+        "deleteAllFilesConfirmTitle": "حذف جميع الملفات",
+        "deleteAllFilesConfirmMessage": "هل أنت متأكد من حذف جميع ملفات هذا المشروع؟ هذا الإجراء لا يمكن التراجع عنه.",
+        "filesDeletedSuccess": "تم حذف الملفات بنجاح",
+        "filesDeletedError": "خطأ في حذف الملفات",
+        "toggleUnlimitedError": "خطأ في تغيير حد الرفع",
         "searchPlaceholder": "البحث بالعنوان",
         "filterAll": "جميع المشاريع",
         "filterActive": "النشطة فقط",
@@ -339,6 +353,7 @@
         "filterOld": "القديمة فقط",
         "table": {
             "id": "المعرف",
+            "unlimitedUpload": "رفع غير محدود",
             "title": "العنوان",
             "description": "الوصف",
             "participants": "المشاركون",
@@ -711,6 +726,13 @@
     },
     "taskDetails": {
         "title": "تفاصيل المهمة",
+        "dragFilesHere": "اسحب الملفات هنا",
+        "notAttached": "غير مرفق",
+        "noRequirement": "بدون متطلب",
+        "requirementUpdated": "تم تحديث المتطلب",
+        "requirementUpdateError": "خطأ في تحديث المتطلب",
+        "dropToUpload": "أفلِت للرفع",
+        "fileNotFound": "الملف غير موجود",
         "oldProjectReadOnly": "تم وضع علامة على هذا المشروع كقديم وهو للقراءة فقط.",
         "confirmDeleteFile": "هل أنت متأكد من حذف هذا الملف؟",
         "requiredFiles": "الملفات المطلوبة",

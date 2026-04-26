@@ -1,0 +1,14 @@
+{
+    "text/plain": 5242880,
+    "application/pdf": 5242880,
+    "application/msword": 5242880,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": 5242880,
+    "application/vnd.ms-powerpoint": 31457280,
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": 31457280,
+    "image/png": 10485760,
+    "image/jpeg": 10485760,
+    "image/x-icon": 1048576,
+    "image/vnd.microsoft.icon": 1048576,
+    "audio/mpeg": 10485760,
+    "video/mp4": 52428800
+}

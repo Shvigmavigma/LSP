@@ -249,6 +249,14 @@
             "title": "Кіраванне карыстальнікамі",
             "desc": "Прагляд, рэдагаванне, выдаленне, надання правоў"
         },
+        "fileLimits": {
+            "title": "Ліміты файлаў",
+            "desc": "Максімальны памер загружаных файлаў па тыпах",
+            "hint": "Змяніце максімальны памер файла для кожнага тыпу (у мегабайтах).",
+            "loadError": "Памылка загрузкі лімітаў",
+            "saveSuccess": "Ліміты захаваны",
+            "saveError": "Памылка захавання лімітаў"
+        },
         "defaultTasks": {
             "title": "Тыпавыя заданні",
             "desc": "Кіраванне шаблонамі заданняў для класаў"
@@ -330,12 +338,19 @@
     "adminProjects": {
         "title": "Кіраванне праектамі",
         "searchPlaceholder": "Пошук па назве",
+        "deleteAllFilesTitle": "Выдаліць усе файлы праекта",
+        "deleteAllFilesConfirmTitle": "Выдаленне ўсіх файлаў",
+        "deleteAllFilesConfirmMessage": "Вы ўпэўнены, што жадаеце выдаліць УСЕ файлы гэтага праекта? Гэта дзеянне незваротнае.",
+        "filesDeletedSuccess": "Файлы выдалены",
+        "filesDeletedError": "Памылка пры выдаленні файлаў",
+        "toggleUnlimitedError": "Памылка змены ліміту загрузкі",
         "filterAll": "Усе праекты",
         "filterActive": "Толькі актыўныя",
         "filterHidden": "Толькі схаваныя",
         "filterOld": "Толькі старыя",
         "table": {
             "id": "ID",
+            "unlimitedUpload": "Неабмежаваная загрузка",
             "title": "Назва",
             "description": "Апісанне",
             "participants": "Удзельнікі",
@@ -708,6 +723,13 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы ўпэўнены, што хочаце выдаліць гэты файл?",
+        "dragFilesHere": "Перацягніце файлы сюды",
+        "notAttached": "Не прымацавана",
+        "noRequirement": "Без патрабавання",
+        "requirementUpdated": "Патрабаванне зменена",
+        "requirementUpdateError": "Памылка змены патрабавання",
+        "dropToUpload": "Адпусціце для загрузкі",
+        "fileNotFound": "Файл не знойдзены",
         "oldProjectReadOnly": "Гэты праект пазначаны як стары і даступны толькі для прагляду.",
         "title": "Дэталі задання",
         "requiredFilesLabel": "Неабходныя файлы",

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query, Depends, File, UploadFile, Request, Body, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text, and_
@@ -18,7 +18,6 @@ from dotenv import load_dotenv
 import json
 from pathlib import Path
 from auth import get_current_admin
-import json
 
 load_dotenv()
 from sqlalchemy.orm.attributes import flag_modified
@@ -34,13 +33,14 @@ from schemas import (
     TokenResponse,
     Suggestion, SuggestionCreate, SuggestionStatus,
     InvitationCreate, InvitationInfo,
-    ProjectFileResponse, InvitationResponse, 
+    ProjectFileResponse, InvitationResponse,
     RequiredFile, TaskTemplate
 )
 
 from willow import Image
+from PIL import Image as PILImage
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
-#sosal
+
 from auth import (
     verify_password,
     get_password_hash,
@@ -61,6 +61,7 @@ from core.memory_store import memory_store as redis_client
 app = FastAPI(title="School Platform API", description="API для управления учениками, учителями и проектами")
 ADMIN_INIT_PASSWORD = os.getenv("ADMIN_INIT_PASSWORD", "SuperMegaSilvaAdmin")
 DEFAULT_TASKS_FILE = "default_tasks.json"
+FILE_SIZE_LIMITS_FILE = "file_size_limits.json"
 
 # Настройка CORS
 origins = [
@@ -86,7 +87,6 @@ app.add_middleware(
     max_age=3600,
 )
 
-# Создаем директории
 os.makedirs("avatars", exist_ok=True)
 os.makedirs("uploads", exist_ok=True)
 app.mount("/avatars", StaticFiles(directory="avatars"), name="avatars")
@@ -103,11 +103,9 @@ def get_db():
         db.close()
 
 def is_curator(user: User) -> bool:
-    """Проверяет, является ли пользователь куратором (глобальная роль)."""
     return user.is_teacher and user.teacher_info and user.teacher_info.get("curator", False)
 
 def get_author_role(user: User, project: Project) -> str:
-    """Возвращает роль пользователя для отображения в комментарии."""
     if user.is_admin:
         return "Администратор"
     if is_curator(user):
@@ -124,6 +122,7 @@ def get_author_role(user: User, project: Project) -> str:
             }
             return role_names.get(role, role)
     return "Участник"
+
 def load_default_tasks() -> Dict[str, Any]:
     if not os.path.exists(DEFAULT_TASKS_FILE):
         initial = {
@@ -140,6 +139,69 @@ def load_default_tasks() -> Dict[str, Any]:
 def save_default_tasks(data: Dict[str, Any]):
     with open(DEFAULT_TASKS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_file_limits():
+    if not os.path.exists(FILE_SIZE_LIMITS_FILE):
+        default_limits = {
+            "text/plain": 5 * 1024 * 1024,
+            "application/pdf": 5 * 1024 * 1024,
+            "application/msword": 5 * 1024 * 1024,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": 5 * 1024 * 1024,
+            "application/vnd.ms-powerpoint": 30 * 1024 * 1024,
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation": 30 * 1024 * 1024,
+            "image/png": 10 * 1024 * 1024,
+            "image/jpeg": 10 * 1024 * 1024,
+            "image/x-icon": 1 * 1024 * 1024,
+            "image/vnd.microsoft.icon": 1 * 1024 * 1024,
+            "audio/mpeg": 10 * 1024 * 1024,
+            "video/mp4": 50 * 1024 * 1024,
+        }
+        with open(FILE_SIZE_LIMITS_FILE, "w", encoding="utf-8") as f:
+            json.dump(default_limits, f, indent=2)
+        return default_limits
+    with open(FILE_SIZE_LIMITS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_file_limits(data: dict):
+    with open(FILE_SIZE_LIMITS_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+# Новая зависимость: авторизация через query-параметр или заголовок
+async def get_user_from_query_or_header(
+    request: Request,
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+) -> User:
+    """Пытается получить пользователя из query-параметра ?token=, иначе из заголовка Authorization."""
+    if token:
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("sub")
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Invalid token payload")
+            user = db.query(User).get(int(user_id))
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            return user
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+    else:
+        authorization = request.headers.get("Authorization")
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        token = authorization.split("Bearer ")[1]
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("sub")
+            if not user_id:
+                raise HTTPException(status_code=401, detail="Invalid token payload")
+            user = db.query(User).get(int(user_id))
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            return user
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+
 # ==================== ЭНД ТОКЕНОВ ====================
 @app.post("/token", response_model=TokenResponse, tags=["Auth"])
 async def token_login(
@@ -162,6 +224,32 @@ async def token_login(
     return TokenResponse(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 
 # ==================== ЭНД АДМИНОВ ====================
+@app.patch("/admin/projects/{project_id}/toggle-file-limits", response_model=ProjectResponse, tags=["Admin"])
+async def toggle_project_file_limits(
+    project_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    project.ignore_file_limits = not project.ignore_file_limits
+    db.commit()
+    db.refresh(project)
+    return project
+
+@app.get("/admin/file-size-limits", tags=["Admin"])
+async def get_file_size_limits(admin: User = Depends(get_current_admin)):
+    return load_file_limits()
+
+@app.put("/admin/file-size-limits", tags=["Admin"])
+async def update_file_size_limits(
+    data: Dict[str, int] = Body(...),
+    admin: User = Depends(get_current_admin)
+):
+    save_file_limits(data)
+    return {"message": "File size limits updated"}
+
 @app.post("/admin/users", response_model=UserResponse, tags=["Admin"])
 async def admin_create_user(
     username: str = Body(..., description="Никнейм нового администратора"),
@@ -201,10 +289,6 @@ async def admin_delete_comment_permanently(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Полностью удалить комментарий (только для администратора или куратора).
-    Комментарий должен быть уже скрыт (hidden=True).
-    """
     if not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(status_code=403, detail="Only admin or curator can permanently delete comments")
     projects = db.query(Project).all()
@@ -213,7 +297,6 @@ async def admin_delete_comment_permanently(
         if project.comments:
             for i, c in enumerate(project.comments):
                 if c.get("id") == comment_id and c.get("hidden") == True:
-                    # Удаляем комментарий из списка
                     project.comments.pop(i)
                     flag_modified(project, "comments")
                     db.commit()
@@ -478,6 +561,7 @@ async def check_student_email(request: dict):
 @app.get("/default-tasks", tags=["DefaultTasks"])
 async def get_default_tasks(current_user: User = Depends(get_current_user)):
     return load_default_tasks()
+
 @app.post("/students/", response_model=StudentResponse, tags=["Students"])
 async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     existing_nickname = db.query(User).filter(User.nickname == student.nickname.strip()).first()
@@ -783,13 +867,11 @@ async def upload_avatar(
         raise HTTPException(status_code=500, detail=f"Image processing failed: {str(e)}")
 
 # ==================== ПРОЕКТЫ ====================
-# Эндпоинты, связанные со старыми проектами, должны быть выше /projects/{project_id}
 @app.get("/projects/old", response_model=List[ProjectResponse], tags=["Projects"])
 async def get_old_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Получить все проекты, помеченные как старые (is_old=True)."""
     query = db.query(Project).filter(Project.is_old == True)
     if not (current_user.is_admin or is_curator(current_user)):
         query = query.filter(Project.is_hidden == False)
@@ -807,7 +889,6 @@ async def mark_project_old(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Пометить проект как старый (только для админа или куратора)."""
     if not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(403, "Only admin or curator can mark projects as old")
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -824,7 +905,6 @@ async def unmark_project_old(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Снять пометку «старый» (только для админа или куратора)."""
     if not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(403, "Only admin or curator can unmark projects as old")
     project = db.query(Project).filter(Project.id == project_id).first()
@@ -1019,7 +1099,6 @@ async def create_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Проверяем, что создатель участвует в проекте (если нет – добавляем с ролью по умолчанию)
     creator_in_participants = any(p.user_id == current_user.id for p in project.participants)
     if not creator_in_participants:
         default_role = ProjectRole.EXECUTOR
@@ -1036,20 +1115,14 @@ async def create_project(
         project.participants.append(
             Participant(user_id=current_user.id, role=default_role, joined_at=datetime.utcnow())
         )
-
-    # Проверяем, что все участники существуют
     user_ids = [p.user_id for p in project.participants]
     users = db.query(User).filter(User.id.in_(user_ids)).all()
     if len(users) != len(user_ids):
         raise HTTPException(status_code=404, detail="Один или несколько участников не найдены")
-
-    # Проверка уникальности названий задач при создании
     if project.tasks:
         titles = [task.get('title', '').strip().lower() for task in project.tasks if task.get('title')]
         if len(titles) != len(set(titles)):
             raise HTTPException(status_code=400, detail="Task titles must be unique within a project")
-
-    # Создаём проект
     db_project = Project(
         title=project.title,
         body=project.body,
@@ -1061,7 +1134,8 @@ async def create_project(
         is_hidden=False,
         hidden_by=None,
         hidden_by_users=[],
-        is_old=False   # по умолчанию проект не старый
+        is_old=False,
+        ignore_file_limits=False
     )
     db.add(db_project)
     db.commit()
@@ -1121,18 +1195,13 @@ async def update_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    # Если проект старый, редактировать могут только администраторы или кураторы
     if project.is_old and not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(status_code=403, detail="Старый проект нельзя редактировать. Только администратор может изменять его.")
-
-    # Проверка прав на редактирование (обычная логика)
     if not (current_user.is_admin or is_curator(current_user)):
         participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
         if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can update the project")
 
-    # Обновляем простые поля
     if project_update.title is not None:
         project.title = project_update.title
     if project_update.body is not None:
@@ -1140,13 +1209,13 @@ async def update_project(
     if project_update.underbody is not None:
         project.underbody = project_update.underbody
 
-    # Обновляем задачи (заменяем весь список)
     if project_update.tasks is not None:
         old_tasks = project.tasks or []
         new_tasks = project_update.tasks
-        # Проверяем обязательные файлы при переходе в статус "выполнена"
+
         for i, new_task in enumerate(new_tasks):
             old_task = old_tasks[i] if i < len(old_tasks) else None
+            # Проверка обязательных файлов при завершении задачи
             if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
                 required_files = new_task.get("required_files", [])
                 if required_files:
@@ -1165,20 +1234,21 @@ async def update_project(
                                 401,
                                 f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}"
                             )
-        project.tasks = new_tasks
-        flag_modified(project, "tasks")   # явно помечаем поле как изменённое
+            # Сохраняем старые вложения, если в новом объекте задачи их нет
+            if "attachments" not in new_task and old_task and "attachments" in old_task:
+                new_task["attachments"] = old_task["attachments"]
 
-    # Обновляем ссылки
+        project.tasks = new_tasks
+        flag_modified(project, "tasks")
+
     if project_update.links is not None:
         project.links = project_update.links
         flag_modified(project, "links")
 
-    # Обновляем комментарии
     if project_update.comments is not None:
         project.comments = [c.model_dump(mode='json') for c in project_update.comments]
         flag_modified(project, "comments")
 
-    # Обновляем участников
     if project_update.participants is not None:
         new_ids = [p.user_id for p in project_update.participants]
         users = db.query(User).filter(User.id.in_(new_ids)).all()
@@ -1203,15 +1273,11 @@ async def delete_file(
     project = db.query(Project).filter(Project.id == file_record.project_id).first()
     if not (current_user.id == file_record.uploaded_by or current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
         raise HTTPException(403, "Not enough permissions")
-
-    # Удаляем attachment из задачи (если файл привязан к задаче)
     if file_record.task_id is not None:
         task = project.tasks[file_record.task_id]
         if "attachments" in task:
             task["attachments"] = [att for att in task["attachments"] if att.get("file_id") != file_id]
             flag_modified(project, "tasks")
-
-    # Удаляем физический файл и запись в БД
     file_path = os.path.join("uploads", file_record.filename)
     if os.path.exists(file_path):
         os.remove(file_path)
@@ -1449,7 +1515,7 @@ async def hide_comment(
     db.refresh(project)
     return project
 
-# ==================== ПРИГЛАШЕНИЯ ====================
+# ==================== ПРИГЛАШЕНИЯ (по имейл) ====================
 @app.post("/projects/{project_id}/invite", response_model=Dict[str, str], tags=["Projects"])
 async def create_invitation(
     project_id: int,
@@ -1536,44 +1602,62 @@ async def upload_project_file(
         raise HTTPException(404, "Project not found")
     if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
         raise HTTPException(403, "Not enough permissions")
-
-    allowed_types = {
-        "text/plain": 5 * 1024 * 1024,
-        "application/pdf": 5 * 1024 * 1024,
-        "application/msword": 5 * 1024 * 1024,
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": 5 * 1024 * 1024,
-        "application/vnd.ms-powerpoint": 30 * 1024 * 1024,
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation": 30 * 1024 * 1024,
-    }
-    if file.content_type not in allowed_types:
-        raise HTTPException(400, f"File type {file.content_type} not allowed")
-    max_size = allowed_types[file.content_type]
     contents = await file.read()
-    if len(contents) > max_size:
-        raise HTTPException(400, f"File too large (max {max_size // (1024*1024)} MB)")
-
+    if not project.ignore_file_limits:
+        limits = load_file_limits()
+        if file.content_type not in limits:
+            raise HTTPException(400, f"File type {file.content_type} not allowed")
+        max_size = limits[file.content_type]
+        if len(contents) > max_size:
+            raise HTTPException(400, f"File too large (max {max_size // (1024*1024)} MB)")
+    else:
+        allowed = set(load_file_limits().keys())
+        if file.content_type not in allowed:
+            raise HTTPException(400, f"File type {file.content_type} not allowed")
     ext = os.path.splitext(file.filename)[1]
     unique_name = f"{uuid.uuid4().hex}{ext}"
 
-    # Сжимаемые типы (текстовые и офисные документы)
-    compressible_types = [
+    compressible_gzip = [
         "text/plain",
         "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/vnd.ms-powerpoint",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ]
-    compress = file.content_type in compressible_types
+    image_compressible = [
+        "image/png",
+        "image/jpeg",
+    ]
 
     compressed = False
+    compressed_image = False
     final_content = contents
     final_filename = unique_name
-    if compress:
+
+    if file.content_type in compressible_gzip:
         compressed_content = gzip.compress(contents)
         if len(compressed_content) < len(contents):
             final_content = compressed_content
             final_filename = unique_name + ".gz"
             compressed = True
+
+    elif file.content_type in image_compressible:
+        try:
+            img = PILImage.open(io.BytesIO(contents))
+            max_dim = 1200
+            w, h = img.size
+            if w > max_dim or h > max_dim:
+                ratio = min(max_dim / w, max_dim / h)
+                new_size = (int(w * ratio), int(h * ratio))
+                img = img.resize(new_size, PILImage.LANCZOS)
+            output = io.BytesIO()
+            img = img.convert("RGB")
+            img.save(output, format="JPEG", quality=80)
+            compressed_content = output.getvalue()
+            if len(compressed_content) < len(contents):
+                final_content = compressed_content
+                final_filename = unique_name + ".jpg"
+                compressed_image = True
+        except Exception as e:
+            print(f"Image compression failed, keeping original: {e}")
 
     file_path = os.path.join("uploads", final_filename)
     with open(file_path, "wb") as f:
@@ -1585,28 +1669,32 @@ async def upload_project_file(
         filename=final_filename,
         required_file_id=required_file_id,
         original_filename=file.filename,
-        file_size=len(contents),  # оригинальный размер
+        file_size=len(contents),
         mime_type=file.content_type,
         uploaded_by=current_user.id,
-        compressed=compressed
+        compressed=compressed or compressed_image
     )
     db.add(db_file)
     db.commit()
     db.refresh(db_file)
-    task = project.tasks[task_id]
-    if "attachments" not in task:
-        task["attachments"] = []
-    attachment = {
-        "id": str(uuid.uuid4()),
-        "file_id": db_file.id,
-        "required_file_id": required_file_id,
-        "uploaded_at": datetime.utcnow().isoformat(),
-        "original_filename": file.filename,
-        "size": len(contents)
-    }
-    task["attachments"].append(attachment)
-    flag_modified(project, "tasks")
-    db.commit()
+
+    if task_id is not None:
+        task = project.tasks[task_id]
+        if "attachments" not in task:
+            task["attachments"] = []
+        attachment = {
+            "id": str(uuid.uuid4()),
+            "file_id": db_file.id,
+            "required_file_id": required_file_id,
+            "uploaded_at": datetime.utcnow().isoformat(),
+            "original_filename": file.filename,
+            "size": len(contents),
+            "mime_type": file.content_type
+        }
+        task["attachments"].append(attachment)
+        flag_modified(project, "tasks")
+        db.commit()
+
     return db_file
 
 @app.get("/projects/{project_id}/files", response_model=List[ProjectFileResponse], tags=["Projects"])
@@ -1630,9 +1718,46 @@ async def get_project_files(
     files = query.all()
     return files
 
-@app.get("/files/{file_id}", tags=["Projects"])
-async def download_file(
+@app.delete("/admin/projects/{project_id}/files", tags=["Admin"])
+async def admin_delete_all_project_files(
+    project_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """Полностью удалить все файлы проекта (физические и записи в БД)."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    files = db.query(ProjectFile).filter(
+        ProjectFile.project_id == project_id,
+        ProjectFile.is_deleted == False
+    ).all()
+
+    # Удаляем физические файлы
+    for f in files:
+        file_path = os.path.join("uploads", f.filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError as e:
+                print(f"Ошибка удаления файла {file_path}: {e}")
+        db.delete(f)
+
+    # Очищаем attachments в задачах проекта (чтобы не осталось висячих ссылок)
+    if project.tasks:
+        for task in project.tasks:
+            if "attachments" in task:
+                task["attachments"] = []
+        flag_modified(project, "tasks")
+
+    db.commit()
+    return {"message": f"Все файлы проекта {project_id} удалены ({len(files)} шт.)"}
+
+@app.patch("/files/{file_id}/set-requirement", tags=["Projects"])
+async def set_file_requirement(
     file_id: int,
+    data: dict = Body(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -1642,20 +1767,26 @@ async def download_file(
     project = db.query(Project).filter(Project.id == file_record.project_id).first()
     if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
         raise HTTPException(403, "Not enough permissions")
-    file_path = os.path.join("uploads", file_record.filename)
-    if not os.path.exists(file_path):
-        raise HTTPException(404, "File not found on disk")
-    headers = {"Content-Disposition": "inline"}
-    if file_record.compressed:
-        headers["Content-Encoding"] = "gzip"
-    return FileResponse(
-        file_path,
-        filename=file_record.original_filename,
-        headers=headers
-    )
 
-async def delete_file(
+    new_required_id = data.get("required_file_id")
+    file_record.required_file_id = new_required_id
+
+    # Если файл привязан к задаче – обновить attachment
+    if file_record.task_id is not None and project:
+        task = project.tasks[file_record.task_id]
+        for att in task.get("attachments", []):
+            if att.get("file_id") == file_id:
+                att["required_file_id"] = new_required_id
+                break
+        flag_modified(project, "tasks")
+
+    db.commit()
+    return {"message": "Requirement updated"}
+
+@app.patch("/files/{file_id}/set-requirement", tags=["Projects"])
+async def set_file_requirement(
     file_id: int,
+    data: dict = Body(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -1663,21 +1794,97 @@ async def delete_file(
     if not file_record:
         raise HTTPException(404, "File not found")
     project = db.query(Project).filter(Project.id == file_record.project_id).first()
-    if not (current_user.id == file_record.uploaded_by or current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
         raise HTTPException(403, "Not enough permissions")
 
-    if file_record.task_id is not None:
+    new_required_id = data.get("required_file_id")
+    file_record.required_file_id = new_required_id
+
+    # если файл привязан к задаче, обновить attachment в JSON задачи
+    if file_record.task_id is not None and project:
         task = project.tasks[file_record.task_id]
-        if "attachments" in task:
-            task["attachments"] = [att for att in task["attachments"] if att.get("file_id") != file_id]
-            flag_modified(project, "tasks")
+        for att in task.get("attachments", []):
+            if att.get("file_id") == file_id:
+                att["required_file_id"] = new_required_id
+                break
+        flag_modified(project, "tasks")
+
+    db.commit()
+    return {"message": "Requirement updated"}
+
+@app.get("/files/{file_id}", tags=["Projects"])
+async def download_file(
+    file_id: int,
+    request: Request,
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_user_from_query_or_header)  # <-- авторизация через query или заголовок
+):
+    file_record = db.query(ProjectFile).filter(ProjectFile.id == file_id).first()
+    if not file_record:
+        raise HTTPException(404, "File not found")
+    project = db.query(Project).filter(Project.id == file_record.project_id).first()
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(403, "Not enough permissions")
 
     file_path = os.path.join("uploads", file_record.filename)
-    if os.path.exists(file_path):
-        os.remove(file_path)
-    db.delete(file_record)
-    db.commit()
-    return {"message": "File deleted"}
+    if not os.path.exists(file_path):
+        raise HTTPException(404, "File not found on disk")
+
+    file_size = os.path.getsize(file_path)
+    content_type = file_record.mime_type or "application/octet-stream"
+    is_gzip = file_record.compressed and file_record.filename.endswith('.gz')
+
+    range_header = request.headers.get("Range")
+    if range_header and not is_gzip:
+        try:
+            range_value = range_header.strip().lower()
+            if not range_value.startswith("bytes="):
+                raise ValueError("Invalid range unit")
+            range_value = range_value[6:]
+            if range_value.startswith("-"):
+                end = file_size - 1
+                start = file_size - int(range_value[1:])
+                if start < 0:
+                    start = 0
+            elif range_value.endswith("-"):
+                start = int(range_value[:-1])
+                end = file_size - 1
+            else:
+                parts = range_value.split('-')
+                start = int(parts[0])
+                end = int(parts[1]) if parts[1] else file_size - 1
+        except (ValueError, IndexError):
+            raise HTTPException(status_code=416, detail="Invalid Range header")
+
+        if start >= file_size or end >= file_size or start > end:
+            raise HTTPException(status_code=416, detail="Range not satisfiable")
+
+        chunk_size = end - start + 1
+
+        def iterfile():
+            with open(file_path, "rb") as f:
+                f.seek(start)
+                remaining = chunk_size
+                while remaining > 0:
+                    data = f.read(min(4096, remaining))
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(chunk_size),
+            "Content-Disposition": f"inline; filename=\"{file_record.original_filename}\"",
+        }
+        return StreamingResponse(iterfile(), status_code=206, media_type=content_type, headers=headers)
+
+    headers = {"Content-Disposition": "inline"}
+    if is_gzip:
+        headers["Content-Encoding"] = "gzip"
+    return FileResponse(file_path, filename=file_record.original_filename, media_type=content_type, headers=headers)
 
 # ==================== АУТЕНТИФИКАЦИЯ И ВЕРИФИКАЦИЯ ====================
 @app.post("/auth/request-verification-code", tags=["Auth"])
@@ -1951,6 +2158,53 @@ async def get_accepted_teacher_emails(
         return {"accepted_emails": [], "domains": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка чтения файла: {str(e)}")
+
+@app.put("/admin/accepted-emails/teachers", tags=["Admin"])
+async def update_accepted_teacher_emails(
+    data: dict,
+    admin: User = Depends(get_current_admin)
+):
+    if "accepted_emails" not in data or "domains" not in data:
+        raise HTTPException(status_code=400, detail="Неверная структура: требуется accepted_emails и domains")
+    if not isinstance(data["accepted_emails"], list) or not isinstance(data["domains"], list):
+        raise HTTPException(status_code=400, detail="accepted_emails и domains должны быть массивами")
+    try:
+        with open(ACCEPTED_EMAILS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return {"message": "Файл успешно обновлён"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка записи файла: {str(e)}")
+
+@app.get("/admin/accepted-emails/students", tags=["Admin"])
+async def get_accepted_student_emails(
+    admin: User = Depends(get_current_admin)
+):
+    try:
+        with open(ACCEPTED_STUDENT_EMAILS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data
+    except FileNotFoundError:
+        return {"accepted_emails": [], "domains": ["lit1533.ru"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка чтения файла: {str(e)}")
+
+@app.put("/admin/accepted-emails/students", tags=["Admin"])
+async def update_accepted_student_emails(
+    data: dict,
+    admin: User = Depends(get_current_admin)
+):
+    if "accepted_emails" not in data or "domains" not in data:
+        raise HTTPException(status_code=400, detail="Неверная структура: требуется accepted_emails и domains")
+    if not isinstance(data["accepted_emails"], list) or not isinstance(data["domains"], list):
+        raise HTTPException(status_code=400, detail="accepted_emails и domains должны быть массивами")
+    try:
+        with open(ACCEPTED_STUDENT_EMAILS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return {"message": "Файл успешно обновлён"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка записи файла: {str(e)}")
+
+# ==================== УПРАВЛЕНИЕ ШАБЛОНАМИ ЗАДАЧ ====================
 @app.put("/admin/default-tasks/class/{class_key}/direction/{direction_key}", tags=["Admin"])
 async def update_direction(
     class_key: str,
@@ -1963,10 +2217,8 @@ async def update_direction(
         raise HTTPException(404, "Class not found")
     if "directions" not in default_tasks[class_key] or direction_key not in default_tasks[class_key]["directions"]:
         raise HTTPException(404, "Direction not found")
-    
     new_label = data.get("new_label")
     new_key = data.get("new_key")
-    
     if new_label:
         default_tasks[class_key]["directions"][direction_key]["label"] = new_label
     if new_key and new_key != direction_key:
@@ -1974,9 +2226,9 @@ async def update_direction(
             raise HTTPException(400, "Direction key already exists")
         default_tasks[class_key]["directions"][new_key] = default_tasks[class_key]["directions"][direction_key]
         del default_tasks[class_key]["directions"][direction_key]
-    
     save_default_tasks(default_tasks)
     return {"message": "Direction updated"}
+
 @app.put("/admin/default-tasks", tags=["Admin"])
 async def update_default_tasks_full(
     data: Dict[str, Any] = Body(...),
@@ -2072,75 +2324,25 @@ async def update_direction_tasks(
     save_default_tasks(data)
     return {"message": "Tasks updated"}
 
-@app.put("/admin/accepted-emails/teachers", tags=["Admin"])
-async def update_accepted_teacher_emails(
-    data: dict,
-    admin: User = Depends(get_current_admin)
-):
-    if "accepted_emails" not in data or "domains" not in data:
-        raise HTTPException(status_code=400, detail="Неверная структура: требуется accepted_emails и domains")
-    if not isinstance(data["accepted_emails"], list) or not isinstance(data["domains"], list):
-        raise HTTPException(status_code=400, detail="accepted_emails и domains должны быть массивами")
-    try:
-        with open(ACCEPTED_EMAILS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return {"message": "Файл успешно обновлён"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка записи файла: {str(e)}")
-
-@app.get("/admin/accepted-emails/students", tags=["Admin"])
-async def get_accepted_student_emails(
-    admin: User = Depends(get_current_admin)
-):
-    try:
-        with open(ACCEPTED_STUDENT_EMAILS_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return data
-    except FileNotFoundError:
-        return {"accepted_emails": [], "domains": ["lit1533.ru"]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка чтения файла: {str(e)}")
-
-@app.put("/admin/accepted-emails/students", tags=["Admin"])
-async def update_accepted_student_emails(
-    data: dict,
-    admin: User = Depends(get_current_admin)
-):
-    if "accepted_emails" not in data or "domains" not in data:
-        raise HTTPException(status_code=400, detail="Неверная структура: требуется accepted_emails и domains")
-    if not isinstance(data["accepted_emails"], list) or not isinstance(data["domains"], list):
-        raise HTTPException(status_code=400, detail="accepted_emails и domains должны быть массивами")
-    try:
-        with open(ACCEPTED_STUDENT_EMAILS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return {"message": "Файл успешно обновлён"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка записи файла: {str(e)}")
 # ==================== ПРИГЛАШЕНИЯ (НОВАЯ ВЕРСИЯ) ====================
-
 @app.post("/invitations", response_model=InvitationResponse, tags=["Invitations"])
 async def create_invitation(
     invite: InvitationCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Проверяем, существует ли проект
     project = db.query(Project).filter(Project.id == invite.project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
-    # Проверяем права приглашающего
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if role not in [ProjectRole.CUSTOMER.value, ProjectRole.SUPERVISOR.value, ProjectRole.EXECUTOR.value]:
             raise HTTPException(403, "Only customer, supervisor, executor, curator or admin can invite")
-    # Проверяем, что приглашаемый существует
     invited_user = db.query(User).filter(User.id == invite.invited_user_id).first()
     if not invited_user:
         raise HTTPException(404, "User not found")
-    # Проверяем, не является ли уже участником
     if any(p.get("user_id") == invite.invited_user_id for p in (project.participants or [])):
         raise HTTPException(400, "User is already a participant")
-    # Проверяем, нет ли уже pending приглашения
     existing = db.query(Invitation).filter(
         Invitation.project_id == invite.project_id,
         Invitation.invited_user_id == invite.invited_user_id,
@@ -2149,7 +2351,6 @@ async def create_invitation(
     ).first()
     if existing:
         raise HTTPException(400, "Invitation already pending for this user in this project")
-    # Создаём приглашение
     db_invite = Invitation(
         project_id=invite.project_id,
         invited_by=current_user.id,
@@ -2160,7 +2361,6 @@ async def create_invitation(
     db.add(db_invite)
     db.commit()
     db.refresh(db_invite)
-    # Подтягиваем название проекта и никнейм пригласившего для ответа
     db_invite.project_title = project.title
     db_invite.invited_by_nickname = current_user.nickname
     return db_invite
@@ -2170,12 +2370,10 @@ async def get_my_invitations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Приглашения, адресованные текущему пользователю (статус pending)."""
     invites = db.query(Invitation).filter(
         Invitation.invited_user_id == current_user.id,
         Invitation.status == "pending"
     ).all()
-    # Обогащаем данными проектов и пригласивших
     for inv in invites:
         proj = db.query(Project).filter(Project.id == inv.project_id).first()
         inv.project_title = proj.title if proj else "Unknown"
@@ -2188,7 +2386,6 @@ async def get_sent_invitations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Приглашения, отправленные текущим пользователем (все статусы)."""
     invites = db.query(Invitation).filter(
         Invitation.invited_by == current_user.id
     ).all()
@@ -2214,7 +2411,6 @@ async def accept_invitation(
     project = db.query(Project).filter(Project.id == invite.project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
-    # Добавляем участника
     if project.participants is None:
         project.participants = []
     project.participants.append({
@@ -2224,7 +2420,6 @@ async def accept_invitation(
         "invited_by": invite.invited_by
     })
     flag_modified(project, "participants")
-    # Меняем статус приглашения
     invite.status = "accepted"
     db.commit()
     db.refresh(project)
@@ -2264,5 +2459,6 @@ async def cancel_invitation(
     db.delete(invite)
     db.commit()
     return {"message": "Invitation cancelled"}
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
