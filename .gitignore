@@ -21,4 +21,9 @@ __pycache__/
 # Редакторы и IDE
 .vscode/
 .idea/
-uploads/
+uploads/*.mp4
+uploads/*.mp3
+uploads/*.ogg
+uploads/*.avi
+uploads/*.mov
+!uploads/.gitkeep
