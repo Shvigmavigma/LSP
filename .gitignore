@@ -21,3 +21,4 @@ __pycache__/
 # Редакторы и IDE
 .vscode/
 .idea/
+uploads/
