@@ -84,7 +84,21 @@ app.mount("/avatars", StaticFiles(directory="avatars"), name="avatars")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 AVATAR_DIR = "avatars"
 
+# Добавляем колонку required_roles в таблицу projects, если её нет
+def ensure_required_roles_column():
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("PRAGMA table_info(projects)"))
+            columns = [row[1] for row in result]
+            if "required_roles" not in columns:
+                conn.execute(text("ALTER TABLE projects ADD COLUMN required_roles JSON DEFAULT '{}'"))
+                conn.commit()
+                print("Column 'required_roles' added to projects table")
+    except Exception as e:
+        print(f"Error adding required_roles column: {e}")
+
 Base.metadata.create_all(bind=engine)
+ensure_required_roles_column()
 
 def get_db():
     db = session_local()
@@ -192,6 +206,42 @@ async def get_user_from_query_or_header(
             return user
         except JWTError:
             raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ РОЛЕВОЙ СИСТЕМЫ ====================
+def count_participants_by_role(project: Project, role: str) -> int:
+    if not project.participants:
+        return 0
+    return sum(1 for p in project.participants if p.get("role") == role)
+
+def user_can_act_as_role(user: User, role: str) -> bool:
+    """Проверяет, может ли пользователь выполнять данную роль в проекте."""
+    if role == "executor":
+        return True   # любой пользователь может быть исполнителем
+    if not user.is_teacher:
+        return False
+    if role == "curator":
+        return user.teacher_info and user.teacher_info.get("curator", False)
+    # остальные роли: customer, supervisor, expert
+    return role in user.teacher_info.get("roles", []) if user.teacher_info else False
+
+def has_full_edit_permission(project: Project, user: User) -> bool:
+    """
+    Определяет, имеет ли пользователь полные права на редактирование проекта
+    (может менять title, body, underbody, participants, required_roles и т.д.)
+    """
+    if user.is_admin or is_curator(user):
+        return True
+    role = get_participant_role(project, user.id)
+    if role == ProjectRole.CUSTOMER.value:
+        return True
+    # Если в проекте нет заказчика и куратора, а пользователь — исполнитель,
+    # то он получает права заказчика
+    if role == ProjectRole.EXECUTOR.value:
+        has_customer = any(p.get("role") == ProjectRole.CUSTOMER.value for p in (project.participants or []))
+        has_curator = any(p.get("role") == ProjectRole.CURATOR.value for p in (project.participants or []))
+        if not has_customer and not has_curator:
+            return True
+    return False
 
 # ==================== ЭНД ТОКЕНОВ ====================
 @app.post("/token", response_model=TokenResponse, tags=["Auth"])
@@ -420,7 +470,60 @@ async def admin_update_project(
     db.commit()
     db.refresh(project)
     return project
-
+@app.patch("/projects/{project_id}/tasks", response_model=ProjectResponse, tags=["Projects"])
+async def update_project_tasks(
+    project_id: int,
+    tasks: List[Dict[str, Any]] = Body(..., embed=True),  # ожидаем {"tasks": [...]}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    
+    # Проверка на старый проект
+    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(403, "Старый проект нельзя редактировать")
+    
+    # Проверка прав: разрешены customer, executor, curator, admin
+    participant_role = get_participant_role(project, current_user.id)
+    allowed_roles = [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value, ProjectRole.CURATOR.value]
+    if not (current_user.is_admin or is_curator(current_user) or participant_role in allowed_roles):
+        raise HTTPException(403, "Недостаточно прав для изменения задач")
+    
+    # Проверка уникальности названий задач
+    titles = [task.get('title', '').strip().lower() for task in tasks if task.get('title')]
+    if len(titles) != len(set(titles)):
+        raise HTTPException(400, "Task titles must be unique within a project")
+    
+    # Обновляем задачи с сохранением вложений
+    old_tasks = project.tasks or []
+    for i, new_task in enumerate(tasks):
+        old_task = old_tasks[i] if i < len(old_tasks) else None
+        # Проверка при завершении задачи
+        if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
+            required_files = new_task.get("required_files", [])
+            for req in required_files:
+                req_id = req.get("id")
+                if not req_id:
+                    continue
+                attached = db.query(ProjectFile).filter(
+                    ProjectFile.project_id == project_id,
+                    ProjectFile.task_id == i,
+                    ProjectFile.required_file_id == req_id,
+                    ProjectFile.is_deleted == False
+                ).first()
+                if not attached:
+                    raise HTTPException(401, f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}")
+        # Сохраняем старые вложения, если в новом объекте их нет
+        if "attachments" not in new_task and old_task and "attachments" in old_task:
+            new_task["attachments"] = old_task["attachments"]
+    
+    project.tasks = tasks
+    flag_modified(project, "tasks")
+    db.commit()
+    db.refresh(project)
+    return project
 @app.delete("/admin/projects/{project_id}", tags=["Admin"])
 async def admin_delete_project(
     project_id: int,
@@ -909,25 +1012,63 @@ async def unmark_project_old(
 @app.post("/projects/{project_id}/join-requests", response_model=ProjectResponse, tags=["Projects"])
 async def create_join_request(
     project_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    """
+    Создание запроса на вступление в проект с указанием роли.
+    Ожидает JSON: { "requested_role": "customer" | "supervisor" | "expert" | "executor" | "curator" }
+    """
+    try:
+        body = await request.json()
+        requested_role = body.get("requested_role")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body, expected { 'requested_role': '...' }")
+
+    if not requested_role:
+        raise HTTPException(status_code=400, detail="Missing 'requested_role' field")
+    if requested_role not in [r.value for r in ProjectRole]:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Allowed: {[r.value for r in ProjectRole]}")
+
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Проверка, что пользователь ещё не участник
     if any(p.get("user_id") == current_user.id for p in (project.participants or [])):
         raise HTTPException(status_code=400, detail="You are already a participant")
-    if current_user.is_teacher:
-        raise HTTPException(status_code=403, detail="Only students can request to join as executor")
+
+    # Проверка, что пользователь может выполнять эту роль
+    if not user_can_act_as_role(current_user, requested_role):
+        raise HTTPException(status_code=403, detail=f"You cannot act as {requested_role}")
+
+    # Проверка дефицита по роли
+    current_count = count_participants_by_role(project, requested_role)
+    required = project.required_roles.get(requested_role, 0) if project.required_roles else 0
+    deficit = max(0, required - current_count)
+    if deficit <= 0:
+        raise HTTPException(status_code=400, detail=f"No open positions for role {requested_role}")
+
+    # Проверка, нет ли уже pending запроса от этого пользователя на эту роль
     if project.join_requests:
-        existing = next((r for r in project.join_requests if r.get("user_id") == current_user.id and r.get("status") == "pending"), None)
+        existing = next(
+            (r for r in project.join_requests
+             if r.get("user_id") == current_user.id and
+                r.get("status") == "pending" and
+                r.get("requested_role") == requested_role),
+            None
+        )
         if existing:
-            raise HTTPException(status_code=400, detail="You already have a pending request")
+            raise HTTPException(status_code=400, detail="You already have a pending request for this role")
+
+    # Создаём новый запрос
     new_request = {
         "id": str(uuid.uuid4()),
         "user_id": current_user.id,
         "created_at": datetime.utcnow().isoformat(),
-        "status": "pending"
+        "status": "pending",
+        "requested_role": requested_role
     }
     if project.join_requests is None:
         project.join_requests = []
@@ -956,8 +1097,9 @@ async def toggle_hide_project(
             project.hidden_by = None
     else:
         participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
-        if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
-            raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can hide/show projects")
+        # Исполнитель не может скрывать/показывать проект
+        if not participant or participant.get("role") != ProjectRole.CUSTOMER.value:
+            raise HTTPException(status_code=403, detail="Only customer, curator or admin can hide/show projects")
         project.is_hidden = not project.is_hidden
         if project.is_hidden:
             project.hidden_by = current_user.id
@@ -977,28 +1119,45 @@ async def accept_join_request(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Проверка прав: принимать могут заказчик, куратор или админ (исполнитель не может)
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if role not in [ProjectRole.CUSTOMER.value, ProjectRole.CURATOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, curator or admin can accept join requests")
-    request = None
+
+    # Поиск запроса
+    request_obj = None
     for r in (project.join_requests or []):
         if r.get("id") == request_id:
-            request = r
+            request_obj = r
             break
-    if not request:
+    if not request_obj:
         raise HTTPException(status_code=404, detail="Join request not found")
-    if request.get("status") != "pending":
+    if request_obj.get("status") != "pending":
         raise HTTPException(status_code=400, detail="Request already processed")
-    request["status"] = "accepted"
+
+    requested_role = request_obj.get("requested_role")
+    if not requested_role or requested_role not in [r.value for r in ProjectRole]:
+        raise HTTPException(status_code=400, detail="Invalid role in request")
+
+    # Проверяем дефицит
+    current_count = count_participants_by_role(project, requested_role)
+    required = project.required_roles.get(requested_role, 0) if project.required_roles else 0
+    deficit = max(0, required - current_count)
+    if deficit <= 0:
+        raise HTTPException(status_code=400, detail=f"No open positions left for role {requested_role}")
+
+    # Добавляем участника
     new_participant = {
-        "user_id": request["user_id"],
-        "role": ProjectRole.EXECUTOR.value,
+        "user_id": request_obj["user_id"],
+        "role": requested_role,
         "joined_at": datetime.utcnow().isoformat()
     }
     if project.participants is None:
         project.participants = []
     project.participants.append(new_participant)
+    request_obj["status"] = "accepted"
     flag_modified(project, "join_requests")
     flag_modified(project, "participants")
     db.commit()
@@ -1069,16 +1228,16 @@ async def reject_join_request(
         role = get_participant_role(project, current_user.id)
         if role not in [ProjectRole.CUSTOMER.value, ProjectRole.CURATOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, curator or admin can reject join requests")
-    request = None
+    request_obj = None
     for r in (project.join_requests or []):
         if r.get("id") == request_id:
-            request = r
+            request_obj = r
             break
-    if not request:
+    if not request_obj:
         raise HTTPException(status_code=404, detail="Join request not found")
-    if request.get("status") != "pending":
+    if request_obj.get("status") != "pending":
         raise HTTPException(status_code=400, detail="Request already processed")
-    request["status"] = "rejected"
+    request_obj["status"] = "rejected"
     flag_modified(project, "join_requests")
     db.commit()
     db.refresh(project)
@@ -1090,6 +1249,9 @@ async def create_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if project.required_roles is None:
+        project.required_roles = {}
+
     creator_in_participants = any(p.user_id == current_user.id for p in project.participants)
     if not creator_in_participants:
         default_role = ProjectRole.EXECUTOR
@@ -1106,14 +1268,17 @@ async def create_project(
         project.participants.append(
             Participant(user_id=current_user.id, role=default_role, joined_at=datetime.utcnow())
         )
+
     user_ids = [p.user_id for p in project.participants]
     users = db.query(User).filter(User.id.in_(user_ids)).all()
     if len(users) != len(user_ids):
         raise HTTPException(status_code=404, detail="Один или несколько участников не найдены")
+
     if project.tasks:
         titles = [task.get('title', '').strip().lower() for task in project.tasks if task.get('title')]
         if len(titles) != len(set(titles)):
             raise HTTPException(status_code=400, detail="Task titles must be unique within a project")
+
     db_project = Project(
         title=project.title,
         body=project.body,
@@ -1122,6 +1287,7 @@ async def create_project(
         tasks=project.tasks,
         links=project.links,
         comments=[c.model_dump(mode='json') for c in project.comments] if project.comments else [],
+        required_roles=project.required_roles,
         is_hidden=False,
         hidden_by=None,
         hidden_by_users=[],
@@ -1183,15 +1349,83 @@ async def update_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    print(f"[DEBUG] user_id: {current_user.id}, role in project: {get_participant_role(project, current_user.id)}")
+    print(f"[DEBUG] project.is_old: {project.is_old}")
+
     if project.is_old and not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(status_code=403, detail="Старый проект нельзя редактировать. Только администратор может изменять его.")
+
+    participant_role = get_participant_role(project, current_user.id)
+
     if not (current_user.is_admin or is_curator(current_user)):
-        participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
-        if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
+        if participant_role not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can update the project")
+
+    full_edit = has_full_edit_permission(project, current_user)
+
+    # Если нет полных прав (исполнитель при наличии заказчика или куратора) – разрешаем только задачи и ссылки
+    if not full_edit and not (current_user.is_admin or is_curator(current_user)):
+        update_data = project_update.model_dump(exclude_unset=True)
+        allowed_fields = {'tasks', 'links'}
+        filtered_update = {k: v for k, v in update_data.items() if k in allowed_fields}
+        if not filtered_update:
+            return project
+
+        if 'tasks' in filtered_update:
+            new_tasks = filtered_update['tasks']
+            old_tasks = project.tasks or []
+            titles = [task.get('title', '').strip().lower() for task in new_tasks if task.get('title')]
+            if len(titles) != len(set(titles)):
+                raise HTTPException(status_code=400, detail="Task titles must be unique within a project")
+            for i, new_task in enumerate(new_tasks):
+                old_task = old_tasks[i] if i < len(old_tasks) else None
+                if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
+                    required_files = new_task.get("required_files", [])
+                    if required_files:
+                        for req in required_files:
+                            req_id = req.get("id")
+                            if not req_id:
+                                continue
+                            attached = db.query(ProjectFile).filter(
+                                ProjectFile.project_id == project_id,
+                                ProjectFile.task_id == i,
+                                ProjectFile.required_file_id == req_id,
+                                ProjectFile.is_deleted == False
+                            ).first()
+                            if not attached:
+                                raise HTTPException(
+                                    401,
+                                    f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}"
+                                )
+                if "attachments" not in new_task and old_task and "attachments" in old_task:
+                    new_task["attachments"] = old_task["attachments"]
+            project.tasks = new_tasks
+            flag_modified(project, "tasks")
+        if 'links' in filtered_update:
+            project.links = filtered_update['links']
+            flag_modified(project, "links")
+
+        db.commit()
+        db.refresh(project)
+        return project
+
+    # Для пользователей с полными правами (admin, curator, customer, или executor без заказчика/куратора)
+    # required_roles могут менять только заказчик, куратор или админ
+    if project_update.required_roles is not None:
+        if not (current_user.is_admin or is_curator(current_user)):
+            if participant_role != ProjectRole.CUSTOMER.value:
+                raise HTTPException(status_code=403, detail="Only customer, curator or admin can change required roles")
+        for role, count in project_update.required_roles.items():
+            if role not in [r.value for r in ProjectRole]:
+                raise HTTPException(status_code=400, detail=f"Invalid role '{role}'")
+            if not isinstance(count, int) or count < 0:
+                raise HTTPException(status_code=400, detail=f"Count for role '{role}' must be a non-negative integer")
+        project.required_roles = project_update.required_roles
+        flag_modified(project, "required_roles")
 
     if project_update.title is not None:
         project.title = project_update.title
@@ -1203,10 +1437,11 @@ async def update_project(
     if project_update.tasks is not None:
         old_tasks = project.tasks or []
         new_tasks = project_update.tasks
-
+        titles = [task.get('title', '').strip().lower() for task in new_tasks if task.get('title')]
+        if len(titles) != len(set(titles)):
+            raise HTTPException(status_code=400, detail="Task titles must be unique within a project")
         for i, new_task in enumerate(new_tasks):
             old_task = old_tasks[i] if i < len(old_tasks) else None
-            # Проверка обязательных файлов при завершении задачи
             if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
                 required_files = new_task.get("required_files", [])
                 if required_files:
@@ -1225,10 +1460,8 @@ async def update_project(
                                 401,
                                 f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}"
                             )
-            # Сохраняем старые вложения, если в новом объекте задачи их нет
             if "attachments" not in new_task and old_task and "attachments" in old_task:
                 new_task["attachments"] = old_task["attachments"]
-
         project.tasks = new_tasks
         flag_modified(project, "tasks")
 
@@ -1347,8 +1580,9 @@ async def delete_project(
         db.commit()
         return {"message": f"Project {project_id} permanently deleted successfully"}
     participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
-    if not participant or participant.get("role") not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
-        raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can delete/hide the project")
+    # Исполнитель не может удалять/скрывать проект
+    if not participant or participant.get("role") != ProjectRole.CUSTOMER.value:
+        raise HTTPException(status_code=403, detail="Only customer, curator or admin can delete/hide the project")
     if current_user.id not in project.hidden_by_users:
         project.hidden_by_users.append(current_user.id)
     if not project.is_hidden:
@@ -1434,6 +1668,7 @@ async def accept_suggestion(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    
     suggestion = None
     for s in (project.suggestions or []):
         if s.get("id") == suggestion_id:
@@ -1441,16 +1676,24 @@ async def accept_suggestion(
             break
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found")
+    
+    # ✅ Определяем роль пользователя в проекте (может быть None)
+    user_role = get_participant_role(project, current_user.id)
+    
+    # Проверка прав: только заказчик, куратор или админ
     if not (current_user.is_admin or is_curator(current_user)):
-        role = get_participant_role(project, current_user.id)
-        if not (suggestion.get("author_id") == current_user.id or role in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]):
-            raise HTTPException(status_code=403, detail="Only suggestion author, customer, executor, curator or admin can accept it")
+        if user_role != ProjectRole.CUSTOMER.value:
+            raise HTTPException(status_code=403, detail="Only customer, curator or admin can accept suggestions")
+    
     suggestion["status"] = SuggestionStatus.ACCEPTED.value
     flag_modified(project, "suggestions")
-    if (role == ProjectRole.CUSTOMER.value or current_user.is_admin or is_curator(current_user)) and suggestion["target_type"] == "project":
+    
+    # Применяем изменения, если это предложение по проекту и пользователь имеет право
+    if (user_role == ProjectRole.CUSTOMER.value or current_user.is_admin or is_curator(current_user)) and suggestion["target_type"] == "project":
         for key, value in suggestion["changes"].items():
             if hasattr(project, key):
                 setattr(project, key, value)
+    
     db.commit()
     db.refresh(project)
     return project
@@ -1472,10 +1715,11 @@ async def reject_suggestion(
             break
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found")
+    # Только заказчик, куратор или админ могут отклонять предложения
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
-        if not (suggestion.get("author_id") == current_user.id or role in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]):
-            raise HTTPException(status_code=403, detail="Only suggestion author, customer, executor, curator or admin can reject it")
+        if role != ProjectRole.CUSTOMER.value:
+            raise HTTPException(status_code=403, detail="Only customer, curator or admin can reject suggestions")
     suggestion["status"] = SuggestionStatus.REJECTED.value
     flag_modified(project, "suggestions")
     db.commit()
@@ -1564,9 +1808,15 @@ async def accept_invitation(
         raise HTTPException(status_code=404, detail="Project not found")
     if any(p.get("user_id") == current_user.id for p in (project.participants or [])):
         raise HTTPException(status_code=400, detail="User already in project")
+    role = data["role"]
+    current_count = count_participants_by_role(project, role)
+    required = project.required_roles.get(role, 0) if project.required_roles else 0
+    deficit = max(0, required - current_count)
+    if deficit <= 0:
+        raise HTTPException(status_code=400, detail=f"No open positions for role {role}. Cannot accept invitation.")
     new_participant = {
         "user_id": current_user.id,
-        "role": data["role"],
+        "role": role,
         "joined_at": datetime.utcnow().isoformat(),
         "invited_by": data["invited_by"]
     }
@@ -1699,7 +1949,6 @@ async def get_project_files(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    # Проверка прав: участники, админы, кураторы имеют доступ; для старых проектов доступ открыт всем
     if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
         if not project.is_old:
             raise HTTPException(403, "Not enough permissions")
@@ -1711,7 +1960,6 @@ async def get_project_files(
     if task_id is not None:
         query = query.filter(ProjectFile.task_id == task_id)
 
-    # Для старых проектов не-администраторы/не-кураторы видят только is_old_vision=True
     if project.is_old and not (current_user.is_admin or is_curator(current_user)):
         query = query.filter(ProjectFile.is_old_vision == True)
 
@@ -1724,7 +1972,6 @@ async def admin_delete_all_project_files(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    """Полностью удалить все файлы проекта (физические и записи в БД)."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -1734,7 +1981,6 @@ async def admin_delete_all_project_files(
         ProjectFile.is_deleted == False
     ).all()
 
-    # Удаляем физические файлы
     for f in files:
         file_path = os.path.join("uploads", f.filename)
         if os.path.exists(file_path):
@@ -1744,7 +1990,6 @@ async def admin_delete_all_project_files(
                 print(f"Ошибка удаления файла {file_path}: {e}")
         db.delete(f)
 
-    # Очищаем attachments в задачах проекта (чтобы не осталось висячих ссылок)
     if project.tasks:
         for task in project.tasks:
             if "attachments" in task:
@@ -1771,7 +2016,6 @@ async def set_file_requirement(
     new_required_id = data.get("required_file_id")
     file_record.required_file_id = new_required_id
 
-    # если файл привязан к задаче, обновить attachment в JSON задачи
     if file_record.task_id is not None and project:
         task = project.tasks[file_record.task_id]
         for att in task.get("attachments", []):
@@ -1793,7 +2037,6 @@ async def toggle_file_old_vision(
     if not file_record:
         raise HTTPException(404, "File not found")
 
-    # Разрешаем только админу или куратору
     if not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(403, "Only admin or curator can change file visibility in old projects")
 
@@ -1817,7 +2060,6 @@ async def download_file(
     if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
         if not project.is_old:
             raise HTTPException(403, "Not enough permissions")
-        # Запрещаем скачивать скрытые от старых проектов файлы
         if not file_record.is_old_vision:
             raise HTTPException(403, "File not available in old project")
 
@@ -2330,13 +2572,18 @@ async def create_invitation(
         raise HTTPException(404, "Project not found")
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
-        if role not in [ProjectRole.CUSTOMER.value, ProjectRole.SUPERVISOR.value, ProjectRole.EXECUTOR.value]:
-            raise HTTPException(403, "Only customer, supervisor, executor, curator or admin can invite")
+        if role not in [ProjectRole.CUSTOMER.value, ProjectRole.SUPERVISOR.value]:
+            raise HTTPException(403, "Only customer, supervisor, curator or admin can invite")
     invited_user = db.query(User).filter(User.id == invite.invited_user_id).first()
     if not invited_user:
         raise HTTPException(404, "User not found")
     if any(p.get("user_id") == invite.invited_user_id for p in (project.participants or [])):
         raise HTTPException(400, "User is already a participant")
+    current_count = count_participants_by_role(project, invite.role.value)
+    required = project.required_roles.get(invite.role.value, 0) if project.required_roles else 0
+    deficit = max(0, required - current_count)
+    if deficit <= 0:
+        raise HTTPException(400, f"No open positions for role {invite.role.value}")
     existing = db.query(Invitation).filter(
         Invitation.project_id == invite.project_id,
         Invitation.invited_user_id == invite.invited_user_id,
@@ -2405,6 +2652,11 @@ async def accept_invitation(
     project = db.query(Project).filter(Project.id == invite.project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
+    current_count = count_participants_by_role(project, invite.role)
+    required = project.required_roles.get(invite.role, 0) if project.required_roles else 0
+    deficit = max(0, required - current_count)
+    if deficit <= 0:
+        raise HTTPException(400, f"No open positions for role {invite.role}. Cannot accept invitation.")
     if project.participants is None:
         project.participants = []
     project.participants.append({

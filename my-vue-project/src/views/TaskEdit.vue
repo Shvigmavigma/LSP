@@ -230,7 +230,7 @@ import { v4 as uuidv4 } from 'uuid';
 import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
 const route = useRoute();
@@ -523,7 +523,9 @@ async function handleSubmit() {
   updatedTasks[taskIndex] = updatedTask;
 
   try {
-    await projectsStore.updateProject(projectId, { tasks: updatedTasks });
+    // Используем новый эндпоинт только для задач
+    await axios.patch(`${baseUrl}/projects/${projectId}/tasks`, { tasks: updatedTasks });
+    project.value = { ...project.value, tasks: updatedTasks };
     showNotification(t('taskEdit.saveSuccess'), 'success');
     setTimeout(() => {
       router.push(`/project/${projectId}/task/${taskIndex}`);

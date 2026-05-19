@@ -128,7 +128,12 @@
         "customer": "عميل",
         "supervisor": "مشرف علمي",
         "expert": "خبير",
-        "curator": "منسق"
+        "curator": "منسق",
+        "customerDesc": "صياغة المهام والمتطلبات",
+        "supervisorDesc": "الإشراف على المشروع وتقديم الاستشارات",
+        "expertDesc": "تقييم الأعمال والتحقق منها",
+        "executorDesc": "تنفيذ مهام المشروع",
+        "curatorDesc": "تنظيم وتنسيق العمل"
     },
     "inviteModal": {
         "title": "دعوة مشارك",
@@ -532,6 +537,14 @@
     },
     "projectDetails": {
         "markAsOld": "📦 وضع علامة قديم",
+        "requiredRoles": "الأدوار المطلوبة",
+        "targetCount": "مطلوب",
+        "currentCount": "الحالي",
+        "deficit": "لا يزال مطلوباً",
+        "availableRolesToJoin": "يمكنك الانضمام كـ:",
+        "joinAsRole": "التقدم كـ {role}",
+        "roleOpenings": "لا يزال مطلوباً {count}",
+        "noOpenRoles": "لا توجد أدوار مفتوحة للانضمام حالياً",
         "leaveProject": "مغادرة المشروع",
         "confirmLeaveProject": "هل أنت متأكد من رغبتك في مغادرة هذا المشروع؟",
         "leftProject": "لقد غادرت المشروع",
@@ -607,6 +620,13 @@
     },
     "projectEdit": {
         "adminHint": "لديك الصلاحيات الكاملة كمسؤول أو منسق.",
+        "requiredRoles": "الأدوار المطلوبة",
+        "role": "الدور",
+        "currentCount": "العدد الحالي",
+        "roleTarget": "العدد المستهدف",
+        "deficit": "لا يزال مطلوباً",
+        "suggestModeRolesNote": "⚠️ في وضع الاقتراح، يمكنك تغيير الأعداد المستهدفة للأدوار — سيتم إرسالها للمراجعة.",
+        "applySuggestionRolesNote": "📝 أنت تقوم بتحرير الأدوار المطلوبة من اقتراح. بعد الحفظ، سيتم قبول الاقتراح تلقائياً.",
         "taskTitleMustBeUnique": "يجب أن يكون عنوان المهمة فريدًا",
         "noRightsHint": "يمكن فقط للعميل أو المنفذ أو المسؤول أو المنسق تحرير المشروع.",
         "basicInfo": "معلومات أساسية",

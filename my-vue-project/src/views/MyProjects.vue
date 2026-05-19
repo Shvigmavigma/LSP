@@ -98,7 +98,7 @@ const authChecked = ref(false);
 const currentUserId = computed(() => authStore.user?.id);
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // Проверка, может ли пользователь создавать проекты (заказчик или куратор)
 const canCreateProject = computed(() => {

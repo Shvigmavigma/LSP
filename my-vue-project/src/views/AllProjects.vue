@@ -109,7 +109,7 @@ const loading = ref(true);
 const avatarError = ref<Record<number, boolean>>({});
 const filterType = ref<'all' | 'free' | 'taken'>('all');
 
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const filteredProjects = computed(() => {
   if (filterType.value === 'all') return projects.value;

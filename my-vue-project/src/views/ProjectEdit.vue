@@ -49,6 +49,47 @@
           </div>
         </div>
 
+        <!-- Необходимые роли (новая секция) -->
+        <div class="form-section" v-if="!isSuggestMode || (isSuggestMode && canEditRequiredRoles)">
+          <div class="section-header-with-hint">
+            <h2>{{ $t('projectEdit.requiredRoles') }}</h2>
+            <span v-if="!canEditRequiredRoles" class="readonly-hint">{{ $t('common.readonly') }}</span>
+          </div>
+          <div class="required-roles-table">
+            <div class="role-row header-row">
+              <div class="role-name">{{ $t('projectEdit.role') }}</div>
+              <div class="role-current">{{ $t('projectEdit.currentCount') }}</div>
+              <div class="role-target">{{ $t('projectEdit.roleTarget') }}</div>
+              <div class="role-deficit">{{ $t('projectEdit.deficit') }}</div>
+            </div>
+            <div v-for="role in allRoles" :key="role" class="role-row">
+              <div class="role-name">{{ getRoleDisplay(role) }}</div>
+              <div class="role-current">{{ participantsCountByRole[role] }}</div>
+              <div class="role-target">
+                <input
+                  v-if="canEditRequiredRoles"
+                  type="number"
+                  min="0"
+                  step="1"
+                  v-model.number="requiredRolesValue[role]"
+                  class="target-input"
+                  :disabled="saving"
+                />
+                <span v-else class="target-readonly">{{ requiredRolesValue[role] ?? 0 }}</span>
+              </div>
+              <div class="role-deficit">
+                {{ Math.max(0, (requiredRolesValue[role] || 0) - participantsCountByRole[role]) }}
+              </div>
+            </div>
+          </div>
+          <div v-if="isSuggestMode" class="suggest-note">
+            <p>⚠️ {{ $t('projectEdit.suggestModeRolesNote') }}</p>
+          </div>
+          <div v-if="isApplyingSuggestion" class="suggest-note">
+            <p>📝 {{ $t('projectEdit.applySuggestionRolesNote') }}</p>
+          </div>
+        </div>
+
         <!-- Участники проекта -->
         <div class="form-section">
           <h2>{{ $t('projectEdit.participants') }}</h2>
@@ -252,7 +293,7 @@ import { v4 as uuidv4 } from 'uuid';
 import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const route = useRoute();
 const router = useRouter();
@@ -308,6 +349,27 @@ const form = reactive({
 
 // Участники
 const participants = ref<Participant[]>([]);
+
+// Необходимые роли (required_roles)
+const requiredRolesValue = ref<Record<string, number>>({});
+
+// Все возможные роли (в порядке отображения)
+const allRoles: ProjectRole[] = ['customer', 'supervisor', 'expert', 'executor', 'curator'];
+
+// Текущий подсчёт участников по ролям
+const participantsCountByRole = computed(() => {
+  const counts: Record<string, number> = {};
+  for (const role of allRoles) {
+    counts[role] = participants.value.filter(p => p.role === role).length;
+  }
+  return counts;
+});
+
+// Право редактировать required_roles (заказчик, куратор, админ)
+const canEditRequiredRoles = computed(() => {
+  if (isNew) return true; // при создании проекта всегда можно
+  return userRole.value === 'customer' || isAdminOrCurator.value;
+});
 
 // Текущий пользователь
 const currentUserId = computed(() => authStore.user?.id);
@@ -537,6 +599,7 @@ onMounted(async () => {
       form.body = project.body;
       form.underbody = project.underbody || '';
       participants.value = project.participants || [];
+      requiredRolesValue.value = project.required_roles || {};
       tasks.value = (project.tasks || []).map(task => ({
         ...task,
         expanded: false,
@@ -547,6 +610,7 @@ onMounted(async () => {
   } else {
     isSuggestMode.value = false;
     isApplyingSuggestion.value = false;
+    requiredRolesValue.value = {}; // по умолчанию пусто
     if (authStore.userId) {
       const creatorRole = getCreatorRole();
       participants.value.push({
@@ -564,6 +628,7 @@ function applySuggestionChanges(suggestion: Suggestion) {
   if (changes.body) form.body = changes.body;
   if (changes.underbody) form.underbody = changes.underbody;
   if (changes.participants) participants.value = changes.participants;
+  if (changes.required_roles) requiredRolesValue.value = changes.required_roles;
   if (changes.tasks) {
     tasks.value = changes.tasks.map((task: any) => ({
       ...task,
@@ -720,6 +785,7 @@ async function handleSubmit() {
     body: form.body,
     underbody: form.underbody || '',
     participants: participants.value,
+    required_roles: requiredRolesValue.value,
     tasks: tasks.value.map(({ expanded, startError, endError, id, ...task }) => task),
     is_old: false
   };
@@ -863,7 +929,57 @@ const goBack = () => router.go(-1);
   font-size: 1.2rem;
 }
 
-/* Остальные стили */
+/* Секция необходимых ролей */
+.section-header-with-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1rem;
+}
+
+.readonly-hint {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.required-roles-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.role-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border-color);
+  align-items: center;
+}
+
+.header-row {
+  font-weight: 600;
+  color: var(--heading-color);
+  background: var(--bg-page);
+  border-radius: 8px;
+  margin-bottom: 4px;
+}
+
+.target-input {
+  width: 80px;
+  padding: 4px 8px;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.target-readonly {
+  font-weight: 500;
+}
+
+/* Остальные стили (без изменений) */
 .participants-section {
   display: flex;
   flex-direction: column;
