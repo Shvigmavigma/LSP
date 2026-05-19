@@ -43,6 +43,7 @@ class Project(Base):
     hidden_by = Column(Integer, nullable=True)
     hidden_by_users = Column(JSON, default=list)
     is_old = Column(Boolean, default=False)
+    required_roles = Column(JSON, default={})
     
 class ProjectFile(Base):
     __tablename__ = "project_files"

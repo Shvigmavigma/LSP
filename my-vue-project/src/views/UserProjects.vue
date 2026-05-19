@@ -85,7 +85,7 @@ const router = useRouter();
 const projects = ref<Project[]>([]);
 const loading = ref(true);
 const avatarError = ref<Record<number, boolean>>({});
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 onMounted(async () => {
   if (usersStore.users.length === 0) {

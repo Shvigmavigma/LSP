@@ -56,7 +56,7 @@ import FilePreviewModal from './FilePreviewModal.vue';
 import ConfirmModal from './ConfirmModal.vue';
 
 const { t } = useI18n();
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const props = defineProps<{
   projectId: number;

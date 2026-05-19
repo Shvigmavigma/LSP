@@ -135,7 +135,12 @@
         "customer": "Customer",
         "supervisor": "Supervisor",
         "expert": "Expert",
-        "curator": "Curator"
+        "curator": "Curator",
+        "customerDesc": "Formulates tasks and requirements",
+        "supervisorDesc": "Supervises the project, provides consultations",
+        "expertDesc": "Evaluates work, verifies",
+        "executorDesc": "Executes project tasks",
+        "curatorDesc": "Organizes and coordinates work"
     },
     "inviteModal": {
         "title": "Invite participant",
@@ -530,6 +535,14 @@
     },
     "projectDetails": {
         "markAsOld": "📦 Mark as old",
+        "requiredRoles": "Required roles",
+        "targetCount": "Required",
+        "currentCount": "Current",
+        "deficit": "Still needed",
+        "availableRolesToJoin": "You can join as:",
+        "joinAsRole": "Apply as {role}",
+        "roleOpenings": "{count} more needed",
+        "noOpenRoles": "There are currently no open roles to join",
         "unmarkAsOld": "🔄 Remove old mark",
         "oldProject": "Old project",
         "oldProjectReadOnly": "This project is marked as old and is read-only. Editing is prohibited.",
@@ -605,6 +618,13 @@
     },
     "projectEdit": {
         "adminHint": "You have full rights as an administrator or curator.",
+        "requiredRoles": "Required roles",
+        "role": "Role",
+        "currentCount": "Current",
+        "roleTarget": "Target count",
+        "deficit": "Still needed",
+        "suggestModeRolesNote": "⚠️ In suggestion mode you can change target role counts — they will be sent for review.",
+        "applySuggestionRolesNote": "📝 You are editing required roles from a suggestion. After saving, the suggestion will be automatically accepted.",
         "taskTitleMustBeUnique": "Task title must be unique",
         "noRightsHint": "Only the customer, executor, administrator, or curator can edit the project.",
         "basicInfo": "Basic information",

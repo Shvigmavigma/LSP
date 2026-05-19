@@ -197,6 +197,10 @@ class ProjectBase(BaseModel):
     comments: List[Comment] = Field(default=[], description="Комментарии к проекту")
     suggestions: List[Suggestion] = []
     is_old: bool = False
+    required_roles: Optional[Dict[str, int]] = Field(
+        default={},
+        description="Целевое количество участников по ролям"
+    )
 
 class ProjectCreate(ProjectBase):
     pass  
@@ -221,6 +225,10 @@ class ProjectUpdate(BaseModel):
     links: Optional[Dict[str, str]] = None
     comments: Optional[List[Comment]] = None
     ignore_file_limits: Optional[bool] = None
+    required_roles: Optional[Dict[str, int]] = Field(
+        default={},
+        description="Целевое количество участников по ролям"
+    )
 
 # ---------- Email верификация ----------
 class EmailVerificationCodeRequest(BaseModel):
@@ -262,7 +270,8 @@ class JoinRequest(BaseModel):
     id: str
     user_id: int
     created_at: datetime
-    status: str  
+    status: str
+    requested_role: str  
 class InvitationCreate(BaseModel):
     project_id: int
     invited_user_id: int

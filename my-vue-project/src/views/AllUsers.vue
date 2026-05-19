@@ -98,7 +98,7 @@ const filterType = ref<'all' | 'students' | 'teachers'>('all');
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const avatarUrl = (avatar: string) => `${baseUrl}/avatars/${avatar}`;
 

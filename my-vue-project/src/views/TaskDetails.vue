@@ -327,7 +327,7 @@ import axios from 'axios';
 import HomeButton from '@/components/HomeButton.vue';
 
 const { t } = useI18n();
-const baseUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}`;
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
 const route = useRoute();
@@ -623,15 +623,17 @@ const toggleSubtask = async (subtask: SubTask) => {
     const updatedTask = { ...currentTask, subtasks: updatedSubtasks, progress: newTotal };
     const updatedTasks = [...currentProject.tasks];
     updatedTasks[taskIndex] = updatedTask;
-    await projectsStore.updateProject(projectId, { tasks: updatedTasks });
 
-    project.value.tasks = updatedTasks;
+    await axios.patch(`${baseUrl}/projects/${projectId}/tasks`, { tasks: updatedTasks });
+    project.value = { ...currentProject, tasks: updatedTasks };
     task.value = updatedTask;
     savedProgress.value = newTotal;
   } catch (err) {
     console.error('Ошибка при переключении подзадачи:', err);
     showNotification(t('taskDetails.subtaskUpdateError'), 'error');
-  } finally { actionInProgress.value = false; }
+  } finally { 
+    actionInProgress.value = false; 
+  }
 };
 
 const completeTask = async () => {
@@ -921,33 +923,30 @@ const closeConfirmDialog = () => {
 };
 const confirmExtraChange = async () => {
   if (!canEditTask.value || isOldReadOnly.value) { 
-    showNotification(t('taskDetails.onlyEditorsCanChangeProgress'), 'info'); 
-    closeConfirmDialog(); 
-    return; 
+    showNotification(t('taskDetails.onlyEditorsCanChangeProgress'), 'info');
+    closeConfirmDialog();
+    return;
   }
   const currentProject = project.value;
   const currentTask = task.value;
-  if (!currentProject || !currentTask) { 
-    closeConfirmDialog(); 
-    return; 
-  }
+  if (!currentProject || !currentTask) return;
 
   const newTotal = completedSubtasksPercent.value + sliderValue.value;
   actionInProgress.value = true;
   try {
     const updatedTasks = [...currentProject.tasks];
-    updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], progress: newTotal } as Task;
-    await projectsStore.updateProject(projectId, { tasks: updatedTasks });
-    project.value.tasks = updatedTasks;
+    updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], progress: newTotal };
+    await axios.patch(`${baseUrl}/projects/${projectId}/tasks`, { tasks: updatedTasks });
+    project.value = { ...currentProject, tasks: updatedTasks };
     task.value = updatedTasks[taskIndex];
     savedProgress.value = newTotal;
   } catch (err) {
     console.error('Ошибка при обновлении прогресса:', err);
     showNotification(t('taskDetails.progressUpdateError'), 'error');
     sliderValue.value = savedProgress.value - completedSubtasksPercent.value;
-  } finally { 
-    actionInProgress.value = false; 
-    showConfirmDialog.value = false; 
+  } finally {
+    actionInProgress.value = false;
+    showConfirmDialog.value = false;
   }
 };
 

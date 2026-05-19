@@ -134,6 +134,7 @@ export interface JoinRequest {
   id: string;
   user_id: number;
   status: 'pending' | 'accepted' | 'rejected';
+  requested_role?: ProjectRole;
 }
 
 export interface Project {
@@ -150,7 +151,8 @@ export interface Project {
   is_hidden?: boolean;
   is_old: boolean;
   hidden_by?: number;
-  ignore_file_limits: boolean;  
+  ignore_file_limits: boolean;
+  required_roles?: Record<string, number>;  
 }
 
 export interface ProjectLinks {

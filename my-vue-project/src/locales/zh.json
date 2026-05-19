@@ -135,7 +135,12 @@
         "customer": "客户",
         "supervisor": "科学导师",
         "expert": "专家",
-        "curator": "策展人"
+        "curator": "策展人",
+        "customerDesc": "制定任务和要求",
+        "supervisorDesc": "指导项目，提供咨询",
+        "expertDesc": "评估工作，进行验证",
+        "executorDesc": "执行项目任务",
+        "curatorDesc": "组织和协调工作"
     },
     "inviteModal": {
         "title": "邀请参与者",
@@ -530,6 +535,14 @@
     },
     "projectDetails": {
         "markAsOld": "📦 标记为旧项目",
+        "requiredRoles": "所需角色",
+        "targetCount": "需要",
+        "currentCount": "当前",
+        "deficit": "还需",
+        "availableRolesToJoin": "您可以加入为：",
+        "joinAsRole": "以{role}身份申请",
+        "roleOpenings": "还需要{count}个",
+        "noOpenRoles": "目前没有开放的角色可加入",
         "leaveProject": "退出项目",
         "confirmLeaveProject": "您确定要退出此项目吗？",
         "leftProject": "您已退出项目",
@@ -605,6 +618,13 @@
     },
     "projectEdit": {
         "adminHint": "您具有管理员或策展人的全部权限。",
+        "requiredRoles": "所需角色",
+        "role": "角色",
+        "currentCount": "当前数量",
+        "roleTarget": "目标数量",
+        "deficit": "仍需",
+        "suggestModeRolesNote": "⚠️ 在建议模式下，您可以更改目标角色数量 — 它们将被发送以供审核。",
+        "applySuggestionRolesNote": "📝 您正在根据建议编辑所需角色。保存后，建议将被自动接受。",
         "taskTitleMustBeUnique": "任务标题必须唯一",
         "noRightsHint": "只有客户、执行者、管理员或策展人可以编辑项目。",
         "basicInfo": "基本信息",

@@ -118,7 +118,7 @@ const avatarError = ref(false);
 const showAvatarModal = ref(false);
 const avatarErrorMap = ref<Record<number, boolean>>({});
 
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const avatarUrl = computed(() => {
   if (!user.value?.avatar) return '';
