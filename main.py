@@ -1243,6 +1243,69 @@ async def reject_join_request(
     db.refresh(project)
     return project
 
+# Добавьте этот эндпоинт в ваш backend-код (main.py)
+
+@app.post("/projects/{project_id}/leave", response_model=ProjectResponse, tags=["Projects"])
+async def leave_project(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Позволяет пользователю выйти из проекта (удалить себя из участников)
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Проверяем, является ли пользователь участником проекта
+    if not is_project_participant(project, current_user.id):
+        raise HTTPException(status_code=400, detail="You are not a participant of this project")
+    
+    # Получаем роль пользователя в проекте
+    user_role = get_participant_role(project, current_user.id)
+    
+    # Проверяем, не единственный ли это участник
+    if len(project.participants or []) == 1:
+        raise HTTPException(
+            status_code=400, 
+            detail="Cannot leave the project because you are the only participant. "
+                   "Consider deleting the project instead."
+        )
+    
+    # Удаляем пользователя из списка участников
+    if project.participants:
+        project.participants = [
+            p for p in project.participants 
+            if p.get("user_id") != current_user.id
+        ]
+        flag_modified(project, "participants")
+    
+    # Если пользователь был заказчиком и после его ухода не осталось заказчиков,
+    # но есть другие участники - можно сделать первого попавшегося участника заказчиком
+    if user_role == ProjectRole.CUSTOMER.value:
+        # Проверяем, остались ли заказчики
+        has_customer = any(
+            p.get("role") == ProjectRole.CUSTOMER.value 
+            for p in (project.participants or [])
+        )
+        
+        # Если заказчиков не осталось, но есть другие участники
+        if not has_customer and project.participants:
+            # Назначаем первого участника заказчиком
+            project.participants[0]["role"] = ProjectRole.CUSTOMER.value
+            flag_modified(project, "participants")
+    
+    # Если проект был скрыт только этим пользователем - снимаем скрытие
+    if current_user.id in (project.hidden_by_users or []):
+        project.hidden_by_users.remove(current_user.id)
+        flag_modified(project, "hidden_by_users")
+    
+    db.commit()
+    db.refresh(project)
+    
+    return project
+
 @app.post("/projects/", response_model=ProjectResponse, tags=["Projects"])
 async def create_project(
     project: ProjectCreate,
@@ -1254,20 +1317,22 @@ async def create_project(
 
     creator_in_participants = any(p.user_id == current_user.id for p in project.participants)
     if not creator_in_participants:
-        default_role = ProjectRole.EXECUTOR
-        if current_user.is_teacher and current_user.teacher_info:
-            roles = current_user.teacher_info.get("roles", [])
-            if ProjectRole.CUSTOMER.value in roles:
-                default_role = ProjectRole.CUSTOMER
-            elif ProjectRole.SUPERVISOR.value in roles:
-                default_role = ProjectRole.SUPERVISOR
-            elif ProjectRole.EXPERT.value in roles:
-                default_role = ProjectRole.EXPERT
-            if current_user.teacher_info.get("curator"):
-                default_role = ProjectRole.CURATOR
-        project.participants.append(
-            Participant(user_id=current_user.id, role=default_role, joined_at=datetime.utcnow())
-        )
+        if not current_user.is_teacher:
+            default_role = ProjectRole.CUSTOMER
+        else:
+            if current_user.is_teacher and current_user.teacher_info:
+                roles = current_user.teacher_info.get("roles", [])
+                if ProjectRole.CUSTOMER.value in roles:
+                    default_role = ProjectRole.CUSTOMER
+                elif ProjectRole.SUPERVISOR.value in roles:
+                    default_role = ProjectRole.SUPERVISOR
+                elif ProjectRole.EXPERT.value in roles:
+                    default_role = ProjectRole.EXPERT
+                if current_user.teacher_info.get("curator"):
+                    default_role = ProjectRole.CURATOR
+            project.participants.append(
+                Participant(user_id=current_user.id, role=default_role, joined_at=datetime.utcnow())
+            )
 
     user_ids = [p.user_id for p in project.participants]
     users = db.query(User).filter(User.id.in_(user_ids)).all()

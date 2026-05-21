@@ -104,9 +104,14 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const canCreateProject = computed(() => {
   const user = authStore.user;
   if (!user) return false;
+
+  if (!user.is_teacher) {
+    return true;
+  }
   if (user.is_teacher && user.teacher_info) {
     return user.teacher_info.roles?.includes('customer') || user.teacher_info.curator === true;
   }
+  
   return false;
 });
 
