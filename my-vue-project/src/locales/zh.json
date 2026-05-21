@@ -618,6 +618,10 @@
     },
     "projectEdit": {
         "adminHint": "您具有管理员或策展人的全部权限。",
+        "becomeCurator": "成为项目主管",
+        "curatorAssigned": "您已成功被指定为项目主管",
+        "curatorAssignError": "指定项目主管时出错",
+        "inviteOnlyExisting": "只能邀请到现有项目",
         "requiredRoles": "所需角色",
         "role": "角色",
         "currentCount": "当前数量",

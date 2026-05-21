@@ -49,7 +49,7 @@
           </div>
         </div>
 
-        <!-- Необходимые роли (новая секция) -->
+        <!-- Необходимые роли -->
         <div class="form-section" v-if="!isSuggestMode || (isSuggestMode && canEditRequiredRoles)">
           <div class="section-header-with-hint">
             <h2>{{ $t('projectEdit.requiredRoles') }}</h2>
@@ -92,7 +92,18 @@
 
         <!-- Участники проекта -->
         <div class="form-section">
-          <h2>{{ $t('projectEdit.participants') }}</h2>
+          <div class="section-header-with-button">
+            <h2>{{ $t('projectEdit.participants') }}</h2>
+            <button 
+              v-if="canAssignCurator && !isNew" 
+              type="button" 
+              class="assign-curator-btn" 
+              @click="assignCurrentUserAsCurator"
+              :disabled="assigningCurator"
+            >
+              👑 {{ $t('projectEdit.becomeCurator') }}
+            </button>
+          </div>
           <div class="participants-section">
             <div v-if="participants.length > 0" class="current-participants">
               <span class="participants-label">{{ $t('projectEdit.currentParticipants') }}:</span>
@@ -107,6 +118,7 @@
                     <span class="participant-role">{{ getRoleDisplay(p.role) }}</span>
                   </div>
                   <button
+                    v-if="canRemoveParticipants"
                     type="button"
                     class="remove-participant"
                     @click="removeParticipant(index)"
@@ -116,35 +128,15 @@
                 </div>
               </div>
             </div>
+            <p v-else class="no-participants">{{ $t('projectDetails.noParticipants') }}</p>
 
-            <div class="participant-search">
-              <label>{{ $t('projectEdit.addParticipantByNickname') }}</label>
-              <div class="search-row">
-                <input
-                  v-model="searchQuery"
-                  type="text"
-                  :placeholder="$t('projectEdit.nicknamePlaceholder')"
-                  @input="searchUsers"
-                />
-                <select v-model="selectedRole">
-                  <option v-for="role in availableRolesForSelected" :key="role" :value="role">
-                    {{ getRoleDisplay(role) }}
-                  </option>
-                </select>
-                <button @click="addParticipant" :disabled="!selectedUser">{{ $t('common.add') }}</button>
-              </div>
-              <div v-if="searchResults.length > 0" class="search-results">
-                <div
-                  v-for="user in searchResults"
-                  :key="user.id"
-                  class="search-result-item"
-                  @click="selectUser(user)"
-                >
-                  {{ user.nickname }} ({{ user.fullname }})
-                  <span class="user-roles-hint">({{ getUserRolesHint(user) }})</span>
-                </div>
-              </div>
+            <!-- Кнопка приглашения -->
+            <div class="invite-button-wrapper">
+              <button type="button" class="invite-participant-btn" @click="openInviteModal">
+                ✉️ {{ $t('projectDetails.invite') }}
+              </button>
             </div>
+
             <div v-if="isSuggestMode" class="suggest-note">
               <p>⚠️ {{ $t('projectEdit.suggestModeNote') }}</p>
             </div>
@@ -177,7 +169,6 @@
               class="task-item"
               :class="{ 'expanded': task.expanded }"
             >
-              <!-- Компактное отображение задачи -->
               <div v-if="!task.expanded" class="task-compact" @click="toggleTaskExpand(index)">
                 <span class="task-title">{{ task.title || $t('projectEdit.untitled') }}</span>
                 <button
@@ -188,7 +179,6 @@
                 >✕</button>
               </div>
 
-              <!-- Развёрнутая форма задачи -->
               <div v-else class="task-form">
                 <div class="task-form-header">
                   <h3>{{ task.id ? $t('projectEdit.editTask') : $t('projectEdit.newTask') }}</h3>
@@ -273,6 +263,14 @@
       @close="showDefaultTasksModal = false"
       @add="addSelectedTasks"
     />
+
+    <!-- Модальное окно приглашения -->
+    <InviteModal
+      :show="showInviteModal"
+      :project-id="projectId"
+      @close="showInviteModal = false"
+      @invite="handleInviteSent"
+    />
   </div>
 </template>
 
@@ -287,6 +285,7 @@ import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import DefaultTasksModal from '@/components/DefaultTasksModal.vue';
+import InviteModal from '@/components/InviteModal.vue';
 import type { Project, Task, User, Participant, ProjectRole, Suggestion } from '@/types';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
@@ -307,6 +306,8 @@ const isEdit = computed(() => !isNew);
 const isSuggestMode = ref(false);
 const isApplyingSuggestion = ref(false);
 const applyingSuggestionId = ref<string | null>(null);
+const showInviteModal = ref(false);
+const assigningCurator = ref(false);
 
 const saving = ref(false);
 const showDefaultTasksModal = ref(false);
@@ -367,8 +368,35 @@ const participantsCountByRole = computed(() => {
 
 // Право редактировать required_roles (заказчик, куратор, админ)
 const canEditRequiredRoles = computed(() => {
-  if (isNew) return true; // при создании проекта всегда можно
+  if (isNew) return true;
   return userRole.value === 'customer' || isAdminOrCurator.value;
+});
+
+// Право удалять участников (только заказчик, куратор, админ, НЕ ИСПОЛНИТЕЛЬ)
+const canRemoveParticipants = computed(() => {
+  if (isNew) return true;
+  return userRole.value === 'customer' || isAdminOrCurator.value;
+});
+
+// Право стать куратором проекта (только для администраторов и глобальных кураторов)
+// Обычные учители (не кураторы) кнопку НЕ ВИДЯТ
+const canAssignCurator = computed(() => {
+  if (isNew) return false;
+  
+  // Уже является куратором проекта - не нужно
+  if (userRole.value === 'curator') return false;
+  
+  const user = authStore.user;
+  if (!user) return false;
+  
+  // Администратор может стать куратором
+  if (user.is_admin) return true;
+  
+  // Глобальный куратор (учитель с флагом curator) может стать куратором
+  if (user.is_teacher && user.teacher_info?.curator === true) return true;
+  
+  // Обычный учитель (не куратор) - кнопку не видит
+  return false;
 });
 
 // Текущий пользователь
@@ -399,17 +427,7 @@ function getCreatorRole(): ProjectRole {
   return 'executor';
 }
 
-// Поиск пользователей
-interface UserWithRoles extends User {
-  availableRoles: ProjectRole[];
-}
-
-const searchQuery = ref('');
-const searchResults = ref<UserWithRoles[]>([]);
-const selectedUser = ref<UserWithRoles | null>(null);
-const selectedRole = ref<ProjectRole>('executor');
-
-// Задачи – расширяем Task служебными полями для UI
+// Задачи
 type EditableTask = Task & {
   expanded: boolean;
   startError?: string;
@@ -421,7 +439,7 @@ const tasks = ref<EditableTask[]>([]);
 // Роль текущего пользователя в проекте
 const userRole = ref<ProjectRole | null>(null);
 
-// Право предлагать изменения (с учётом админа и куратора)
+// Право предлагать изменения
 const canSuggest = computed(() =>
   userRole.value === 'expert' ||
   userRole.value === 'supervisor' ||
@@ -430,7 +448,7 @@ const canSuggest = computed(() =>
   isCurator.value
 );
 
-// Право на прямое редактирование проекта (с учётом админа и куратора)
+// Право на прямое редактирование проекта
 const canEdit = computed(() => 
   userRole.value === 'customer' || 
   userRole.value === 'executor' || 
@@ -452,73 +470,34 @@ const submitButtonText = computed(() => {
 
 const cancelButtonText = computed(() => t('common.cancel'));
 
-// Получение доступных ролей для пользователя
-function getAvailableRoles(user: User): ProjectRole[] {
-  if (!user.is_teacher) {
-    return ['executor'];
-  }
-  const teacherRoles = (user.teacher_info?.roles || []) as ProjectRole[];
-  // Добавляем executor как всегда доступный
-  if (!teacherRoles.includes('executor')) {
-    teacherRoles.push('executor');
-  }
-  // Добавляем curator, если есть флаг
-  if (user.teacher_info?.curator && !teacherRoles.includes('curator')) {
-    teacherRoles.push('curator');
-  }
-  return teacherRoles;
+function getUserNickname(id: number): string {
+  const user = usersStore.users.find(u => u.id === id);
+  return user ? user.nickname : `ID: ${id}`;
 }
 
-// Поиск пользователей
-function searchUsers() {
-  if (!searchQuery.value.trim()) {
-    searchResults.value = [];
+function getRoleDisplay(role: ProjectRole): string {
+  return t(`roles.${role}`);
+}
+
+function openInviteModal() {
+  if (isNew) {
+    showNotification(t('projectEdit.inviteOnlyExisting'), 'info');
     return;
   }
-  const q = searchQuery.value.toLowerCase();
-  const allUsers = usersStore.users.filter(u =>
-    u.nickname.toLowerCase().includes(q) &&
-    !participants.value.some(p => p.user_id === u.id)
-  );
-  searchResults.value = allUsers.map(user => ({
-    ...user,
-    availableRoles: getAvailableRoles(user)
-  })).slice(0, 10);
+  showInviteModal.value = true;
 }
 
-function selectUser(user: UserWithRoles) {
-  selectedUser.value = user;
-  searchQuery.value = user.nickname;
-  searchResults.value = [];
-  selectedRole.value = user.availableRoles[0];
-}
-
-// Доступные роли для выбранного пользователя
-const availableRolesForSelected = computed(() => {
-  if (!selectedUser.value) return [];
-  return selectedUser.value.availableRoles;
-});
-
-// Подсказка о доступных ролях для отображения в результатах поиска
-function getUserRolesHint(user: UserWithRoles): string {
-  return user.availableRoles.map(r => getRoleDisplay(r)).join(', ');
-}
-
-function addParticipant() {
-  if (!selectedUser.value) return;
-  participants.value.push({
-    user_id: selectedUser.value.id,
-    role: selectedRole.value,
-    joined_at: new Date().toISOString(),
-  });
-  selectedUser.value = null;
-  searchQuery.value = '';
-  selectedRole.value = 'executor';
+async function handleInviteSent(userId: number, role: ProjectRole) {
+  showNotification(t('projectEdit.inviteSuccess'), 'success');
+  if (!isNew) {
+    const project = await projectsStore.fetchProjectById(projectId, true);
+    participants.value = project.participants || [];
+  }
 }
 
 function removeParticipant(index: number) {
   const participant = participants.value[index];
-  if (!isAdminOrCurator.value && participant.user_id === currentUserId.value) {
+  if (!canRemoveParticipants.value && participant.user_id === currentUserId.value) {
     showNotification(t('projectEdit.cannotRemoveSelf'), 'info');
     return;
   }
@@ -530,122 +509,42 @@ function removeParticipant(index: number) {
 }
 
 function getRemoveTitle(userId: number): string {
-  if (!isAdminOrCurator.value && userId === currentUserId.value) return t('projectEdit.cannotRemoveSelfTooltip');
+  if (!canRemoveParticipants.value && userId === currentUserId.value) return t('projectEdit.cannotRemoveSelfTooltip');
   if (participants.value.length === 1) return t('projectEdit.cannotRemoveLastTooltip');
   return t('common.delete');
 }
 
-// Загрузка данных
-onMounted(async () => {
-  if (usersStore.users.length === 0) {
-    await usersStore.fetchAllUsers();
-  }
-
-  const suggestionParam = route.query.suggestion as string | undefined;
-  if (suggestionParam && !isNew) {
-    isApplyingSuggestion.value = true;
-    applyingSuggestionId.value = suggestionParam;
-  }
-
-  if (!isNew) {
-    if (isNaN(projectId)) {
-      router.push('/main');
-      return;
-    }
-    const project = await projectsStore.fetchProjectById(projectId);
-    if (!project) {
-      router.push('/main');
-      return;
-    }
-
-    // === НОВАЯ ПРОВЕРКА НА СТАРЫЙ ПРОЕКТ ===
-    // Если проект старый и пользователь не админ и не куратор – запрещаем редактирование
-    if (project.is_old && !isAdminOrCurator.value) {
-      showNotification(t('projectEdit.oldProjectReadOnly'), 'info');
-      setTimeout(() => router.push(`/project/${projectId}`), 2000);
-      return;
-    }
-
-    const participant = project.participants?.find(p => p.user_id === authStore.userId);
-    userRole.value = participant?.role || null;
-
-    if (isApplyingSuggestion.value && applyingSuggestionId.value) {
-      const suggestion = project.suggestions?.find(s => s.id === applyingSuggestionId.value);
-      if (!suggestion) {
-        showNotification(t('projectEdit.suggestionNotFound'), 'error');
-        router.push(`/project/${projectId}`);
-        return;
-      }
-      applySuggestionChanges(suggestion);
+// Назначить текущего пользователя куратором проекта
+async function assignCurrentUserAsCurator() {
+  if (!projectId || !authStore.userId) return;
+  assigningCurator.value = true;
+  try {
+    const updatedParticipants = [...participants.value];
+    const existingIndex = updatedParticipants.findIndex(p => p.user_id === authStore.userId);
+    
+    if (existingIndex !== -1) {
+      updatedParticipants[existingIndex] = {
+        ...updatedParticipants[existingIndex],
+        role: 'curator'
+      };
     } else {
-      const modeParam = route.query.mode;
-      if (modeParam === 'suggest') {
-        if (!canSuggest.value) {
-          showNotification(t('projectEdit.noSuggestRights'), 'error');
-          setTimeout(() => router.push(`/project/${projectId}`), 2000);
-          return;
-        }
-        isSuggestMode.value = true;
-      } else {
-        if (!canEdit.value) {
-          showNotification(t('projectEdit.noEditRights'), 'info');
-          setTimeout(() => router.push(`/project/${projectId}`), 2000);
-          return;
-        }
-        isSuggestMode.value = false;
-      }
-
-      form.title = project.title;
-      form.body = project.body;
-      form.underbody = project.underbody || '';
-      participants.value = project.participants || [];
-      requiredRolesValue.value = project.required_roles || {};
-      tasks.value = (project.tasks || []).map(task => ({
-        ...task,
-        expanded: false,
-        startError: undefined,
-        endError: undefined,
-      }));
-    }
-  } else {
-    isSuggestMode.value = false;
-    isApplyingSuggestion.value = false;
-    requiredRolesValue.value = {}; // по умолчанию пусто
-    if (authStore.userId) {
-      const creatorRole = getCreatorRole();
-      participants.value.push({
+      updatedParticipants.push({
         user_id: authStore.userId,
-        role: creatorRole,
+        role: 'curator',
         joined_at: new Date().toISOString(),
       });
     }
+    
+    await axios.put(`${baseUrl}/projects/${projectId}`, { participants: updatedParticipants });
+    participants.value = updatedParticipants;
+    userRole.value = 'curator';
+    showNotification(t('projectEdit.curatorAssigned'), 'success');
+  } catch (err: any) {
+    console.error('Error assigning curator:', err);
+    showNotification(err.response?.data?.detail || t('projectEdit.curatorAssignError'), 'error');
+  } finally {
+    assigningCurator.value = false;
   }
-});
-
-function applySuggestionChanges(suggestion: Suggestion) {
-  const changes = suggestion.changes;
-  if (changes.title) form.title = changes.title;
-  if (changes.body) form.body = changes.body;
-  if (changes.underbody) form.underbody = changes.underbody;
-  if (changes.participants) participants.value = changes.participants;
-  if (changes.required_roles) requiredRolesValue.value = changes.required_roles;
-  if (changes.tasks) {
-    tasks.value = changes.tasks.map((task: any) => ({
-      ...task,
-      expanded: false,
-      startError: undefined,
-      endError: undefined,
-    }));
-  }
-}
-
-function getUserNickname(id: number): string {
-  const user = usersStore.users.find(u => u.id === id);
-  return user ? user.nickname : `ID: ${id}`;
-}
-
-function getRoleDisplay(role: ProjectRole): string {
-  return t(`roles.${role}`);
 }
 
 // --- Функции для задач ---
@@ -704,9 +603,7 @@ function addTask() {
   });
 }
 
-// Новая функция: добавление выбранных задач из модального окна
 function addSelectedTasks(newTasks: any[]) {
-  // Преобразуем задачи, добавляем id для обязательных файлов и устанавливаем expanded = false
   const tasksToAdd = newTasks.map(task => ({
     ...task,
     id: undefined,
@@ -735,7 +632,6 @@ function saveTask(index: number) {
     return;
   }
 
-  // Проверка уникальности названия
   if (!isTaskTitleUnique(tasks.value, task.title, index)) {
     showNotification(t('projectEdit.taskTitleMustBeUnique'), 'info');
     return;
@@ -759,6 +655,108 @@ function removeTask(index: number) {
 
 function toggleTaskExpand(index: number) {
   tasks.value[index].expanded = !tasks.value[index].expanded;
+}
+
+// Загрузка данных
+onMounted(async () => {
+  if (usersStore.users.length === 0) {
+    await usersStore.fetchAllUsers();
+  }
+
+  const suggestionParam = route.query.suggestion as string | undefined;
+  if (suggestionParam && !isNew) {
+    isApplyingSuggestion.value = true;
+    applyingSuggestionId.value = suggestionParam;
+  }
+
+  if (!isNew) {
+    if (isNaN(projectId)) {
+      router.push('/main');
+      return;
+    }
+    const project = await projectsStore.fetchProjectById(projectId);
+    if (!project) {
+      router.push('/main');
+      return;
+    }
+
+    if (project.is_old && !isAdminOrCurator.value) {
+      showNotification(t('projectEdit.oldProjectReadOnly'), 'info');
+      setTimeout(() => router.push(`/project/${projectId}`), 2000);
+      return;
+    }
+
+    const participant = project.participants?.find(p => p.user_id === authStore.userId);
+    userRole.value = participant?.role || null;
+
+    if (isApplyingSuggestion.value && applyingSuggestionId.value) {
+      const suggestion = project.suggestions?.find(s => s.id === applyingSuggestionId.value);
+      if (!suggestion) {
+        showNotification(t('projectEdit.suggestionNotFound'), 'error');
+        router.push(`/project/${projectId}`);
+        return;
+      }
+      applySuggestionChanges(suggestion);
+    } else {
+      const modeParam = route.query.mode;
+      if (modeParam === 'suggest') {
+        if (!canSuggest.value) {
+          showNotification(t('projectEdit.noSuggestRights'), 'error');
+          setTimeout(() => router.push(`/project/${projectId}`), 2000);
+          return;
+        }
+        isSuggestMode.value = true;
+      } else {
+        if (!canEdit.value) {
+          showNotification(t('projectEdit.noEditRights'), 'info');
+          setTimeout(() => router.push(`/project/${projectId}`), 2000);
+          return;
+        }
+        isSuggestMode.value = false;
+      }
+
+      form.title = project.title;
+      form.body = project.body;
+      form.underbody = project.underbody || '';
+      participants.value = project.participants || [];
+      requiredRolesValue.value = project.required_roles || {};
+      tasks.value = (project.tasks || []).map(task => ({
+        ...task,
+        expanded: false,
+        startError: undefined,
+        endError: undefined,
+      }));
+    }
+  } else {
+    isSuggestMode.value = false;
+    isApplyingSuggestion.value = false;
+    requiredRolesValue.value = {};
+    if (authStore.userId) {
+      const creatorRole = getCreatorRole();
+      participants.value.push({
+        user_id: authStore.userId,
+        role: creatorRole,
+        joined_at: new Date().toISOString(),
+      });
+    }
+  }
+});
+
+function applySuggestionChanges(suggestion: Suggestion) {
+  const changes = suggestion.changes;
+  if (changes.title) form.title = changes.title;
+  if (changes.body) form.body = changes.body;
+  if (changes.underbody) form.underbody = changes.underbody;
+  if (changes.participants) participants.value = changes.participants;
+  if (changes.required_roles) requiredRolesValue.value = changes.required_roles;
+  if (changes.tasks) {
+    tasks.value = changes.tasks.map((task: any) => ({
+      ...task,
+      expanded: false,
+      startError: undefined,
+      endError: undefined,
+    }));
+  }
 }
 
 // Сохранение / отправка предложения
@@ -979,7 +977,35 @@ const goBack = () => router.go(-1);
   font-weight: 500;
 }
 
-/* Остальные стили (без изменений) */
+/* Секция участников */
+.section-header-with-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.section-header-with-button h2 {
+  margin: 0;
+}
+.assign-curator-btn {
+  background: #ff9800;
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.assign-curator-btn:hover:not(:disabled) {
+  background: #f57c00;
+}
+.assign-curator-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .participants-section {
   display: flex;
   flex-direction: column;
@@ -1046,52 +1072,35 @@ const goBack = () => router.go(-1);
   opacity: 0.3;
   cursor: not-allowed;
 }
-.search-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 8px;
-}
-.search-row select {
-  padding: 8px;
-  border: 1px solid var(--input-border);
-  border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--text-primary);
-}
-.search-row button {
-  padding: 8px 16px;
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.search-results {
-  position: absolute;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-top: 4px;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 10;
-}
-.search-result-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.search-result-item:hover {
-  background: var(--bg-page);
-}
-.user-roles-hint {
-  font-size: 0.8rem;
+.no-participants {
+  text-align: center;
   color: var(--text-secondary);
-  margin-left: 8px;
+  font-style: italic;
+  padding: 20px;
+  background: var(--bg-page);
+  border-radius: 12px;
 }
+.invite-button-wrapper {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+.invite-participant-btn {
+  background: var(--accent-color);
+  color: var(--button-text);
+  border: none;
+  border-radius: 30px;
+  padding: 8px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.invite-participant-btn:hover {
+  background: var(--accent-hover);
+}
+
+/* Остальные стили */
 .project-edit-page {
   min-height: 100vh;
   background: var(--bg-page);
