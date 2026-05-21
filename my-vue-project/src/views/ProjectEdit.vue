@@ -413,11 +413,14 @@ const isCurator = computed(() => {
 // Является ли пользователь администратором или куратором
 const isAdminOrCurator = computed(() => (authStore.user?.is_admin ?? false) || isCurator.value);
 
-// Определение роли создателя проекта
 function getCreatorRole(): ProjectRole {
   const user = authStore.user;
   if (!user) return 'executor';
-  if (!user.is_teacher) return 'executor';
+  
+
+  if (!user.is_teacher) return 'customer';
+  
+
   if (user.teacher_info) {
     if (user.teacher_info.roles?.includes('customer')) return 'customer';
     if (user.teacher_info.curator) return 'curator';

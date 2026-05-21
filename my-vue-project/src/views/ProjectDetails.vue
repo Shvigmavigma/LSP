@@ -755,8 +755,8 @@ function getRoleDescription(role: ProjectRole): string {
 const canLeaveProject = computed(() => {
   if (!project.value) return false;
   if (!userRole.value) return false;
-  if (project.value.participants?.length === 1) return false;
-  return true;
+  const isOnlyParticipant = (project.value.participants?.length || 0) === 1;
+  return !isOnlyParticipant;
 });
 
 // Задачи
@@ -1217,17 +1217,17 @@ const handleTaskMove = async (fromIndex: number, toIndex: number) => {
 const leaveProject = async () => {
   if (!project.value || !authStore.userId) return;
   if (!confirm(t('projectDetails.confirmLeaveProject'))) return;
+  
   deleteInProgress.value = true;
   try {
-    const updatedParticipants = project.value.participants.filter(p => p.user_id !== authStore.userId);
-    await axios.put(`${baseUrl}/projects/${project.value.id}`, {
-      participants: updatedParticipants
-    });
+
+    await axios.post(`${baseUrl}/projects/${project.value.id}/leave`);
     showNotification(t('projectDetails.leftProject'), 'success');
     router.push('/my-projects');
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    showNotification(t('projectDetails.leaveError'), 'error');
+    const errorMessage = error.response?.data?.detail || t('projectDetails.leaveError');
+    showNotification(errorMessage, 'error');
   } finally {
     deleteInProgress.value = false;
   }
