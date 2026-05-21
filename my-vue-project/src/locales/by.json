@@ -617,6 +617,10 @@
     },
     "projectEdit": {
         "taskTitleMustBeUnique": "Назва задання павінна быць унікальнай",
+        "becomeCurator": "Стаць куратарам",
+        "curatorAssigned": "Вы паспяхова прызначаны куратарам праекта",
+        "curatorAssignError": "Памылка пры прызначэнні куратарам",
+        "inviteOnlyExisting": "Запрашаць можна толькі існуючыя праекты",
         "requiredRoles": "Неабходныя ролі",
         "role": "Роля",
         "currentCount": "Бягучая колькасць",
