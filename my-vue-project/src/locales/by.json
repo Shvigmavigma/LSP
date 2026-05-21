@@ -615,6 +615,18 @@
             "completed": "Выканана"
         }
     },
+    "projectTree": {
+        "title": "Структура праекта",
+        "inProgress": "У працы",
+        "waiting": "Чакае",
+        "completed": "Выканана",
+        "noTasks": "Няма задач",
+        "noSubtasks": "Няма падзадач",
+        "expandAll": "Разгарнуць усё",
+        "collapseAll": "Згарнуць усё",
+        "expandSidebar": "Разгарнуць бакавую панэль",
+        "toggleSidebar": "Згарнуць бакавую панэль"
+    },
     "projectEdit": {
         "taskTitleMustBeUnique": "Назва задання павінна быць унікальнай",
         "becomeCurator": "Стаць куратарам",
@@ -747,6 +759,7 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы ўпэўнены, што хочаце выдаліць гэты файл?",
+        "completeAllSubtasksForProgress": "Выканайце ўсе падзадачы, каб адкрыць паўзунок прагрэсу",
         "dragFilesHere": "Перацягніце файлы сюды",
         "notAttached": "Не прымацавана",
         "noRequirement": "Без патрабавання",

@@ -616,6 +616,18 @@
             "completed": "Completed"
         }
     },
+    "projectTree": {
+        "title": "Project Structure",
+        "inProgress": "In Progress",
+        "waiting": "Waiting",
+        "completed": "Completed",
+        "noTasks": "No tasks",
+        "noSubtasks": "No subtasks",
+        "expandAll": "Expand all",
+        "collapseAll": "Collapse all",
+        "expandSidebar": "Expand sidebar",
+        "toggleSidebar": "Collapse sidebar"
+    },
     "projectEdit": {
         "adminHint": "You have full rights as an administrator or curator.",
         "requiredRoles": "Required roles",
@@ -748,6 +760,7 @@
     },
     "taskDetails": {
         "title": "Task details",
+        "completeAllSubtasksForProgress": "Complete all subtasks to unlock the progress slider",
         "notAttached": "Not attached",
         "noRequirement": "No requirement",
         "requirementUpdated": "Requirement updated",

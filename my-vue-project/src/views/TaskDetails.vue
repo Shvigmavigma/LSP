@@ -213,7 +213,6 @@
             </div>
             <p v-if="subtask.description" class="subtask-description">{{ subtask.description }}</p>
             <div class="subtask-files-badge" v-if="visibleFiles.length > 0">
-              📎 {{ $t('taskDetails.filesAttached', { count: visibleFiles.length }) }}
             </div>
           </div>
         </div>
@@ -222,6 +221,15 @@
         </div>
       </section>
 
+      <!-- Информационное сообщение, если не все подзадачи выполнены -->
+      <section v-if="task?.status === 'в работе' && subtasks.length > 0 && !allSubtasksCompleted && !isOldReadOnly" class="progress-info">
+        <div class="info-message">
+          <span class="info-icon">ℹ️</span>
+          <span>{{ $t('taskDetails.completeAllSubtasksForProgress') }}</span>
+        </div>
+      </section>
+
+      <!-- Ползунок прогресса (появляется только когда все подзадачи выполнены) -->
       <section v-if="showManualProgress && canEditTask && !isOldReadOnly" class="progress-section">
         <h3>{{ $t('taskDetails.extraProgress') }}</h3>
         <div class="progress-slider-container">
@@ -254,7 +262,7 @@
         <div v-else>
           <template v-if="canEditTask">
             <button v-if="!showRenewOptions" class="renew-button" @click="showRenewOptions = true" :disabled="actionInProgress">
-              🔄 {{ $t('taskDetails.renew') }}
+              {{ $t('taskDetails.renew') }}
             </button>
             <div v-else class="renew-options">
               <button class="status-option work" @click="updateTaskStatus('в работе')" :disabled="actionInProgress">
@@ -278,6 +286,14 @@
         <span v-if="isUrgent && !isOverdue && !isInvalid" class="badge urgent">{{ $t('taskDetails.urgent') }}</span>
       </section>
     </div>
+
+    <!-- Древовидная структура проекта -->
+    <ProjectTree
+      :key="projectId"
+      v-if="project"
+      :project="{ id: projectId, title: project?.title || '', tasks: project?.tasks || [] }"
+      @task-moved="handleTaskMove"
+    />
 
     <!-- Модальные окна -->
     <div v-if="showConfirmDialog" class="modal-overlay" @click.self="closeConfirmDialog">
@@ -322,6 +338,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import CommentsSection from '@/components/CommentsSection.vue';
 import FilePreviewModal from '@/components/FilePreviewModal.vue';
+import ProjectTree from '@/components/ProjectTree.vue';
 import type { Task, SubTask, Comment, ProjectRole, RequiredFile, TaskAttachment } from '@/types';
 import axios from 'axios';
 import HomeButton from '@/components/HomeButton.vue';
@@ -336,8 +353,8 @@ const projectsStore = useProjectsStore();
 const authStore = useAuthStore();
 const usersStore = useUsersStore();
 
-const projectId = Number(route.params.projectId);
-const taskIndex = Number(route.params.taskIndex);
+const projectId = computed(() => Number(route.params.projectId));
+const taskIndex = computed(() => Number(route.params.taskIndex));
 
 const project = ref<any>(null);
 const task = ref<Task | null>(null);
@@ -460,32 +477,47 @@ function formatFileSize(bytes: number): string {
 const subtasks = computed(() => task.value?.subtasks || []);
 const totalSubtasksPercent = computed(() => subtasks.value.reduce((sum, st) => sum + (st.progressPercent || 0), 0));
 const completedSubtasksPercent = computed(() => subtasks.value.filter(st => st.completed).reduce((sum, st) => sum + (st.progressPercent || 0), 0));
+const allSubtasksCompleted = computed(() => subtasks.value.length > 0 && subtasks.value.every(st => st.completed));
+
 const maxExtra = computed(() => {
   const val = 100 - completedSubtasksPercent.value;
   return (isNaN(val) || val < 0) ? 0 : val;
 });
-const totalProgress = computed(() => completedSubtasksPercent.value + sliderValue.value);
-const showManualProgress = computed(() => task.value?.status === 'в работе' && maxExtra.value > 0);
 
-// Фильтрация файлов для старых проектов
+const totalProgress = computed(() => completedSubtasksPercent.value + sliderValue.value);
+
+const showManualProgress = computed(() => {
+  return task.value?.status === 'в работе' && 
+         subtasks.value.length > 0 && 
+         allSubtasksCompleted.value && 
+         maxExtra.value > 0;
+});
+
 const visibleFiles = computed(() => {
   if (!isOldReadOnly.value) return taskFiles.value;
   return taskFiles.value.filter(file => file.is_old_vision);
 });
 
 async function loadTask() {
-  if (isNaN(projectId) || isNaN(taskIndex) || taskIndex < 0) {
+  const currentProjectId = projectId.value;
+  const currentTaskIndex = taskIndex.value;
+  
+  if (isNaN(currentProjectId) || isNaN(currentTaskIndex) || currentTaskIndex < 0) {
     error.value = t('taskDetails.invalidParams');
     loading.value = false;
     return;
   }
+  
+  loading.value = true;
+  error.value = '';
+  
   try {
-    const response = await axios.get(`${baseUrl}/projects/${projectId}`);
+    const response = await axios.get(`${baseUrl}/projects/${currentProjectId}`);
     project.value = response.data;
-    if (!project.value || !project.value.tasks || !project.value.tasks[taskIndex]) {
+    if (!project.value || !project.value.tasks || !project.value.tasks[currentTaskIndex]) {
       error.value = t('taskDetails.taskNotFound');
     } else {
-      const loadedTask = project.value.tasks[taskIndex];
+      const loadedTask = project.value.tasks[currentTaskIndex];
       task.value = loadedTask;
       savedProgress.value = loadedTask.progress ?? 0;
       if (loadedTask.subtasks && loadedTask.subtasks.length > 0) {
@@ -497,7 +529,7 @@ async function loadTask() {
         sliderValue.value = savedProgress.value;
       }
       try {
-        const filesResponse = await axios.get(`${baseUrl}/projects/${projectId}/files`);
+        const filesResponse = await axios.get(`${baseUrl}/projects/${currentProjectId}/files`);
         taskFiles.value = filesResponse.data;
       } catch (fileErr) {
         console.error('Failed to load project files:', fileErr);
@@ -511,10 +543,21 @@ async function loadTask() {
     loading.value = false;
   }
 }
-onMounted(loadTask);
-watch(() => route.params.id, loadTask);
 
-// Статусы задачи (полные)
+onMounted(loadTask);
+
+// Следим за изменением параметров маршрута
+watch(
+  () => route.params,
+  (newParams, oldParams) => {
+    if (newParams.projectId !== oldParams.projectId || 
+        newParams.taskIndex !== oldParams.taskIndex) {
+      loadTask();
+    }
+  },
+  { deep: true }
+);
+
 const isInvalid = computed(() => {
   const tsk = task.value;
   if (!tsk) return false;
@@ -599,7 +642,7 @@ function getCompleteButtonTitle(): string {
   return '';
 }
 
-// --- Методы задач (полные) ---
+// --- Методы задач ---
 const toggleSubtask = async (subtask: SubTask) => {
   if (!canEditTask.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyEditorsCanEditSubtasks'), 'info'); 
@@ -622,9 +665,9 @@ const toggleSubtask = async (subtask: SubTask) => {
 
     const updatedTask = { ...currentTask, subtasks: updatedSubtasks, progress: newTotal };
     const updatedTasks = [...currentProject.tasks];
-    updatedTasks[taskIndex] = updatedTask;
+    updatedTasks[taskIndex.value] = updatedTask;
 
-    await axios.patch(`${baseUrl}/projects/${projectId}/tasks`, { tasks: updatedTasks });
+    await axios.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks: updatedTasks });
     project.value = { ...currentProject, tasks: updatedTasks };
     task.value = updatedTask;
     savedProgress.value = newTotal;
@@ -656,9 +699,9 @@ const completeTask = async () => {
   actionInProgress.value = true;
   try {
     const updatedTasks = [...currentProject.tasks];
-    updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], status: 'выполнена' } as Task;
-    await projectsStore.updateProject(projectId, { tasks: updatedTasks });
-    router.push(`/project/${projectId}`);
+    updatedTasks[taskIndex.value] = { ...updatedTasks[taskIndex.value], status: 'выполнена' } as Task;
+    await projectsStore.updateProject(projectId.value, { tasks: updatedTasks });
+    router.push(`/project/${projectId.value}`);
   } catch (err) {
     console.error('Ошибка при завершении задачи:', err);
     showNotification(t('taskDetails.completeError'), 'error');
@@ -676,10 +719,10 @@ const updateTaskStatus = async (newStatus: string) => {
   actionInProgress.value = true;
   try {
     const updatedTasks = [...currentProject.tasks];
-    updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], status: newStatus } as Task;
-    await projectsStore.updateProject(projectId, { tasks: updatedTasks });
+    updatedTasks[taskIndex.value] = { ...updatedTasks[taskIndex.value], status: newStatus } as Task;
+    await projectsStore.updateProject(projectId.value, { tasks: updatedTasks });
     project.value = { ...currentProject, tasks: updatedTasks };
-    task.value = updatedTasks[taskIndex];
+    task.value = updatedTasks[taskIndex.value];
     showRenewOptions.value = false;
   } catch (err) {
     console.error('Ошибка при обновлении статуса задачи:', err);
@@ -687,7 +730,7 @@ const updateTaskStatus = async (newStatus: string) => {
   } finally { actionInProgress.value = false; }
 };
 
-// --- Комментарии (полные) ---
+// --- Комментарии ---
 const addTaskComment = async (content: string) => {
   if (!hasFullAccess.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyParticipantsCanComment'), 'info'); 
@@ -705,9 +748,9 @@ const addTaskComment = async (content: string) => {
   };
 
   try {
-    const response = await axios.post(`${baseUrl}/projects/${projectId}/tasks/${taskIndex}/comments`, newComment);
+    const response = await axios.post(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments`, newComment);
     project.value = response.data;
-    task.value = project.value.tasks[taskIndex];
+    task.value = project.value.tasks[taskIndex.value];
     showTaskComments.value = true;
   } catch (error) {
     console.error('Failed to add comment:', error);
@@ -718,12 +761,12 @@ const addTaskComment = async (content: string) => {
 const markTaskCommentAsRead = async (commentId: string) => {
   if (!task.value || !hasFullAccess.value) return;
   try {
-    await axios.put(`${baseUrl}/projects/${projectId}/tasks/${taskIndex}/comments/${commentId}/read`);
+    await axios.put(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/read`);
     if (task.value.comments) {
       const updatedComments = task.value.comments.map(c => c.id === commentId ? { ...c, isRead: true } : c);
       const updatedTask = { ...task.value, comments: updatedComments };
       const updatedTasks = [...project.value.tasks];
-      updatedTasks[taskIndex] = updatedTask;
+      updatedTasks[taskIndex.value] = updatedTask;
       project.value.tasks = updatedTasks;
       task.value = updatedTask;
     }
@@ -736,9 +779,9 @@ const markTaskCommentAsRead = async (commentId: string) => {
 const hideTaskComment = async (commentId: string) => {
   if (!project.value || isOldReadOnly.value) return;
   try {
-    const response = await axios.delete(`${baseUrl}/projects/${projectId}/tasks/${taskIndex}/comments/${commentId}`);
+    const response = await axios.delete(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}`);
     project.value = response.data;
-    task.value = project.value.tasks[taskIndex];
+    task.value = project.value.tasks[taskIndex.value];
   } catch (error) {
     console.error('Failed to hide comment:', error);
     showNotification(t('commentsSection.hideError'), 'error');
@@ -750,10 +793,10 @@ const permanentDeleteComment = async (commentId: string) => {
   try {
     await axios.delete(`${baseUrl}/admin/comments/${commentId}`);
     showNotification(t('commentsSection.permanentDeleteSuccess'), 'success');
-    const updatedProject = await projectsStore.fetchProjectById(projectId);
+    const updatedProject = await projectsStore.fetchProjectById(projectId.value);
     project.value = updatedProject;
-    if (updatedProject && updatedProject.tasks && updatedProject.tasks[taskIndex]) {
-      task.value = updatedProject.tasks[taskIndex];
+    if (updatedProject && updatedProject.tasks && updatedProject.tasks[taskIndex.value]) {
+      task.value = updatedProject.tasks[taskIndex.value];
     }
   } catch (error) {
     console.error('Failed to delete comment permanently', error);
@@ -764,12 +807,12 @@ const permanentDeleteComment = async (commentId: string) => {
 const restoreTaskComment = async (commentId: string) => {
   if (!project.value || isOldReadOnly.value) return;
   try {
-    await axios.post(`${baseUrl}/projects/${projectId}/tasks/${taskIndex}/comments/${commentId}/restore`);
+    await axios.post(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/restore`);
     showNotification(t('commentsSection.restoreSuccess'), 'success');
-    const updatedProject = await projectsStore.fetchProjectById(projectId);
+    const updatedProject = await projectsStore.fetchProjectById(projectId.value);
     project.value = updatedProject;
-    if (updatedProject && updatedProject.tasks && updatedProject.tasks[taskIndex]) {
-      task.value = updatedProject.tasks[taskIndex];
+    if (updatedProject && updatedProject.tasks && updatedProject.tasks[taskIndex.value]) {
+      task.value = updatedProject.tasks[taskIndex.value];
     }
   } catch (error) {
     console.error('Failed to restore comment', error);
@@ -830,9 +873,9 @@ async function handleFileUpload(file: File) {
   uploadingFiles.value[key] = true;
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('task_id', String(taskIndex));
+  formData.append('task_id', String(taskIndex.value));
   try {
-    await axios.post(`${baseUrl}/projects/${projectId}/files`, formData);
+    await axios.post(`${baseUrl}/projects/${projectId.value}/files`, formData);
     await loadTask();
     showNotification(t('taskDetails.fileUploaded'), 'success');
   } catch (err: any) {
@@ -877,9 +920,9 @@ async function deleteAttachment(fileId: number) {
   deletingAttachment.value = true;
   try {
     await axios.delete(`${baseUrl}/files/${fileId}`);
-    const response = await axios.get(`${baseUrl}/projects/${projectId}`);
+    const response = await axios.get(`${baseUrl}/projects/${projectId.value}`);
     project.value = response.data;
-    task.value = project.value.tasks[taskIndex];
+    task.value = project.value.tasks[taskIndex.value];
     savedProgress.value = task.value?.progress ?? 0;
     if (task.value?.subtasks && task.value.subtasks.length > 0) {
       const completedSum = task.value.subtasks
@@ -890,7 +933,7 @@ async function deleteAttachment(fileId: number) {
       sliderValue.value = savedProgress.value;
     }
     try {
-      const filesResponse = await axios.get(`${baseUrl}/projects/${projectId}/files`);
+      const filesResponse = await axios.get(`${baseUrl}/projects/${projectId.value}/files`);
       taskFiles.value = filesResponse.data;
     } catch {}
     showNotification(t('taskDetails.fileDeleted'), 'success');
@@ -935,10 +978,10 @@ const confirmExtraChange = async () => {
   actionInProgress.value = true;
   try {
     const updatedTasks = [...currentProject.tasks];
-    updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], progress: newTotal };
-    await axios.patch(`${baseUrl}/projects/${projectId}/tasks`, { tasks: updatedTasks });
+    updatedTasks[taskIndex.value] = { ...updatedTasks[taskIndex.value], progress: newTotal };
+    await axios.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks: updatedTasks });
     project.value = { ...currentProject, tasks: updatedTasks };
-    task.value = updatedTasks[taskIndex];
+    task.value = updatedTasks[taskIndex.value];
     savedProgress.value = newTotal;
   } catch (err) {
     console.error('Ошибка при обновлении прогресса:', err);
@@ -950,8 +993,27 @@ const confirmExtraChange = async () => {
   }
 };
 
-const goBack = () => router.push(`/project/${projectId}`);
+const handleTaskMove = async (fromIndex: number, toIndex: number) => {
+  if (!project.value) return;
+  
+  const tasks = [...(project.value.tasks || [])];
+  const [movedTask] = tasks.splice(fromIndex, 1);
+  tasks.splice(toIndex, 0, movedTask);
+
+  try {
+    await axios.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks });
+    project.value = { ...project.value, tasks };
+    showNotification(t('projectDetails.tasksReordered'), 'success');
+  } catch (error: any) {
+    console.error('Failed to reorder tasks', error);
+    showNotification(t('projectDetails.tasksReorderError'), 'error');
+    await loadTask();
+  }
+};
+
+const goBack = () => router.push(`/project/${projectId.value}`);
 </script>
+
 
 <style scoped>
 .readonly-notice {
@@ -1136,7 +1198,29 @@ const goBack = () => router.push(`/project/${projectId}`);
   cursor: not-allowed;
 }
 
-/* Остальные стили (сохранены из предыдущего файла) */
+/* Информационное сообщение */
+.progress-info {
+  margin-top: 20px;
+  padding: 12px 20px;
+  background: rgba(33, 150, 243, 0.1);
+  border-left: 4px solid #2196f3;
+  border-radius: 8px;
+}
+
+.info-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.info-icon {
+  font-size: 1.2rem;
+  color: #2196f3;
+}
+
+/* Остальные стили */
 .task-details-page {
   min-height: 100vh;
   background: var(--bg-page);
