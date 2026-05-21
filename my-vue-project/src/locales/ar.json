@@ -618,6 +618,18 @@
             "completed": "مكتمل"
         }
     },
+    "projectTree": {
+        "title": "هيكل المشروع",
+        "inProgress": "قيد التنفيذ",
+        "waiting": "قيد الانتظار",
+        "completed": "مكتمل",
+        "noTasks": "لا توجد مهام",
+        "noSubtasks": "لا توجد مهام فرعية",
+        "expandAll": "توسيع الكل",
+        "collapseAll": "طي الكل",
+        "expandSidebar": "توسيع الشريط الجانبي",
+        "toggleSidebar": "طي الشريط الجانبي"
+    },
     "projectEdit": {
         "adminHint": "لديك الصلاحيات الكاملة كمسؤول أو منسق.",
         "requiredRoles": "الأدوار المطلوبة",
@@ -751,6 +763,7 @@
     "taskDetails": {
         "title": "تفاصيل المهمة",
         "dragFilesHere": "اسحب الملفات هنا",
+        "completeAllSubtasksForProgress": "أكمل جميع المهام الفرعية لفتح شريط التقدم",
         "notAttached": "غير مرفق",
         "noRequirement": "بدون متطلب",
         "requirementUpdated": "تم تحديث المتطلب",

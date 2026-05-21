@@ -313,6 +313,15 @@
 
           <!-- Диаграмма Ганта -->
           <GanttChart :tasks="activeTasks" :title="$t('projectDetails.timeline')" :readonly="!canEditGantt" @update-tasks="handleTaskUpdate" />
+
+          <!-- Древовидная структура проекта -->
+          <ProjectTree
+          :project="{ id: project.id, title: project.title, tasks: project.tasks }"
+          :project-id="project.id"
+          @task-moved="handleTaskMove"
+          @subtask-moved="handleSubtaskMove"
+          @update-tasks="handleUpdateTasks"
+        />
         </div>
       </template>
 
@@ -423,6 +432,14 @@
             </div>
           </div>
           <GanttChart :tasks="activeTasks" :title="$t('projectDetails.timeline')" :readonly="true" @update-tasks="handleTaskUpdate" />
+          <ProjectTree
+
+          :project="{ id: project.id, title: project.title, tasks: project.tasks }"
+          :project-id="project.id"
+          @task-moved="handleTaskMove"
+          @subtask-moved="handleSubtaskMove"
+          @update-tasks="handleUpdateTasks"
+        />
         </div>
 
         <!-- НЕ СТАРЫЙ ПРОЕКТ – карточка с возможностью откликнуться -->
@@ -458,7 +475,6 @@
                   </div>
                   <div class="role-description">{{ getRoleDescription(roleInfo.role) }}</div>
                   
-                  <!-- Кнопка всегда видна, но disabled если уже есть заявка -->
                   <button
                     class="respond-role-btn"
                     @click="respondToProjectWithRole(roleInfo.role)"
@@ -467,7 +483,6 @@
                     {{ respondingRole === roleInfo.role ? $t('common.sending') : $t('projectDetails.joinAsRole', { role: getRoleDisplay(roleInfo.role) }) }}
                   </button>
                   
-                  <!-- Маленькая надпись, если заявка уже подана -->
                   <div v-if="hasPendingRequestForRole(roleInfo.role)" class="already-responded-role">
                     {{ $t('projectDetails.alreadyResponded') }}
                   </div>
@@ -475,7 +490,6 @@
               </div>
             </div>
             
-            <!-- Если нет доступных ролей, но есть хотя бы один pending запрос – показываем общее сообщение -->
             <div v-else-if="userHasAnyPendingRequest" class="already-responded">
               <span class="responded-message">✅ {{ $t('projectDetails.alreadyResponded') }}</span>
             </div>
@@ -510,6 +524,7 @@ import CommentsSection from '@/components/CommentsSection.vue';
 import SuggestionsSection from '@/components/SuggestionsSection.vue';
 import InviteModal from '@/components/InviteModal.vue';
 import GanttChart from '@/components/GanttChart.vue';
+import ProjectTree from '@/components/ProjectTree.vue';
 import type { Project, Task, Comment, ProjectRole, JoinRequest } from '@/types';
 import axios from 'axios';
 import HomeButton from '@/components/HomeButton.vue';
@@ -585,7 +600,54 @@ const canSuggest = computed(() =>
   isAdmin.value || 
   isCurator.value
 );
+// Replace the existing handleSubtaskMove function with this:
+const handleSubtaskMove = async (fromTaskIndex: number, fromSubtaskIndex: number, toTaskIndex: number, toSubtaskIndex: number) => {
+  if (!project.value) return;
+  
+  try {
+    // Create a deep copy of tasks
+    const tasksCopy = JSON.parse(JSON.stringify(project.value.tasks || []));
+    
+    // Remove subtask from source task
+    const fromSubtasks = tasksCopy[fromTaskIndex].subtasks || [];
+    const [movedSubtask] = fromSubtasks.splice(fromSubtaskIndex, 1);
+    tasksCopy[fromTaskIndex] = { ...tasksCopy[fromTaskIndex], subtasks: fromSubtasks };
+    
+    // Add subtask to target task
+    const toSubtasks = tasksCopy[toTaskIndex].subtasks || [];
+    const insertIndex = Math.min(toSubtaskIndex, toSubtasks.length);
+    toSubtasks.splice(insertIndex, 0, movedSubtask);
+    tasksCopy[toTaskIndex] = { ...tasksCopy[toTaskIndex], subtasks: toSubtasks };
+    
+    // Save to backend
+    await axios.patch(`${baseUrl}/projects/${project.value.id}/tasks`, { tasks: tasksCopy });
+    
+    // Update local state
+    project.value = { ...project.value, tasks: tasksCopy };
+    
+    showNotification(t('projectDetails.subtaskMoved'), 'success');
+  } catch (error) {
+    console.error('Failed to move subtask', error);
+    showNotification(t('projectDetails.tasksUpdateError'), 'error');
+    // Reload project data
+    await loadProject(true);
+  }
+};
 
+// Keep the existing handleUpdateTasks function as is
+const handleUpdateTasks = async (tasks: Task[]) => {
+  if (!project.value) return;
+  
+  try {
+    await axios.patch(`${baseUrl}/projects/${project.value.id}/tasks`, { tasks });
+    project.value = { ...project.value, tasks };
+    showNotification(t('projectDetails.tasksUpdated'), 'success');
+  } catch (error) {
+    console.error('Failed to update tasks', error);
+    showNotification(t('projectDetails.tasksUpdateError'), 'error');
+    await loadProject(true);
+  }
+};
 const canHideComments = computed(() => 
   userRole.value === 'supervisor' || 
   isAdmin.value || 
@@ -662,12 +724,10 @@ const availableJoinRoles = computed(() => {
 // Проверка, есть ли уже pending запрос на конкретную роль
 function hasPendingRequestForRole(role: ProjectRole): boolean {
   if (!project.value?.join_requests || !authStore.userId) return false;
-  // Если есть хотя бы одна pending заявка от этого пользователя (независимо от роли), считаем, что он уже откликнулся
   const hasAnyPending = project.value.join_requests.some(r => 
     r.user_id === authStore.userId && r.status === 'pending'
   );
   if (hasAnyPending) {
-    console.log(`🔍 Пользователь уже имеет pending заявку, для роли ${role} возвращаем true`);
     return true;
   }
   return false;
@@ -828,37 +888,25 @@ async function loadProject(force = false) {
 
 // ---- Запросы на вступление (новая версия с ролью) ----
 async function respondToProjectWithRole(role: ProjectRole) {
-  console.log('📤 Отправка заявки для роли:', role);
   if (!project.value) return;
 
-  // ✅ Защита от повторной отправки, если заявка уже существует (даже если проект не обновлён)
   if (hasPendingRequestForRole(role)) {
-    console.warn('⚠️ Заявка уже есть, не отправляем повторно');
     showNotification(t('projectDetails.alreadyResponded'), 'info');
     return;
   }
 
-  // ✅ Защита от повторного клика во время обработки текущего запроса
   if (respondingRole.value === role) {
-    console.warn('⚠️ Запрос уже выполняется');
     return;
   }
 
   respondingRole.value = role;
   try {
     const payload = { requested_role: role };
-    const response = await axios.post(`${baseUrl}/projects/${project.value.id}/join-requests`, payload);
-    console.log('✅ Успешно:', response.data);
+    await axios.post(`${baseUrl}/projects/${project.value.id}/join-requests`, payload);
     showNotification(t('projectDetails.requestSent'), 'success');
-
-    // ✅ Принудительно обновляем проект, чтобы получить актуальный список заявок
     await loadProject(true);
-    console.log('🔄 Проект перезагружен');
   } catch (err: any) {
-    console.error('❌ Ошибка:', err);
     if (err.response) {
-      console.error('📄 Статус:', err.response.status);
-      console.error('📄 Данные ответа:', err.response.data);
       showNotification(err.response.data?.detail || t('projectDetails.requestError'), 'error');
     } else {
       showNotification(t('projectDetails.requestError'), 'error');
@@ -1124,7 +1172,6 @@ const handleTaskUpdate = async (payload: { task: Task; index: number }) => {
   const tasks = [...(project.value.tasks || [])];
   tasks[payload.index] = payload.task;
 
-  // Удаляем дубликаты по названиям
   const uniqueTasks: Task[] = [];
   const seenTitles = new Set<string>();
   for (const t of tasks) {
@@ -1142,6 +1189,26 @@ const handleTaskUpdate = async (payload: { task: Task; index: number }) => {
   } catch (error: any) {
     console.error('Failed to update task dates', error);
     showNotification(t('projectDetails.timelineUpdateError'), 'error');
+    await loadProject(true);
+  }
+};
+
+// ---- Обработчик перемещения задач в дереве ----
+const handleTaskMove = async (fromIndex: number, toIndex: number) => {
+  if (!project.value) return;
+  if (!canEditGantt.value) return;
+
+  const tasks = [...(project.value.tasks || [])];
+  const [movedTask] = tasks.splice(fromIndex, 1);
+  tasks.splice(toIndex, 0, movedTask);
+
+  try {
+    await axios.patch(`${baseUrl}/projects/${project.value.id}/tasks`, { tasks });
+    project.value = { ...project.value, tasks };
+    showNotification(t('projectDetails.tasksReordered'), 'success');
+  } catch (error: any) {
+    console.error('Failed to reorder tasks', error);
+    showNotification(t('projectDetails.tasksReorderError'), 'error');
     await loadProject(true);
   }
 };

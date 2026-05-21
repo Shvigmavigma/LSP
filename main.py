@@ -1485,6 +1485,83 @@ async def update_project(
     db.refresh(project)
     return project
 
+@app.patch("/projects/{project_id}/subtasks/move", response_model=ProjectResponse, tags=["Projects"])
+async def move_subtask(
+    project_id: int,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Перемещает подзадачу между задачами или внутри одной задачи.
+    Ожидает JSON:
+    {
+        "from_task_index": 0,      // индекс задачи-источника
+        "from_subtask_index": 0,   // индекс подзадачи в задаче-источнике
+        "to_task_index": 1,        // индекс целевой задачи
+        "to_subtask_index": 0      // позиция для вставки в целевой задаче
+    }
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    
+    # Проверка прав: могут все участники проекта (админ, куратор, заказчик, исполнитель)
+    participant_role = get_participant_role(project, current_user.id)
+    if not (current_user.is_admin or is_curator(current_user) or participant_role in [
+        ProjectRole.CUSTOMER.value, 
+        ProjectRole.EXECUTOR.value,
+        ProjectRole.SUPERVISOR.value,
+        ProjectRole.EXPERT.value
+    ]):
+        raise HTTPException(403, "Not enough permissions to move subtasks")
+    
+    # Проверка на старый проект
+    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(403, "Cannot modify old project")
+    
+    from_task_idx = data.get("from_task_index")
+    from_subtask_idx = data.get("from_subtask_index")
+    to_task_idx = data.get("to_task_index")
+    to_subtask_idx = data.get("to_subtask_index")
+    
+    if any(x is None for x in [from_task_idx, from_subtask_idx, to_task_idx, to_subtask_idx]):
+        raise HTTPException(400, "Missing required fields: from_task_index, from_subtask_index, to_task_index, to_subtask_index")
+    
+    tasks = project.tasks or []
+    
+    if from_task_idx < 0 or from_task_idx >= len(tasks):
+        raise HTTPException(400, "Invalid from_task_index")
+    if to_task_idx < 0 or to_task_idx >= len(tasks):
+        raise HTTPException(400, "Invalid to_task_index")
+    
+    from_task = tasks[from_task_idx]
+    to_task = tasks[to_task_idx]
+    
+    from_subtasks = from_task.get("subtasks", [])
+    to_subtasks = to_task.get("subtasks", [])
+    
+    if from_subtask_idx < 0 or from_subtask_idx >= len(from_subtasks):
+        raise HTTPException(400, "Invalid from_subtask_index")
+    
+    # Извлекаем подзадачу
+    moved_subtask = from_subtasks.pop(from_subtask_idx)
+    
+    # Вставляем в целевую задачу
+    insert_idx = min(to_subtask_idx, len(to_subtasks))
+    to_subtasks.insert(insert_idx, moved_subtask)
+    
+    # Обновляем задачи
+    tasks[from_task_idx]["subtasks"] = from_subtasks
+    tasks[to_task_idx]["subtasks"] = to_subtasks
+    
+    project.tasks = tasks
+    flag_modified(project, "tasks")
+    db.commit()
+    db.refresh(project)
+    
+    return project
+
 @app.delete("/files/{file_id}", tags=["Projects"])
 async def delete_file(
     file_id: int,

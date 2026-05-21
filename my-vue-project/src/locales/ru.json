@@ -617,6 +617,18 @@
             "completed": "Выполнена"
         }
     },
+    "projectTree": {
+        "title": "Структура проекта",
+        "inProgress": "В работе",
+        "waiting": "Ожидает",
+        "completed": "Выполнена",
+        "noTasks": "Нет задач",
+        "noSubtasks": "Нет подзадач",
+        "expandAll": "Развернуть всё",
+        "collapseAll": "Свернуть всё",
+        "expandSidebar": "Развернуть боковую панель",
+        "toggleSidebar": "Свернуть боковую панель"
+    },
     "projectEdit": {
         "adminHint": "Вы имеете полные права как администратор или куратор.",
         "requiredRoles": "Необходимые роли",
@@ -749,6 +761,7 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы уверены, что хотите удалить этот файл?",
+        "completeAllSubtasksForProgress": "Выполните все подзадачи, чтобы открыть ползунок прогресса",
         "dragFilesHere": "Перетащите файлы сюда",
         "notAttached": "Не прикреплён",
         "noRequirement": "Без требования",
