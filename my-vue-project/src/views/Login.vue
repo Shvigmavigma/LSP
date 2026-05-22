@@ -140,6 +140,14 @@ function clearError() {
 // 🔥 Обработка OAuth callback при загрузке
 onMounted(async () => {
   const oauthToken = route.query.oauth_token as string;
+  const oauthError = route.query.oauth_error as string;
+  
+  // 🔥 Обработка ошибки OAuth
+  if (oauthError) {
+    showNotification(decodeURIComponent(oauthError), 'error', 8000);
+    router.replace({ path: '/login' });
+    return;
+  }
   
   if (oauthToken) {
     try {

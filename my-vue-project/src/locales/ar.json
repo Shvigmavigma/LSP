@@ -462,20 +462,23 @@
         }
     },
     "login": {
-        "title": "تسجيل الدخول إلى النظام",
-        "nicknameOrEmail": "اللقب أو البريد الإلكتروني",
-        "nicknamePlaceholder": "أدخل اللقب أو البريد",
+        "title": "تسجيل الدخول",
+        "nicknameOrEmail": "اسم المستخدم أو البريد الإلكتروني",
+        "nicknamePlaceholder": "أدخل اسم المستخدم أو البريد الإلكتروني",
         "password": "كلمة المرور",
         "passwordPlaceholder": "أدخل كلمة المرور",
         "loginButton": "تسجيل الدخول",
+        "loginWithGoogle": "تسجيل الدخول عبر Google",
+        "or": "أو",
         "noAccount": "ليس لديك حساب؟",
-        "registerLink": "تسجيل",
-        "fillAllFields": "يرجى ملء جميع الحقول",
+        "registerLink": "إنشاء حساب",
+        "fillAllFields": "املأ جميع الحقول",
         "successMessage": "تم تسجيل الدخول بنجاح!",
         "genericError": "خطأ في تسجيل الدخول",
         "errorPrefix": "خطأ",
-        "networkError": "خطأ في الشبكة. يرجى التحقق من الاتصال بالخادم.",
-        "unknownError": "حدث خطأ غير معروف"
+        "networkError": "خطأ في الشبكة. تحقق من اتصالك بالإنترنت",
+        "unknownError": "خطأ غير معروف",
+        "oauthError": "خطأ في تسجيل الدخول عبر Google"
     },
     "myProjects": {
         "noProjects": "ليس لديك مشاريع حتى الآن",

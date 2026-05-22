@@ -460,20 +460,23 @@
         }
     },
     "login": {
-        "title": "登录系统",
+        "title": "登录账户",
         "nicknameOrEmail": "昵称或邮箱",
-        "nicknamePlaceholder": "输入昵称或邮箱",
+        "nicknamePlaceholder": "请输入昵称或邮箱",
         "password": "密码",
-        "passwordPlaceholder": "输入密码",
+        "passwordPlaceholder": "请输入密码",
         "loginButton": "登录",
+        "loginWithGoogle": "使用 Google 登录",
+        "or": "或者",
         "noAccount": "没有账户？",
         "registerLink": "注册",
         "fillAllFields": "请填写所有字段",
         "successMessage": "登录成功！",
         "genericError": "登录错误",
         "errorPrefix": "错误",
-        "networkError": "网络错误，请检查连接。",
-        "unknownError": "发生未知错误"
+        "networkError": "网络错误。请检查网络连接",
+        "unknownError": "未知错误",
+        "oauthError": "Google 授权错误"
     },
     "myProjects": {
         "noProjects": "您还没有项目",

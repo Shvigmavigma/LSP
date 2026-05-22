@@ -56,16 +56,23 @@
         "statusCancelled": "Cancelled"
     },
     "navigation": {
-        "main_menu": "Main Menu",
-        "invitations": "Invitations",
-        "my_projects": "My Projects",
-        "all_users": "All Users",
-        "old_projects": "a",
-        "all_projects": "All Projects",
-        "admin_panel": "Admin Panel",
-        "profile": "Profile",
-        "logout": "Logout",
-        "old_projects_hover": "Old Projects"
+        "title": "Sign In",
+        "nicknameOrEmail": "Nickname or Email",
+        "nicknamePlaceholder": "Enter nickname or email",
+        "password": "Password",
+        "passwordPlaceholder": "Enter password",
+        "loginButton": "Sign In",
+        "loginWithGoogle": "Sign in with Google",
+        "or": "or",
+        "noAccount": "Don't have an account?",
+        "registerLink": "Register",
+        "fillAllFields": "Please fill in all fields",
+        "successMessage": "Login successful!",
+        "genericError": "Login error",
+        "errorPrefix": "Error",
+        "networkError": "Network error. Check your internet connection",
+        "unknownError": "Unknown error",
+        "oauthError": "Google authorization error"
     },
     "project": {
         "title": "Project Title",
