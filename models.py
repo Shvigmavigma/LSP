@@ -24,6 +24,9 @@ class User(Base):
     is_teacher = Column(Boolean, default=False, nullable=False) 
     teacher_info = Column(JSON, nullable=True)
     is_admin = Column(Boolean, default=False, nullable=False)
+    google_id = Column(String, nullable=True, unique=True)
+    vk_id = Column(String, nullable=True, unique=True)
+    oauth_providers = Column(JSON, default=list)  # ['google', 'vk']
 
 class Project(Base):
     __tablename__ = "projects"

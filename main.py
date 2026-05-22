@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 import json
 from pathlib import Path
 from auth import get_current_admin
-
+from oauth_routes import router as oauth_router
 load_dotenv()
 from sqlalchemy.orm.attributes import flag_modified
 from models import Base, User, Project, ProjectFile, Invitation
@@ -83,7 +83,7 @@ os.makedirs("uploads", exist_ok=True)
 app.mount("/avatars", StaticFiles(directory="avatars"), name="avatars")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 AVATAR_DIR = "avatars"
-
+app.include_router(oauth_router)
 # Добавляем колонку required_roles в таблицу projects, если её нет
 def ensure_required_roles_column():
     try:
@@ -419,7 +419,79 @@ async def admin_delete_user(
     db.delete(user)
     db.commit()
     return {"message": f"User {user_id} deleted"}
-
+@app.delete("/users/me", tags=["Common"])
+async def delete_my_account(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Позволяет пользователю удалить свой собственный аккаунт.
+    Удаляет аватар, удаляет пользователя из всех проектов, затем удаляет сам аккаунт.
+    """
+    user_id = current_user.id
+    
+    # Удаляем аватар если есть
+    if current_user.avatar:
+        filepath = os.path.join(AVATAR_DIR, current_user.avatar)
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except OSError as e:
+                print(f"Ошибка при удалении файла аватара {filepath}: {e}")
+    
+    # Удаляем пользователя из всех проектов где он участвовал
+    all_projects = db.query(Project).all()
+    for project in all_projects:
+        if project.participants:
+            # Удаляем пользователя из участников
+            project.participants = [
+                p for p in project.participants 
+                if p.get("user_id") != user_id
+            ]
+            flag_modified(project, "participants")
+            
+        # Удаляем пользователя из hidden_by_users
+        if project.hidden_by_users and user_id in project.hidden_by_users:
+            project.hidden_by_users.remove(user_id)
+            flag_modified(project, "hidden_by_users")
+            
+        # Если пользователь был тем кто скрыл проект - сбрасываем
+        if project.hidden_by == user_id:
+            project.hidden_by = None
+    
+    # Удаляем приглашения пользователя
+    db.query(Invitation).filter(
+        (Invitation.invited_user_id == user_id) | 
+        (Invitation.invited_by == user_id)
+    ).delete()
+    
+    # Удаляем файлы пользователя
+    user_files = db.query(ProjectFile).filter(
+        ProjectFile.uploaded_by == user_id
+    ).all()
+    
+    for file_record in user_files:
+        file_path = os.path.join("uploads", file_record.filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError as e:
+                print(f"Ошибка при удалении файла {file_path}: {e}")
+        db.delete(file_record)
+    
+    # Удаляем refresh токены из Redis
+    # (все ключи начинающиеся с refresh:{user_id}:)
+    try:
+        for key in redis_client.scan_iter(f"refresh:{user_id}:*"):
+            redis_client.delete(key)
+    except Exception as e:
+        print(f"Ошибка при удалении токенов из Redis: {e}")
+    
+    # Удаляем пользователя
+    db.delete(current_user)
+    db.commit()
+    
+    return {"message": f"Account {user_id} successfully deleted"}
 @app.post("/admin/users/delete-all", tags=["Admin"])
 async def admin_delete_all_users(
     db: Session = Depends(get_db),

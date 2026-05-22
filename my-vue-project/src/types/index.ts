@@ -29,6 +29,9 @@ export interface User {
   is_teacher?: boolean;
   teacher_info?: TeacherInfo;
   is_admin?: boolean;
+
+  google_id?: string | null;
+  oauth_providers?: string[];
 }
 
 export interface SubTask {
