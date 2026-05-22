@@ -131,6 +131,11 @@ class UserResponse(BaseModel):
     is_admin: bool = False
     
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    
+    google_id: Optional[str] = None
+    vk_id: Optional[str] = None
+    oauth_providers: List[str] = []
+
 
 # ---------- Авторизация ----------
 class LoginRequest(BaseModel):

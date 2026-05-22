@@ -162,7 +162,7 @@ const deleteAccount = async () => {
   if (!user.value) return;
   deleting.value = true;
   try {
-    await axios.delete(`/users/${user.value.id}`);
+    await axios.delete(`/users/me`);
     authStore.logout();
     router.push('/login');
     alert(t('profile.deleteSuccess'));
@@ -173,7 +173,7 @@ const deleteAccount = async () => {
       authStore.logout();
       router.push('/login');
     } else {
-      alert(t('profile.deleteError'));
+      alert(error.response?.data?.detail || t('profile.deleteError'));
     }
   } finally {
     deleting.value = false;
