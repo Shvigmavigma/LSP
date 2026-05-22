@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 import httpx
+import urllib.parse
 from database import session_local
 from models import User
 from auth import (
@@ -16,8 +17,6 @@ from oauth_config import (
 )
 from core.memory_store import memory_store as redis_client
 import secrets
-from typing import Optional
-import json
 
 router = APIRouter(prefix="/auth", tags=["OAuth"])
 
@@ -60,149 +59,198 @@ async def google_callback(
     
     # Проверяем state
     if not redis_client.get(f"oauth_state:{state}"):
-        return HTMLResponse(content="<h1>Error</h1><p>Invalid state. Please try again.</p>")
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ Invalid State</h2>
+            <p>Security check failed. Please try logging in again.</p>
+            <p><a href="http://localhost:5173/login">Back to login</a></p>
+        </body>
+        </html>
+        """)
     redis_client.delete(f"oauth_state:{state}")
     
     # Обмениваем code на токены
-    async with httpx.AsyncClient() as client:
-        token_response = await client.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": GOOGLE_REDIRECT_URI
-            }
-        )
-        
-        if token_response.status_code != 200:
-            return HTMLResponse(content=f"<h1>Error</h1><p>Failed to get token: {token_response.text}</p>")
-        
-        token_data = token_response.json()
-        access_token = token_data.get("access_token")
-        
-        # Получаем информацию о пользователе
-        user_info_response = await client.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-        
-        if user_info_response.status_code != 200:
-            return HTMLResponse(content="<h1>Error</h1><p>Failed to get user info from Google</p>")
-        
-        user_data = user_info_response.json()
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            token_response = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": GOOGLE_REDIRECT_URI
+                }
+            )
+            
+            if token_response.status_code != 200:
+                return HTMLResponse(content=f"""
+                <!DOCTYPE html>
+                <html>
+                <head><meta charset="UTF-8"><title>Error</title></head>
+                <body style="font-family:sans-serif;text-align:center;padding:40px;">
+                    <h2>❌ Token Error</h2>
+                    <p>Failed to get authorization token from Google.</p>
+                    <p><a href="http://localhost:5173/login">Back to login</a></p>
+                </body>
+                </html>
+                """)
+            
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+            
+            if not access_token:
+                return HTMLResponse(content="""
+                <!DOCTYPE html>
+                <html>
+                <head><meta charset="UTF-8"><title>Error</title></head>
+                <body style="font-family:sans-serif;text-align:center;padding:40px;">
+                    <h2>❌ No Access Token</h2>
+                    <p>Failed to receive access token from Google.</p>
+                    <p><a href="http://localhost:5173/login">Back to login</a></p>
+                </body>
+                </html>
+                """)
+            
+            # Получаем информацию о пользователе
+            user_info_response = await client.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            
+            if user_info_response.status_code != 200:
+                return HTMLResponse(content="""
+                <!DOCTYPE html>
+                <html>
+                <head><meta charset="UTF-8"><title>Error</title></head>
+                <body style="font-family:sans-serif;text-align:center;padding:40px;">
+                    <h2>❌ User Info Error</h2>
+                    <p>Failed to get user information from Google.</p>
+                    <p><a href="http://localhost:5173/login">Back to login</a></p>
+                </body>
+                </html>
+                """)
+            
+            user_data = user_info_response.json()
+    
+    except httpx.ConnectTimeout:
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Connection Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>⚠️ Connection Timeout</h2>
+            <p>Could not connect to Google servers.</p>
+            <p>Please check your internet connection and try again.</p>
+            <p><a href="http://localhost:5173/login">Back to login</a></p>
+        </body>
+        </html>
+        """)
+    except Exception as e:
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ Unexpected Error</h2>
+            <p>An unexpected error occurred: {str(e)}</p>
+            <p><a href="http://localhost:5173/login">Back to login</a></p>
+        </body>
+        </html>
+        """)
     
     google_id = user_data.get("sub")
     email = user_data.get("email")
-    name = user_data.get("name")
-    picture = user_data.get("picture")
     
     if not google_id or not email:
-        return HTMLResponse(content="<h1>Error</h1><p>Failed to get required user info from Google</p>")
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ Incomplete User Data</h2>
+            <p>Failed to get required user information from Google.</p>
+            <p><a href="http://localhost:5173/login">Back to login</a></p>
+        </body>
+        </html>
+        """)
     
-    # Ищем или создаем пользователя
-    user = db.query(User).filter(
-        (User.google_id == google_id) | (User.email == email)
-    ).first()
+    # 🔥 Ищем пользователя ТОЛЬКО по google_id (не создаем нового!)
+    user = db.query(User).filter(User.google_id == google_id).first()
     
-    if user:
-        # Обновляем google_id если его не было
-        if not user.google_id:
-            user.google_id = google_id
-            if "google" not in (user.oauth_providers or []):
-                user.oauth_providers = (user.oauth_providers or []) + ["google"]
-            db.commit()
-        
-        if not user.is_active:
-            return HTMLResponse(content="<h1>Error</h1><p>This account is banned. Please contact administrator.</p>")
-    else:
-        # Создаем нового пользователя
-        nickname = f"google_{google_id[:8]}"
-        user = User(
-            nickname=nickname,
-            fullname=name or "Google User",
-            email=email,
-            password=get_password_hash(secrets.token_urlsafe(32)),
-            avatar=picture,
-            is_active=True,
-            is_verified=True,
-            is_teacher=False,
-            google_id=google_id,
-            oauth_providers=["google"]
+    if not user:
+        error_message = urllib.parse.quote(
+            "Аккаунт Google не привязан. Сначала войдите через логин/пароль и привяжите Google в профиле."
         )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        frontend_url = f"http://localhost:5173/login?oauth_error={error_message}"
+        
+        return HTMLResponse(f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Account Not Found</title>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5; }}
+                .container {{ text-align: center; padding: 40px; background: white; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); max-width: 420px; }}
+                .icon {{ font-size: 48px; margin-bottom: 16px; }}
+                h2 {{ color: #d32f2f; margin-bottom: 12px; }}
+                p {{ color: #666; margin-bottom: 8px; line-height: 1.5; }}
+                .hint {{ font-size: 0.9rem; color: #999; margin-top: 16px; }}
+            </style>
+            <script>
+                setTimeout(function() {{ window.location.href = "{frontend_url}"; }}, 5000);
+            </script>
+        </head>
+        <body>
+            <div class="container">
+                <div class="icon">🔒</div>
+                <h2>Google Account Not Linked</h2>
+                <p>Your Google account is not linked to any account on this platform.</p>
+                <p>Please sign in with your nickname/password first, then link Google in your profile settings.</p>
+                <p class="hint">Redirecting back to login in 5 seconds...</p>
+            </div>
+        </body>
+        </html>
+        """)
+    
+    if not user.is_active:
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Account Banned</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>🚫 Account Banned</h2>
+            <p>Your account has been suspended. Please contact the administrator.</p>
+        </body>
+        </html>
+        """)
     
     # Генерируем токены
     jwt_token = create_access_token({"sub": str(user.id), "is_teacher": user.is_teacher})
     refresh_token = create_refresh_token({"sub": str(user.id), "is_teacher": user.is_teacher})
     
-    redis_client.setex(
-        f"refresh:{user.id}:{refresh_token}", 
-        7 * 24 * 60 * 60, 
-        "valid"
-    )
+    redis_client.setex(f"refresh:{user.id}:{refresh_token}", 7 * 24 * 60 * 60, "valid")
     
-    # Возвращаем HTML, который редиректит на фронтенд
     frontend_url = f"http://localhost:5173/login?oauth_token={jwt_token}"
     
-    html_content = f"""
+    return HTMLResponse(f"""
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <title>Login Successful</title>
-        <style>
-            body {{
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                background: #f5f5f5;
-            }}
-            .container {{
-                text-align: center;
-                padding: 40px;
-                background: white;
-                border-radius: 16px;
-                box-shadow: 0 4px 24px rgba(0,0,0,0.1);
-            }}
-            .spinner {{
-                border: 3px solid #f3f3f3;
-                border-top: 3px solid #4285F4;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                animation: spin 1s linear infinite;
-                margin: 20px auto;
-            }}
-            @keyframes spin {{
-                0% {{ transform: rotate(0deg); }}
-                100% {{ transform: rotate(360deg); }}
-            }}
-            h2 {{ color: #333; }}
-            p {{ color: #666; }}
-        </style>
-        <script>
-            // Редиректим на фронтенд
-            window.location.href = "{frontend_url}";
-        </script>
+        <script>window.location.href = "{frontend_url}";</script>
     </head>
-    <body>
-        <div class="container">
-            <h2>✅ Login Successful!</h2>
-            <div class="spinner"></div>
-            <p>Redirecting to application...</p>
-        </div>
+    <body style="font-family:sans-serif;text-align:center;padding:40px;">
+        <h2>✅ Login Successful!</h2>
+        <p>Redirecting to application...</p>
     </body>
     </html>
-    """
-    
-    return HTMLResponse(content=html_content)
+    """)
 
 
 # ============ Google OAuth - Привязка ============
@@ -239,51 +287,119 @@ async def google_link_callback(
 ):
     """Обрабатывает callback для привязки Google"""
     
-    # Проверяем state и получаем user_id
     state_data = redis_client.get(f"oauth_state:{state}")
     if not state_data:
-        return HTMLResponse(content="<h1>Error</h1><p>Invalid state. Please try again.</p>")
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ Invalid State</h2>
+            <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+        </body>
+        </html>
+        """)
     redis_client.delete(f"oauth_state:{state}")
     
     user_id = int(state_data.split(":")[1])
     current_user = db.query(User).filter(User.id == user_id).first()
     
     if not current_user:
-        return HTMLResponse(content="<h1>Error</h1><p>User not found</p>")
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ User Not Found</h2>
+            <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+        </body>
+        </html>
+        """)
     
-    # Обмениваем code на токены
-    async with httpx.AsyncClient() as client:
-        token_response = await client.post(
-            "https://oauth2.googleapis.com/token",
-            data={
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": GOOGLE_LINK_REDIRECT_URI
-            }
-        )
-        
-        if token_response.status_code != 200:
-            return HTMLResponse(content=f"<h1>Error</h1><p>Failed to get token: {token_response.text}</p>")
-        
-        token_data = token_response.json()
-        access_token = token_data.get("access_token")
-        
-        # Получаем информацию о пользователе
-        user_info_response = await client.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-            headers={"Authorization": f"Bearer {access_token}"}
-        )
-        
-        if user_info_response.status_code != 200:
-            return HTMLResponse(content="<h1>Error</h1><p>Failed to get user info from Google</p>")
-        
-        user_data = user_info_response.json()
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            token_response = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "client_id": GOOGLE_CLIENT_ID,
+                    "client_secret": GOOGLE_CLIENT_SECRET,
+                    "code": code,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": GOOGLE_LINK_REDIRECT_URI
+                }
+            )
+            
+            if token_response.status_code != 200:
+                return HTMLResponse(content="""
+                <!DOCTYPE html>
+                <html>
+                <head><meta charset="UTF-8"><title>Error</title></head>
+                <body style="font-family:sans-serif;text-align:center;padding:40px;">
+                    <h2>❌ Token Error</h2>
+                    <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+                </body>
+                </html>
+                """)
+            
+            token_data = token_response.json()
+            access_token = token_data.get("access_token")
+            
+            user_info_response = await client.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"}
+            )
+            
+            if user_info_response.status_code != 200:
+                return HTMLResponse(content="""
+                <!DOCTYPE html>
+                <html>
+                <head><meta charset="UTF-8"><title>Error</title></head>
+                <body style="font-family:sans-serif;text-align:center;padding:40px;">
+                    <h2>❌ User Info Error</h2>
+                    <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+                </body>
+                </html>
+                """)
+            
+            user_data = user_info_response.json()
+    
+    except httpx.ConnectTimeout:
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Connection Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>⚠️ Connection Timeout</h2>
+            <p>Please check your internet connection and try again.</p>
+            <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+        </body>
+        </html>
+        """)
+    except Exception as e:
+        return HTMLResponse(content=f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ Error</h2>
+            <p>{str(e)}</p>
+            <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+        </body>
+        </html>
+        """)
     
     google_id = user_data.get("sub")
     if not google_id:
-        return HTMLResponse(content="<h1>Error</h1><p>Failed to get Google ID</p>")
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ No Google ID</h2>
+            <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+        </body>
+        </html>
+        """)
     
     # Проверяем, не привязан ли уже этот Google аккаунт
     existing_user = db.query(User).filter(
@@ -292,71 +408,39 @@ async def google_link_callback(
     ).first()
     
     if existing_user:
-        return HTMLResponse(content="<h1>Error</h1><p>This Google account is already linked to another user</p>")
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ Already Linked</h2>
+            <p>This Google account is already linked to another user.</p>
+            <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+        </body>
+        </html>
+        """)
     
-    # Привязываем Google к текущему пользователю
+    # Привязываем Google
     current_user.google_id = google_id
     if "google" not in (current_user.oauth_providers or []):
         current_user.oauth_providers = (current_user.oauth_providers or []) + ["google"]
     
     db.commit()
     
-    # Возвращаем HTML, который редиректит на профиль
-    html_content = """
+    return HTMLResponse("""
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <title>Account Linked</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                background: #f5f5f5;
-            }
-            .container {
-                text-align: center;
-                padding: 40px;
-                background: white;
-                border-radius: 16px;
-                box-shadow: 0 4px 24px rgba(0,0,0,0.1);
-            }
-            .spinner {
-                border: 3px solid #f3f3f3;
-                border-top: 3px solid #34A853;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                animation: spin 1s linear infinite;
-                margin: 20px auto;
-            }
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-            h2 { color: #34A853; }
-            p { color: #666; }
-        </style>
-        <script>
-            // Редиректим на страницу профиля
-            window.location.href = "http://localhost:5173/profile?google_linked=true";
-        </script>
+        <script>window.location.href = "http://localhost:5173/profile?google_linked=true";</script>
     </head>
-    <body>
-        <div class="container">
-            <h2>✅ Google Account Linked!</h2>
-            <div class="spinner"></div>
-            <p>Redirecting to profile...</p>
-        </div>
+    <body style="font-family:sans-serif;text-align:center;padding:40px;">
+        <h2>✅ Google Account Linked!</h2>
+        <p>Redirecting to profile...</p>
     </body>
     </html>
-    """
-    
-    return HTMLResponse(content=html_content)
+    """)
 
 
 # ============ Управление OAuth аккаунтами ============

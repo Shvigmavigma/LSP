@@ -461,20 +461,23 @@
         }
     },
     "login": {
-        "title": "Вход в систему",
+        "title": "Вход в аккаунт",
         "nicknameOrEmail": "Никнейм или Email",
-        "nicknamePlaceholder": "Введите никнейм или почту",
+        "nicknamePlaceholder": "Введите никнейм или email",
         "password": "Пароль",
         "passwordPlaceholder": "Введите пароль",
         "loginButton": "Войти",
+        "loginWithGoogle": "Войти через Google",
+        "or": "или",
         "noAccount": "Нет аккаунта?",
         "registerLink": "Зарегистрироваться",
         "fillAllFields": "Заполните все поля",
         "successMessage": "Вход выполнен успешно!",
-        "genericError": "Ошибка при входе",
+        "genericError": "Ошибка входа",
         "errorPrefix": "Ошибка",
-        "networkError": "Ошибка сети. Проверьте подключение к серверу.",
-        "unknownError": "Произошла неизвестная ошибка"
+        "networkError": "Ошибка сети. Проверьте подключение к интернету",
+        "unknownError": "Неизвестная ошибка",
+        "oauthError": "Ошибка авторизации через Google"
     },
     "myProjects": {
         "noProjects": "У вас пока нет проектов",

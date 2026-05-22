@@ -459,20 +459,23 @@
         }
     },
     "login": {
-        "title": "Уваход у сістэму",
-        "nicknameOrEmail": "Мянушка або Email",
-        "nicknamePlaceholder": "Увядзіце мянушку або пошту",
+        "title": "Уваход у акаўнт",
+        "nicknameOrEmail": "Нікнэйм або Email",
+        "nicknamePlaceholder": "Увядзіце нікнэйм або email",
         "password": "Пароль",
         "passwordPlaceholder": "Увядзіце пароль",
         "loginButton": "Увайсці",
-        "noAccount": "Няма ўліковага запісу?",
+        "loginWithGoogle": "Увайсці праз Google",
+        "or": "ці",
+        "noAccount": "Няма акаўнта?",
         "registerLink": "Зарэгістравацца",
         "fillAllFields": "Запоўніце ўсе палі",
         "successMessage": "Уваход выкананы паспяхова!",
-        "genericError": "Памылка пры ўваходзе",
+        "genericError": "Памылка ўваходу",
         "errorPrefix": "Памылка",
-        "networkError": "Памылка сеткі. Праверце падключэнне да сервера.",
-        "unknownError": "Адбылася невядомая памылка"
+        "networkError": "Памылка сеткі. Праверце падключэнне да інтэрнэту",
+        "unknownError": "Невядомая памылка",
+        "oauthError": "Памылка аўтарызацыі праз Google"
     },
     "myProjects": {
         "noProjects": "У вас пакуль няма праектаў",
