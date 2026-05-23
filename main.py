@@ -58,14 +58,25 @@ from fastapi.security import OAuth2PasswordRequestFormStrict
 from email_utils import generate_verification_code, send_verification_email, send_password_reset_email
 from core.memory_store import memory_store as redis_client
 
+# ==================== RATE LIMITING ====================
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
 app = FastAPI(title="School Platform API", description="API для управления учениками, учителями и проектами")
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 ADMIN_INIT_PASSWORD = os.getenv("ADMIN_INIT_PASSWORD", "SuperMegaSilvaAdmin")
 DEFAULT_TASKS_FILE = "default_tasks.json"
 FILE_SIZE_LIMITS_FILE = "file_size_limits.json"
 
-# Настройка CORS
 origins = [
-    "*"
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+
 ]
 
 app.add_middleware(
@@ -84,6 +95,7 @@ app.mount("/avatars", StaticFiles(directory="avatars"), name="avatars")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 AVATAR_DIR = "avatars"
 app.include_router(oauth_router)
+
 # Добавляем колонку required_roles в таблицу projects, если её нет
 def ensure_required_roles_column():
     try:
@@ -245,6 +257,7 @@ def has_full_edit_permission(project: Project, user: User) -> bool:
 
 # ==================== ЭНД ТОКЕНОВ ====================
 @app.post("/token", response_model=TokenResponse, tags=["Auth"])
+@limiter.limit("5/minute")
 async def token_login(
     form_data: OAuth2PasswordRequestFormStrict = Depends(),
     db: Session = Depends(get_db)
@@ -419,6 +432,7 @@ async def admin_delete_user(
     db.delete(user)
     db.commit()
     return {"message": f"User {user_id} deleted"}
+
 @app.delete("/users/me", tags=["Common"])
 async def delete_my_account(
     db: Session = Depends(get_db),
@@ -492,6 +506,7 @@ async def delete_my_account(
     db.commit()
     
     return {"message": f"Account {user_id} successfully deleted"}
+
 @app.post("/admin/users/delete-all", tags=["Admin"])
 async def admin_delete_all_users(
     db: Session = Depends(get_db),
@@ -542,6 +557,7 @@ async def admin_update_project(
     db.commit()
     db.refresh(project)
     return project
+
 @app.patch("/projects/{project_id}/tasks", response_model=ProjectResponse, tags=["Projects"])
 async def update_project_tasks(
     project_id: int,
@@ -596,6 +612,7 @@ async def update_project_tasks(
     db.commit()
     db.refresh(project)
     return project
+
 @app.delete("/admin/projects/{project_id}", tags=["Admin"])
 async def admin_delete_project(
     project_id: int,
@@ -711,6 +728,7 @@ def is_student_email_accepted(email: str) -> bool:
     return False
 
 @app.post("/auth/check-student-email", tags=["Auth"])
+@limiter.limit("5/minute")
 async def check_student_email(request: dict):
     email = request.get("email")
     if not email:
@@ -811,6 +829,7 @@ async def delete_student(student_id: int, db: Session = Depends(get_db)):
 
 # ==================== УЧИТЕЛЯ ====================
 @app.post("/auth/check-teacher-email", tags=["Auth"])
+@limiter.limit("5/minute")
 async def check_teacher_email(request: dict):
     email = request.get("email")
     if not email:
@@ -1314,8 +1333,6 @@ async def reject_join_request(
     db.commit()
     db.refresh(project)
     return project
-
-# Добавьте этот эндпоинт в ваш backend-код (main.py)
 
 @app.post("/projects/{project_id}/leave", response_model=ProjectResponse, tags=["Projects"])
 async def leave_project(
@@ -2338,6 +2355,7 @@ async def download_file(
 
 # ==================== АУТЕНТИФИКАЦИЯ И ВЕРИФИКАЦИЯ ====================
 @app.post("/auth/request-verification-code", tags=["Auth"])
+@limiter.limit("2/minute")
 async def request_verification_code(request: dict, db: Session = Depends(get_db)):
     email = request.get("email")
     is_teacher = request.get("is_teacher", False)
@@ -2358,6 +2376,7 @@ async def request_verification_code(request: dict, db: Session = Depends(get_db)
     return {"message": "Verification code sent"}
 
 @app.post("/auth/request-verification", tags=["Auth"])
+@limiter.limit("2/minute")
 async def request_verification(request: EmailVerificationCodeRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
@@ -2370,6 +2389,7 @@ async def request_verification(request: EmailVerificationCodeRequest, db: Sessio
     return {"message": "Verification code sent"}
 
 @app.post("/auth/verify-email", tags=["Auth"])
+@limiter.limit("5/minute")
 async def verify_email(request: dict, db: Session = Depends(get_db)):
     email = request.get("email")
     code = request.get("code")
@@ -2388,6 +2408,7 @@ async def verify_email(request: dict, db: Session = Depends(get_db)):
     return {"message": "Email successfully verified", "user": user}
 
 @app.post("/auth/register-with-verification", response_model=UserResponse, tags=["Auth"])
+@limiter.limit("2/minute")
 async def register_with_verification(request: dict, db: Session = Depends(get_db)):
     email = request.get("email")
     code = request.get("code")
@@ -2447,6 +2468,7 @@ async def register_with_verification(request: dict, db: Session = Depends(get_db
     return db_user
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["Auth"])
+@limiter.limit("5/minute")
 async def auth_login(credentials: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(
         (User.nickname == credentials.nickname.strip()) |
@@ -2464,6 +2486,7 @@ async def auth_login(credentials: LoginRequest, db: Session = Depends(get_db)):
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 @app.post("/auth/refresh", response_model=TokenResponse, tags=["Auth"])
+@limiter.limit("10/minute")
 async def refresh_token(request: Request, db: Session = Depends(get_db)):
     refresh_token = request.headers.get("Authorization", "").replace("Bearer ", "")
     if not refresh_token:
@@ -2485,6 +2508,7 @@ async def refresh_token(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=402, detail="Invalid refresh token")
 
 @app.post("/auth/logout", tags=["Auth"])
+@limiter.limit("10/minute")
 async def logout(request: Request, current_user: User = Depends(get_current_user)):
     refresh_token = request.headers.get("Authorization", "").replace("Bearer ", "")
     if refresh_token:
