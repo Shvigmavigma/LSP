@@ -78,8 +78,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import axios from 'axios';
-
+import api from '@/utils/api'
 const { t } = useI18n();
 
 const props = defineProps<{
@@ -140,7 +139,7 @@ const loadImage = async () => {
   loadingPreview.value = true;
   try {
     const token = localStorage.getItem('access_token');
-    const response = await axios.get(fileUrl.value, {
+    const response = await api.get(fileUrl.value, {
       responseType: 'blob',
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -160,7 +159,7 @@ const loadText = async () => {
   loadingPreview.value = true;
   try {
     const token = localStorage.getItem('access_token');
-    const response = await axios.get(fileUrl.value, {
+    const response = await api.get(fileUrl.value, {
       responseType: 'text',
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -179,7 +178,7 @@ const loadPdf = async () => {
   loadingPreview.value = true;
   try {
     const token = localStorage.getItem('access_token');
-    const response = await axios.get(fileUrl.value, {
+    const response = await api.get(fileUrl.value, {
       responseType: 'blob',
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -205,7 +204,7 @@ const downloadFile = async () => {
   downloading.value = true;
   try {
     const token = localStorage.getItem('access_token');
-    const response = await axios.get(fileUrl.value, {
+    const response = await api.get(fileUrl.value, {
       responseType: 'blob',
       headers: { Authorization: `Bearer ${token}` }
     });

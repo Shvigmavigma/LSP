@@ -41,6 +41,7 @@ import { useI18n } from 'vue-i18n';
 import axios from 'axios';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import type { Invitation, ProjectRole } from '@/types';
+import api from '@/utils/api'
 
 const { t, locale } = useI18n();
 const route = useRoute();
@@ -69,7 +70,7 @@ function formatDate(dateStr: string): string {
 
 async function loadInvitation() {
   try {
-    const response = await axios.get(`/invite/${token}`);
+    const response = await api.get(`/invite/${token}`);
     invitation.value = response.data;
   } catch (err: any) {
     if (err.response?.status === 404) {

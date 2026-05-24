@@ -54,8 +54,9 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import axios from 'axios';
+
 import { v4 as uuidv4 } from 'uuid';
+import api from '@/utils/api';
 
 const { t } = useI18n();
 
@@ -72,6 +73,7 @@ const templates = ref<any>({});
 const loading = ref(false);
 const selectedClass = ref<string>('8');
 const selectedDirection = ref<string>('');
+
 
 const hasDirections = computed(() => {
   const cls = templates.value[selectedClass.value];
@@ -98,7 +100,7 @@ const previewTasks = computed(() => {
 const loadTemplates = async () => {
   loading.value = true;
   try {
-    const response = await axios.get('/default-tasks');
+    const response = await api.get('/default-tasks');
     templates.value = response.data;
     const keys = Object.keys(templates.value);
     if (keys.length) selectedClass.value = keys[0];

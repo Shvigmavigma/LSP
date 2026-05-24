@@ -55,6 +55,7 @@ import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import api from '@/utils/api'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -127,8 +128,8 @@ async function verifyCode() {
     const userData = JSON.parse(pendingData)
     console.log('Данные пользователя из sessionStorage:', userData)
     
-    const response = await axios.post(
-      'http://localhost:8000/auth/register-with-verification',
+    const response = await api.post(
+      '/auth/register-with-verification',
       {
         email: email.value,
         code: code.value,
@@ -162,7 +163,7 @@ async function verifyCode() {
         const formData = new FormData()
         formData.append('file', file)
         
-        await axios.post(
+        await api.post(
           `http://localhost:8000/users/${response.data.id}/avatar`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
@@ -219,7 +220,7 @@ async function resendCode() {
   error.value = ''
   
   try {
-    const response = await axios.post('http://localhost:8000/auth/request-verification-code', {
+    const response = await api.post('/auth/request-verification-code', {
       email: email.value
     })
     alert(t('verifyEmail.resendSuccess'))

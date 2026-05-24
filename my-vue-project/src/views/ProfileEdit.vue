@@ -172,7 +172,7 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
-import axios from 'axios';
+import api from '@/utils/api';
 import ClassInput from '@/components/ClassInput.vue';
 import type { TeacherInfo } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
@@ -279,7 +279,7 @@ const handleAvatarUpload = async (event: Event) => {
   formData.append('file', file);
 
   try {
-    const response = await axios.post(
+    const response = await api.post(
       `${baseUrl}/users/${authStore.user!.id}/avatar`,
       formData,
       {
@@ -324,7 +324,7 @@ const handleSave = async () => {
         speciality: form.value.speciality,
         teacher_info: teacherInfo
       };
-      response = await axios.put(`/teachers/${authStore.user.id}`, updateData);
+      response = await api.put(`/teachers/${authStore.user.id}`, updateData);
     } else {
       const updateData = {
         fullname: fullname,
@@ -332,7 +332,7 @@ const handleSave = async () => {
         speciality: form.value.speciality,
         class_: form.value.class
       };
-      response = await axios.put(`/students/${authStore.user.id}`, updateData);
+      response = await api.put(`/students/${authStore.user.id}`, updateData);
     }
 
     authStore.user = response.data;

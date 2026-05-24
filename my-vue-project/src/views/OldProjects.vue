@@ -33,11 +33,11 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import axios from 'axios';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import type { Project } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
+import api from '@/utils/api'
 
 const { t } = useI18n();
 const router = useRouter();
@@ -48,7 +48,7 @@ const error = ref('');
 const fetchOldProjects = async () => {
   try {
     const token = localStorage.getItem('access_token');
-    const response = await axios.get('/projects/old', {
+    const response = await api.get('/projects/old', {
       headers: { Authorization: `Bearer ${token}` }
     });
     projects.value = response.data;

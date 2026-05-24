@@ -97,9 +97,9 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
-import axios from 'axios';
 import type { Project, ProjectRole } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
+import api from'@/utils/api'
 
 const router = useRouter();
 const usersStore = useUsersStore();
@@ -129,7 +129,7 @@ onMounted(async () => {
 async function fetchAll() {
   loading.value = true;
   try {
-    const res = await axios.get<Project[]>(`${baseUrl}/projects/`);
+    const res = await api.get<Project[]>(`${baseUrl}/projects/`);
     projects.value = res.data;
     avatarError.value = {};
   } catch (error) {
@@ -146,7 +146,7 @@ async function searchProjects() {
   }
   loading.value = true;
   try {
-    const res = await axios.get<Project[]>(`${baseUrl}/search`, {
+    const res = await api.get<Project[]>(`${baseUrl}/search`, {
       params: { q: search.value }
     });
     projects.value = res.data;

@@ -79,9 +79,10 @@ import { useUsersStore } from '@/stores/users';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
-import axios from 'axios';
+
 import type { Project, ProjectRole } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
+import api from '@/utils/api'
 
 
 const { t } = useI18n();
@@ -161,7 +162,7 @@ async function loadUserProjects() {
     }
 
     console.log('Fetching projects for participant_id:', currentUserId.value);
-    const response = await axios.get(`/projects/?participant_id=${currentUserId.value}`);
+    const response = await api.get(`/projects/?participant_id=${currentUserId.value}`);
     projects.value = response.data;
     console.log('Projects loaded:', projects.value.length);
     avatarError.value = {};
@@ -172,7 +173,7 @@ async function loadUserProjects() {
       const isValid = await authStore.checkAuth();
       if (isValid) {
         try {
-          const response = await axios.get(`/projects/?participant_id=${currentUserId.value}`);
+          const response = await api.get(`/projects/?participant_id=${currentUserId.value}`);
           projects.value = response.data;
         } catch (retryErr) {
           error.value = t('myProjects.errorLoad');

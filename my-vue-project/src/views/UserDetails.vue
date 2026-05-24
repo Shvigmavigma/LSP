@@ -103,6 +103,7 @@ import AvatarModal from '@/components/AvatarModal.vue';
 import HomeButton from '@/components/HomeButton.vue';
 import type { User, Project, TeacherInfo, ProjectRole } from '@/types';
 import axios from 'axios';
+import api from '@/utils/api'
 
 const { t } = useI18n();
 const route = useRoute();
@@ -149,7 +150,7 @@ const loadUserData = async (id: number) => {
     loadingUser.value = false;
   } else {
     try {
-      const response = await axios.get(`/users/${id}`);
+      const response = await api.get(`/users/${id}`);
       user.value = response.data;
       usersStore.users.push(response.data);
       loadingUser.value = false;
@@ -162,7 +163,7 @@ const loadUserData = async (id: number) => {
   }
 
   try {
-    const response = await axios.get(`/projects/?participant_id=${id}`);
+    const response = await api.get(`/projects/?participant_id=${id}`);
     projects.value = response.data;
   } catch (err) {
     console.error('Ошибка загрузки проектов:', err);

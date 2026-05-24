@@ -140,10 +140,10 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useUsersStore } from '@/stores/users';
 import ThemeToggle from '@/components/ThemeToggle.vue';
-import axios from 'axios';
 import type { Project } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import api from '@/utils/api'
 
 const { t } = useI18n();
 const router = useRouter();
@@ -167,7 +167,7 @@ onMounted(async () => {
 
 async function loadProjects() {
   try {
-    const response = await axios.get('/admin/projects');
+    const response = await api.get('/admin/projects');
     projects.value = response.data;
   } catch (error) {
     console.error('Failed to load projects', error);
@@ -199,10 +199,10 @@ const filteredProjects = computed(() => {
 
 async function toggleHide(project: Project) {
   try {
-    await axios.patch(`/projects/${project.id}/hide`);
+    await api.patch(`/projects/${project.id}/hide`);
     project.is_hidden = !project.is_hidden;
     if (project.is_hidden) {
-      const response = await axios.get(`/admin/projects/${project.id}`);
+      const response = await api.get(`/admin/projects/${project.id}`);
       Object.assign(project, response.data);
     } else {
       project.hidden_by = undefined;
@@ -215,7 +215,7 @@ async function toggleHide(project: Project) {
 
 async function markAsOld(projectId: number) {
   try {
-    await axios.put(`/projects/${projectId}/mark-old`);
+    await api.put(`/projects/${projectId}/mark-old`);
     const project = projects.value.find(p => p.id === projectId);
     if (project) project.is_old = true;
   } catch (error) {
@@ -226,7 +226,7 @@ async function markAsOld(projectId: number) {
 
 async function unmarkAsOld(projectId: number) {
   try {
-    await axios.put(`/projects/${projectId}/unmark-old`);
+    await api.put(`/projects/${projectId}/unmark-old`);
     const project = projects.value.find(p => p.id === projectId);
     if (project) project.is_old = false;
   } catch (error) {
@@ -237,7 +237,7 @@ async function unmarkAsOld(projectId: number) {
 
 async function toggleUnlimited(projectId: number) {
   try {
-    const response = await axios.patch(`/admin/projects/${projectId}/toggle-file-limits`);
+    const response = await api.patch(`/admin/projects/${projectId}/toggle-file-limits`);
     const updatedProject = response.data;
     const index = projects.value.findIndex(p => p.id === projectId);
     if (index !== -1) {
@@ -267,7 +267,7 @@ function closeDeleteModal() {
 async function deleteProject() {
   if (!projectToDelete.value) return;
   try {
-    await axios.delete(`/admin/projects/${projectToDelete.value}`);
+    await api.delete(`/admin/projects/${projectToDelete.value}`);
     projects.value = projects.value.filter(p => p.id !== projectToDelete.value);
     closeDeleteModal();
   } catch (error) {
@@ -291,7 +291,7 @@ async function deleteAllFiles() {
   if (!projectForFilesDeletion.value) return;
   deletingFiles.value = true;
   try {
-    await axios.delete(`/admin/projects/${projectForFilesDeletion.value}/files`);
+    await api.delete(`/admin/projects/${projectForFilesDeletion.value}/files`);
     closeDeleteFilesModal();
     alert(t('adminProjects.filesDeletedSuccess'));
   } catch (error) {

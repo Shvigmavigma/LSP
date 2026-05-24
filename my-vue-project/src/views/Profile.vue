@@ -102,7 +102,7 @@ import HomeButton from '@/components/HomeButton.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import AvatarModal from '@/components/AvatarModal.vue';
-import axios from 'axios';
+import api from '@/utils/api'
 import type { TeacherInfo } from '@/types';
 
 const { t } = useI18n();
@@ -162,7 +162,7 @@ const deleteAccount = async () => {
   if (!user.value) return;
   deleting.value = true;
   try {
-    await axios.delete(`/users/me`);
+    await api.delete(`/users/me`);
     authStore.logout();
     router.push('/login');
     alert(t('profile.deleteSuccess'));
@@ -184,7 +184,7 @@ const resendVerification = async () => {
   if (!user.value?.email) return;
   resending.value = true;
   try {
-    await axios.post('/auth/resend-verification-code', {
+    await api.post('/auth/resend-verification-code', {
       email: user.value.email
     });
     alert(t('profile.resendSuccess'));

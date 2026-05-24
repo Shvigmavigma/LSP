@@ -87,11 +87,10 @@ import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
-import axios from 'axios';
 import type { User } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
-
+import api from '@/utils/api'
 const { t } = useI18n();
 const router = useRouter();
 const users = ref<User[]>([]);
@@ -108,7 +107,7 @@ onMounted(async () => {
 
 async function loadUsers() {
   try {
-    const response = await axios.get('/admin/users');
+    const response = await api.get('/admin/users');
     users.value = response.data;
   } catch (error) {
     console.error('Failed to load users', error);
@@ -136,7 +135,7 @@ const filteredUsers = computed(() => {
 async function toggleActive(user: User) {
   const newValue = !user.is_active;
   try {
-    await axios.put(`/admin/users/${user.id}`, { is_active: newValue });
+    await api.put(`/admin/users/${user.id}`, { is_active: newValue });
     user.is_active = newValue;
   } catch (error) {
     console.error('Failed to toggle active status', error);
@@ -146,7 +145,7 @@ async function toggleActive(user: User) {
 async function toggleAdmin(user: User) {
   const newValue = !user.is_admin;
   try {
-    await axios.put(`/admin/users/${user.id}`, { is_admin: newValue });
+    await api.put(`/admin/users/${user.id}`, { is_admin: newValue });
     user.is_admin = newValue;
   } catch (error) {
     console.error('Failed to toggle admin', error);
@@ -156,7 +155,7 @@ async function toggleAdmin(user: User) {
 async function toggleCurator(user: User) {
   const newValue = !user.teacher_info?.curator;
   try {
-    await axios.put(`/admin/users/${user.id}`, {
+    await api.put(`/admin/users/${user.id}`, {
       teacher_info: {
         ...user.teacher_info,
         curator: newValue
@@ -186,7 +185,7 @@ function closeDeleteModal() {
 async function deleteUser() {
   if (!userToDelete.value) return;
   try {
-    await axios.delete(`/admin/users/${userToDelete.value}`);
+    await api.delete(`/admin/users/${userToDelete.value}`);
     users.value = users.value.filter(u => u.id !== userToDelete.value);
     closeDeleteModal();
   } catch (error) {

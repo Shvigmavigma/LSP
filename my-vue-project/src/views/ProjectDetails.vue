@@ -532,9 +532,10 @@ import { v4 as uuidv4 } from 'uuid';
 import githubIcon from '@/assets/icons/icons8-github-30.png';
 import driveIcon from '@/assets/icons/icons8-google-drive-48.png';
 import { parseDate, formatDate } from '@/utils/dateUtils';
+import api from '@/utils/api'
 
 const { t, locale } = useI18n();
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const route = useRoute();
 const router = useRouter();
@@ -639,7 +640,7 @@ const handleUpdateTasks = async (tasks: Task[]) => {
   if (!project.value) return;
   
   try {
-    await axios.patch(`${baseUrl}/projects/${project.value.id}/tasks`, { tasks });
+    await api.patch(`${baseUrl}/projects/${project.value.id}/tasks`, { tasks });
     project.value = { ...project.value, tasks };
     showNotification(t('projectDetails.tasksUpdated'), 'success');
   } catch (error) {
@@ -902,7 +903,7 @@ async function respondToProjectWithRole(role: ProjectRole) {
   respondingRole.value = role;
   try {
     const payload = { requested_role: role };
-    await axios.post(`${baseUrl}/projects/${project.value.id}/join-requests`, payload);
+    await api.post(`${baseUrl}/projects/${project.value.id}/join-requests`, payload);
     showNotification(t('projectDetails.requestSent'), 'success');
     await loadProject(true);
   } catch (err: any) {

@@ -70,9 +70,9 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
-import axios from 'axios';
 import HomeButton from '@/components/HomeButton.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import api from '@/utils/api'
 
 const { t } = useI18n();
 const router = useRouter();
@@ -108,7 +108,7 @@ function closeModal() {
 async function executeAction() {
   if (action === 'deleteUsers') {
     try {
-      await axios.delete('/admin/users/all');
+      await api.delete('/admin/users/all');
       alert(t('adminPanel.deleteAllUsers.success'));
     } catch (error) {
       console.error(error);
@@ -116,7 +116,7 @@ async function executeAction() {
     }
   } else if (action === 'deleteProjects') {
     try {
-      await axios.delete('/admin/projects/all');
+      await api.delete('/admin/projects/all');
       alert(t('adminPanel.deleteAllProjects.success'));
     } catch (error) {
       console.error(error);

@@ -259,6 +259,7 @@ def has_full_edit_permission(project: Project, user: User) -> bool:
 @app.post("/token", response_model=TokenResponse, tags=["Auth"])
 @limiter.limit("5/minute")
 async def token_login(
+    request: Request,
     form_data: OAuth2PasswordRequestFormStrict = Depends(),
     db: Session = Depends(get_db)
 ):
@@ -561,7 +562,7 @@ async def admin_update_project(
 @app.patch("/projects/{project_id}/tasks", response_model=ProjectResponse, tags=["Projects"])
 async def update_project_tasks(
     project_id: int,
-    tasks: List[Dict[str, Any]] = Body(..., embed=True),  # ожидаем {"tasks": [...]}
+    tasks: List[Dict[str, Any]] = Body(..., embed=True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -569,26 +570,21 @@ async def update_project_tasks(
     if not project:
         raise HTTPException(404, "Project not found")
     
-    # Проверка на старый проект
     if project.is_old and not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(403, "Старый проект нельзя редактировать")
     
-    # Проверка прав: разрешены customer, executor, curator, admin
     participant_role = get_participant_role(project, current_user.id)
     allowed_roles = [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value, ProjectRole.CURATOR.value]
     if not (current_user.is_admin or is_curator(current_user) or participant_role in allowed_roles):
         raise HTTPException(403, "Недостаточно прав для изменения задач")
     
-    # Проверка уникальности названий задач
     titles = [task.get('title', '').strip().lower() for task in tasks if task.get('title')]
     if len(titles) != len(set(titles)):
         raise HTTPException(400, "Task titles must be unique within a project")
     
-    # Обновляем задачи с сохранением вложений
     old_tasks = project.tasks or []
     for i, new_task in enumerate(tasks):
         old_task = old_tasks[i] if i < len(old_tasks) else None
-        # Проверка при завершении задачи
         if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
             required_files = new_task.get("required_files", [])
             for req in required_files:
@@ -603,7 +599,6 @@ async def update_project_tasks(
                 ).first()
                 if not attached:
                     raise HTTPException(401, f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}")
-        # Сохраняем старые вложения, если в новом объекте их нет
         if "attachments" not in new_task and old_task and "attachments" in old_task:
             new_task["attachments"] = old_task["attachments"]
     
@@ -729,8 +724,11 @@ def is_student_email_accepted(email: str) -> bool:
 
 @app.post("/auth/check-student-email", tags=["Auth"])
 @limiter.limit("5/minute")
-async def check_student_email(request: dict):
-    email = request.get("email")
+async def check_student_email(
+    request: Request,
+    body: dict
+):
+    email = body.get("email")
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
     if is_student_email_accepted(email):
@@ -830,8 +828,11 @@ async def delete_student(student_id: int, db: Session = Depends(get_db)):
 # ==================== УЧИТЕЛЯ ====================
 @app.post("/auth/check-teacher-email", tags=["Auth"])
 @limiter.limit("5/minute")
-async def check_teacher_email(request: dict):
-    email = request.get("email")
+async def check_teacher_email(
+    request: Request,
+    body: dict
+):
+    email = body.get("email")
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
     if is_email_accepted(email):
@@ -873,10 +874,11 @@ async def create_teacher(teacher: TeacherCreate, db: Session = Depends(get_db)):
     return db_user
 
 @app.post("/teachers/verify-and-create", response_model=TeacherResponse, tags=["Teachers"])
-async def verify_and_create_teacher(request: dict, db: Session = Depends(get_db)):
-    email = request.get("email")
-    code = request.get("code")
-    teacher_data = request.get("teacher_data")
+async def verify_and_create_teacher(request: Request, db: Session = Depends(get_db)):
+    body = await request.json()
+    email = body.get("email")
+    code = body.get("code")
+    teacher_data = body.get("teacher_data")
     if not email or not code or not teacher_data:
         raise HTTPException(status_code=400, detail="Email, code and teacher data required")
     stored_code = redis_client.get(f"verify:{email}")
@@ -1126,22 +1128,18 @@ async def create_join_request(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Проверка, что пользователь ещё не участник
     if any(p.get("user_id") == current_user.id for p in (project.participants or [])):
         raise HTTPException(status_code=400, detail="You are already a participant")
 
-    # Проверка, что пользователь может выполнять эту роль
     if not user_can_act_as_role(current_user, requested_role):
         raise HTTPException(status_code=403, detail=f"You cannot act as {requested_role}")
 
-    # Проверка дефицита по роли
     current_count = count_participants_by_role(project, requested_role)
     required = project.required_roles.get(requested_role, 0) if project.required_roles else 0
     deficit = max(0, required - current_count)
     if deficit <= 0:
         raise HTTPException(status_code=400, detail=f"No open positions for role {requested_role}")
 
-    # Проверка, нет ли уже pending запроса от этого пользователя на эту роль
     if project.join_requests:
         existing = next(
             (r for r in project.join_requests
@@ -1153,7 +1151,6 @@ async def create_join_request(
         if existing:
             raise HTTPException(status_code=400, detail="You already have a pending request for this role")
 
-    # Создаём новый запрос
     new_request = {
         "id": str(uuid.uuid4()),
         "user_id": current_user.id,
@@ -1188,7 +1185,6 @@ async def toggle_hide_project(
             project.hidden_by = None
     else:
         participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
-        # Исполнитель не может скрывать/показывать проект
         if not participant or participant.get("role") != ProjectRole.CUSTOMER.value:
             raise HTTPException(status_code=403, detail="Only customer, curator or admin can hide/show projects")
         project.is_hidden = not project.is_hidden
@@ -1211,13 +1207,11 @@ async def accept_join_request(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Проверка прав: принимать могут заказчик, куратор или админ (исполнитель не может)
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if role not in [ProjectRole.CUSTOMER.value, ProjectRole.CURATOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, curator or admin can accept join requests")
 
-    # Поиск запроса
     request_obj = None
     for r in (project.join_requests or []):
         if r.get("id") == request_id:
@@ -1232,14 +1226,12 @@ async def accept_join_request(
     if not requested_role or requested_role not in [r.value for r in ProjectRole]:
         raise HTTPException(status_code=400, detail="Invalid role in request")
 
-    # Проверяем дефицит
     current_count = count_participants_by_role(project, requested_role)
     required = project.required_roles.get(requested_role, 0) if project.required_roles else 0
     deficit = max(0, required - current_count)
     if deficit <= 0:
         raise HTTPException(status_code=400, detail=f"No open positions left for role {requested_role}")
 
-    # Добавляем участника
     new_participant = {
         "user_id": request_obj["user_id"],
         "role": requested_role,
@@ -1347,14 +1339,11 @@ async def leave_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # Проверяем, является ли пользователь участником проекта
     if not is_project_participant(project, current_user.id):
         raise HTTPException(status_code=400, detail="You are not a participant of this project")
     
-    # Получаем роль пользователя в проекте
     user_role = get_participant_role(project, current_user.id)
     
-    # Проверяем, не единственный ли это участник
     if len(project.participants or []) == 1:
         raise HTTPException(
             status_code=400, 
@@ -1362,7 +1351,6 @@ async def leave_project(
                    "Consider deleting the project instead."
         )
     
-    # Удаляем пользователя из списка участников
     if project.participants:
         project.participants = [
             p for p in project.participants 
@@ -1370,22 +1358,16 @@ async def leave_project(
         ]
         flag_modified(project, "participants")
     
-    # Если пользователь был заказчиком и после его ухода не осталось заказчиков,
-    # но есть другие участники - можно сделать первого попавшегося участника заказчиком
     if user_role == ProjectRole.CUSTOMER.value:
-        # Проверяем, остались ли заказчики
         has_customer = any(
             p.get("role") == ProjectRole.CUSTOMER.value 
             for p in (project.participants or [])
         )
         
-        # Если заказчиков не осталось, но есть другие участники
         if not has_customer and project.participants:
-            # Назначаем первого участника заказчиком
             project.participants[0]["role"] = ProjectRole.CUSTOMER.value
             flag_modified(project, "participants")
     
-    # Если проект был скрыт только этим пользователем - снимаем скрытие
     if current_user.id in (project.hidden_by_users or []):
         project.hidden_by_users.remove(current_user.id)
         flag_modified(project, "hidden_by_users")
@@ -1521,7 +1503,6 @@ async def update_project(
 
     full_edit = has_full_edit_permission(project, current_user)
 
-    # Если нет полных прав (исполнитель при наличии заказчика или куратора) – разрешаем только задачи и ссылки
     if not full_edit and not (current_user.is_admin or is_curator(current_user)):
         update_data = project_update.model_dump(exclude_unset=True)
         allowed_fields = {'tasks', 'links'}
@@ -1567,8 +1548,6 @@ async def update_project(
         db.refresh(project)
         return project
 
-    # Для пользователей с полными правами (admin, curator, customer, или executor без заказчика/куратора)
-    # required_roles могут менять только заказчик, куратор или админ
     if project_update.required_roles is not None:
         if not (current_user.is_admin or is_curator(current_user)):
             if participant_role != ProjectRole.CUSTOMER.value:
@@ -1650,17 +1629,16 @@ async def move_subtask(
     Перемещает подзадачу между задачами или внутри одной задачи.
     Ожидает JSON:
     {
-        "from_task_index": 0,      // индекс задачи-источника
-        "from_subtask_index": 0,   // индекс подзадачи в задаче-источнике
-        "to_task_index": 1,        // индекс целевой задачи
-        "to_subtask_index": 0      // позиция для вставки в целевой задаче
+        "from_task_index": 0,
+        "from_subtask_index": 0,
+        "to_task_index": 1,
+        "to_subtask_index": 0
     }
     """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
     
-    # Проверка прав: могут все участники проекта (админ, куратор, заказчик, исполнитель)
     participant_role = get_participant_role(project, current_user.id)
     if not (current_user.is_admin or is_curator(current_user) or participant_role in [
         ProjectRole.CUSTOMER.value, 
@@ -1670,7 +1648,6 @@ async def move_subtask(
     ]):
         raise HTTPException(403, "Not enough permissions to move subtasks")
     
-    # Проверка на старый проект
     if project.is_old and not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(403, "Cannot modify old project")
     
@@ -1698,14 +1675,11 @@ async def move_subtask(
     if from_subtask_idx < 0 or from_subtask_idx >= len(from_subtasks):
         raise HTTPException(400, "Invalid from_subtask_index")
     
-    # Извлекаем подзадачу
     moved_subtask = from_subtasks.pop(from_subtask_idx)
     
-    # Вставляем в целевую задачу
     insert_idx = min(to_subtask_idx, len(to_subtasks))
     to_subtasks.insert(insert_idx, moved_subtask)
     
-    # Обновляем задачи
     tasks[from_task_idx]["subtasks"] = from_subtasks
     tasks[to_task_idx]["subtasks"] = to_subtasks
     
@@ -1811,7 +1785,6 @@ async def delete_project(
         db.commit()
         return {"message": f"Project {project_id} permanently deleted successfully"}
     participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
-    # Исполнитель не может удалять/скрывать проект
     if not participant or participant.get("role") != ProjectRole.CUSTOMER.value:
         raise HTTPException(status_code=403, detail="Only customer, curator or admin can delete/hide the project")
     if current_user.id not in project.hidden_by_users:
@@ -1908,10 +1881,8 @@ async def accept_suggestion(
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found")
     
-    # ✅ Определяем роль пользователя в проекте (может быть None)
     user_role = get_participant_role(project, current_user.id)
     
-    # Проверка прав: только заказчик, куратор или админ
     if not (current_user.is_admin or is_curator(current_user)):
         if user_role != ProjectRole.CUSTOMER.value:
             raise HTTPException(status_code=403, detail="Only customer, curator or admin can accept suggestions")
@@ -1919,7 +1890,6 @@ async def accept_suggestion(
     suggestion["status"] = SuggestionStatus.ACCEPTED.value
     flag_modified(project, "suggestions")
     
-    # Применяем изменения, если это предложение по проекту и пользователь имеет право
     if (user_role == ProjectRole.CUSTOMER.value or current_user.is_admin or is_curator(current_user)) and suggestion["target_type"] == "project":
         for key, value in suggestion["changes"].items():
             if hasattr(project, key):
@@ -1946,7 +1916,6 @@ async def reject_suggestion(
             break
     if not suggestion:
         raise HTTPException(status_code=404, detail="Suggestion not found")
-    # Только заказчик, куратор или админ могут отклонять предложения
     if not (current_user.is_admin or is_curator(current_user)):
         role = get_participant_role(project, current_user.id)
         if role != ProjectRole.CUSTOMER.value:
@@ -2356,9 +2325,13 @@ async def download_file(
 # ==================== АУТЕНТИФИКАЦИЯ И ВЕРИФИКАЦИЯ ====================
 @app.post("/auth/request-verification-code", tags=["Auth"])
 @limiter.limit("2/minute")
-async def request_verification_code(request: dict, db: Session = Depends(get_db)):
-    email = request.get("email")
-    is_teacher = request.get("is_teacher", False)
+async def request_verification_code(
+    request: Request,
+    body: dict,
+    db: Session = Depends(get_db)
+):
+    email = body.get("email")
+    is_teacher = body.get("is_teacher", False)
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
     if is_teacher:
@@ -2377,22 +2350,26 @@ async def request_verification_code(request: dict, db: Session = Depends(get_db)
 
 @app.post("/auth/request-verification", tags=["Auth"])
 @limiter.limit("2/minute")
-async def request_verification(request: EmailVerificationCodeRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == request.email).first()
+async def request_verification(request: Request, body: EmailVerificationCodeRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     if user.is_verified:
         raise HTTPException(status_code=400, detail="Email already verified")
     code = generate_verification_code()
-    redis_client.setex(f"verify:{request.email}", 600, code)
-    await send_verification_email(request.email, code)
+    redis_client.setex(f"verify:{body.email}", 600, code)
+    await send_verification_email(body.email, code)
     return {"message": "Verification code sent"}
 
 @app.post("/auth/verify-email", tags=["Auth"])
 @limiter.limit("5/minute")
-async def verify_email(request: dict, db: Session = Depends(get_db)):
-    email = request.get("email")
-    code = request.get("code")
+async def verify_email(
+    request: Request,
+    body: dict,
+    db: Session = Depends(get_db)
+):
+    email = body.get("email")
+    code = body.get("code")
     if not email or not code:
         raise HTTPException(status_code=400, detail="Email and code required")
     stored_code = redis_client.get(f"verify:{email}")
@@ -2409,11 +2386,15 @@ async def verify_email(request: dict, db: Session = Depends(get_db)):
 
 @app.post("/auth/register-with-verification", response_model=UserResponse, tags=["Auth"])
 @limiter.limit("2/minute")
-async def register_with_verification(request: dict, db: Session = Depends(get_db)):
-    email = request.get("email")
-    code = request.get("code")
-    user_data = request.get("user_data")
-    is_teacher = request.get("is_teacher", False)
+async def register_with_verification(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    body = await request.json()
+    email = body.get("email")
+    code = body.get("code")
+    user_data = body.get("user_data")
+    is_teacher = body.get("is_teacher", False)
     if not email or not code or not user_data:
         raise HTTPException(status_code=400, detail="Email, code and user data required")
     stored_code = redis_client.get(f"verify:{email}")
@@ -2469,7 +2450,7 @@ async def register_with_verification(request: dict, db: Session = Depends(get_db
 
 @app.post("/auth/login", response_model=TokenResponse, tags=["Auth"])
 @limiter.limit("5/minute")
-async def auth_login(credentials: LoginRequest, db: Session = Depends(get_db)):
+async def auth_login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(
         (User.nickname == credentials.nickname.strip()) |
         (User.email == credentials.nickname.strip())

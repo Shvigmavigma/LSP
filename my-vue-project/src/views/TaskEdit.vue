@@ -228,7 +228,7 @@ import type { Project, Task, SubTask, ProjectRole, RequiredFile } from '@/types'
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import HomeButton from '@/components/HomeButton.vue';
-
+import api from '@/utils/api'
 const { t } = useI18n();
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -524,7 +524,7 @@ async function handleSubmit() {
 
   try {
     // Используем новый эндпоинт только для задач
-    await axios.patch(`${baseUrl}/projects/${projectId}/tasks`, { tasks: updatedTasks });
+    await api.patch(`${baseUrl}/projects/${projectId}/tasks`, { tasks: updatedTasks });
     project.value = { ...project.value, tasks: updatedTasks };
     showNotification(t('taskEdit.saveSuccess'), 'success');
     setTimeout(() => {

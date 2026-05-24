@@ -79,13 +79,13 @@ import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
-import axios from 'axios';
 import usersIcon from '@/assets/imgs/users.svg';
 import projectsIcon from '@/assets/imgs/projects.png';
 import oldProjectsIcon from '@/assets/imgs/projectsOLD.png';
 import adminPanelIcon from '@/assets/imgs/AdminPanel.png';
 import myProjectsIcon from '@/assets/imgs/myProjects.svg';
 import '@fortawesome/fontawesome-free/css/all.css';
+import api from '@/utils/api'
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -122,7 +122,7 @@ const logout = () => {
 const loadInvitationsCount = async () => {
   if (!authStore.isAuthenticated) return;
   try {
-    const response = await axios.get('/invitations');
+    const response = await api.get('/invitations');
     invitationsCount.value = response.data.length;
   } catch (error) {
     console.error('Failed to load invitations count:', error);

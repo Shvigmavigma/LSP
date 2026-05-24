@@ -89,7 +89,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
-import axios from 'axios';
+
+import api from '@/utils/api'
 
 const { t } = useI18n();
 const router = useRouter();
@@ -152,9 +153,9 @@ onMounted(async () => {
   if (oauthToken) {
     try {
       localStorage.setItem('access_token', oauthToken);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${oauthToken}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${oauthToken}`;
       
-      const userResponse = await axios.get('/users/me');
+      const userResponse = await api.get('/users/me');
       const authStore = (await import('@/stores/auth')).useAuthStore();
       authStore.user = userResponse.data;
       authStore.isAuthenticated = true;
@@ -176,14 +177,14 @@ onMounted(async () => {
   // Очищаем старые токены
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
-  delete axios.defaults.headers.common['Authorization'];
+  delete api.defaults.headers.common['Authorization'];
 });
 
 // Google OAuth логин
 const loginWithGoogle = async () => {
   oauthLoading.value = true;
   try {
-    const response = await axios.get(`${baseUrl}/auth/google/login`);
+    const response = await api.get(`${baseUrl}/auth/google/login`);
     const { url } = response.data;
     
     localStorage.setItem('oauth_return_url', '/main');
@@ -207,7 +208,7 @@ const handleLogin = async () => {
   hasError.value = false;
 
   try {
-    const response = await axios.post('/auth/login', {
+    const response = await api.post('/auth/login', {
       nickname: nickname.value,
       password: password.value
     });
@@ -217,9 +218,9 @@ const handleLogin = async () => {
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('refresh_token', refresh_token);
 
-    axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+    api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
 
-    const userResponse = await axios.get('/users/me');
+    const userResponse = await api.get('/users/me');
     const authStore = (await import('@/stores/auth')).useAuthStore();
     authStore.user = userResponse.data;
     authStore.isAuthenticated = true;

@@ -92,10 +92,10 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import ClassInput from '@/components/ClassInput.vue';
-import axios from 'axios';
 import type { User } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import api from'@/utils/api'
 
 const { t } = useI18n();
 const route = useRoute();
@@ -133,7 +133,7 @@ const form = reactive<FormData>({
 
 onMounted(async () => {
   try {
-    const response = await axios.get(`/admin/users/${userId}`);
+    const response = await api.get(`/admin/users/${userId}`);
     const user: User = response.data;
     form.nickname = user.nickname;
     form.fullname = user.fullname;
@@ -171,7 +171,7 @@ async function handleSubmit() {
         curator: form.curator,
       };
     }
-    await axios.put(`/admin/users/${userId}`, updateData);
+    await api.put(`/admin/users/${userId}`, updateData);
     alert(t('adminUserEdit.saveSuccess'));
     router.push('/admin/users');
   } catch (err) {

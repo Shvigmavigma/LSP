@@ -50,10 +50,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import FilePreviewModal from './FilePreviewModal.vue';
 import ConfirmModal from './ConfirmModal.vue';
+import api from'@/utils/api'
 
 const { t } = useI18n();
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -97,7 +97,7 @@ const fetchFiles = async () => {
     const url = props.taskIndex !== undefined
       ? `/projects/${props.projectId}/files?task_id=${props.taskIndex}`
       : `/projects/${props.projectId}/files`;
-    const res = await axios.get(url);
+    const res = await api.get(url);
     files.value = res.data;
   } catch (err) {
     console.error('Failed to fetch files', err);
@@ -187,7 +187,7 @@ const uploadFile = async (event: Event) => {
   uploading.value = true;
   try {
     // ❗️ УБРАН headers: { 'Content-Type': ... }
-    await axios.post(`/projects/${props.projectId}/files`, formData);
+    await api.post(`/projects/${props.projectId}/files`, formData);
     await fetchFiles();
     emit('upload');
   } catch (err: any) {
@@ -212,7 +212,7 @@ const closeDeleteModal = () => {
 const deleteFileConfirmed = async () => {
   if (!fileToDelete.value) return;
   try {
-    await axios.delete(`/files/${fileToDelete.value.id}`);
+    await api.delete(`/files/${fileToDelete.value.id}`);
     await fetchFiles();
     emit('delete');
   } catch (err: any) {
