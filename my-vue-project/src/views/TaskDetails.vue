@@ -870,20 +870,52 @@ async function onDrop(event: DragEvent) {
 }
 
 async function handleFileUpload(file: File) {
-  const key = 'generic';
-  uploadingFiles.value[key] = true;
   const formData = new FormData();
   formData.append('file', file);
   formData.append('task_id', String(taskIndex.value));
+  
+  console.log('📤 Uploading file:', file.name, file.type, file.size);
+  
   try {
-    await api.post(`${baseUrl}/projects/${projectId.value}/files`, formData);
-    await loadTask();
+    const response = await axios.post(
+      `${baseUrl}/projects/${projectId.value}/files`,
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      }
+    );
+    console.log('✅ Upload success:', response.data);
+    
+    // ✅ Вместо loadTask() — точечно обновляем файлы и attachments
+    const newFile = response.data;
+    
+    // Добавляем файл в taskFiles (для visibleFiles)
+    taskFiles.value = [...taskFiles.value, newFile];
+    
+    // Если у задачи есть task_id — добавляем в attachments задачи
+    if (task.value && newFile.task_id !== null) {
+      const attachment = {
+        id: newFile.id.toString(),
+        file_id: newFile.id,
+        required_file_id: newFile.required_file_id,
+        uploaded_at: new Date().toISOString(),
+        original_filename: newFile.original_filename,
+        size: newFile.file_size,
+        mime_type: newFile.mime_type,
+      };
+      
+      if (!task.value.attachments) {
+        task.value.attachments = [];
+      }
+      task.value.attachments = [...task.value.attachments, attachment];
+    }
+    
     showNotification(t('taskDetails.fileUploaded'), 'success');
   } catch (err: any) {
-    console.error(err);
+    console.error('❌ Upload error:', err.response?.status, err.response?.data);
     showNotification(err.response?.data?.detail || t('taskDetails.uploadError'), 'error');
-  } finally {
-    uploadingFiles.value[key] = false;
   }
 }
 

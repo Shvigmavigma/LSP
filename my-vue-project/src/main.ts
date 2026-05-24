@@ -1,48 +1,65 @@
-// src/main.ts
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import axios from 'axios'
 import i18n from './i18n'
-// Настройка axios
 import 'flag-icons/css/flag-icons.min.css'
+
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-// Добавляем токен к каждому запросу, если он есть
-const token = localStorage.getItem('access_token')
-if (token) {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-}
+// ✅ ВАЖНО: Добавляем request interceptor для КАЖДОГО запроса
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-// Интерцептор для обработки ошибок
+// Response interceptor для обновления токена
 axios.interceptors.response.use(
   response => response,
   async error => {
     const originalRequest = error.config;
     
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 
+        && !originalRequest._retry 
+        && !originalRequest.url?.includes('/auth/refresh')) {
       originalRequest._retry = true;
       
       try {
         const refreshToken = localStorage.getItem('refresh_token');
-        const response = await axios.post('/auth/refresh', {
-          refresh_token: refreshToken
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+        
+        // Отправляем refresh токен в заголовке
+        const response = await axios.post('/auth/refresh', {}, {
+          headers: {
+            'Authorization': `Bearer ${refreshToken}`
+          }
         });
         
         const { access_token, refresh_token: newRefreshToken } = response.data;
         
         localStorage.setItem('access_token', access_token);
-        localStorage.setItem('refresh_token', newRefreshToken);
+        if (newRefreshToken) {
+          localStorage.setItem('refresh_token', newRefreshToken);
+        }
         
-        axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+        // Обновляем токен в оригинальном запросе
         originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
         
         return axios(originalRequest);
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);
-        // Перенаправляем на страницу входа
-        window.location.href = '/login';
+        
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        
+        router.push('/login');
+        return Promise.reject(refreshError);
       }
     }
     
