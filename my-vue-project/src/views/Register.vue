@@ -273,6 +273,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import ClassInput from '@/components/ClassInput.vue';
 import axios from 'axios';
+import api from '@/utils/api'
 
 const { t } = useI18n();
 
@@ -379,7 +380,7 @@ const checkEmail = async () => {
     const endpoint = accountType.value === 'teacher'
       ? '/auth/check-teacher-email'
       : '/auth/check-student-email';
-    const response = await axios.post(endpoint, { email: form.email });
+    const response = await api.post(endpoint, { email: form.email });
     if (response.data.accepted) {
       emailError.value = '';
     }
@@ -424,7 +425,7 @@ const handleRegister = async () => {
     const endpoint = accountType.value === 'teacher'
       ? '/auth/check-teacher-email'
       : '/auth/check-student-email';
-    const response = await axios.post(endpoint, { email: form.email });
+    const response = await api.post(endpoint, { email: form.email });
     if (!response.data.accepted) {
       emailError.value = response.data.detail || t('register.emailNotAllowed');
       return;
@@ -493,7 +494,7 @@ const requestVerification = async (isTeacher: boolean) => {
   }
 
   // Запрашиваем код подтверждения
-  await axios.post('http://localhost:8000/auth/request-verification-code', {
+  await api.post('/auth/request-verification-code', {
     email: form.email,
     is_teacher: isTeacher,
   });

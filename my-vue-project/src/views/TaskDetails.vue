@@ -342,6 +342,7 @@ import ProjectTree from '@/components/ProjectTree.vue';
 import type { Task, SubTask, Comment, ProjectRole, RequiredFile, TaskAttachment } from '@/types';
 import axios from 'axios';
 import HomeButton from '@/components/HomeButton.vue';
+import api from '@/utils/api'
 
 const { t } = useI18n();
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -512,7 +513,7 @@ async function loadTask() {
   error.value = '';
   
   try {
-    const response = await axios.get(`${baseUrl}/projects/${currentProjectId}`);
+    const response = await api.get(`${baseUrl}/projects/${currentProjectId}`);
     project.value = response.data;
     if (!project.value || !project.value.tasks || !project.value.tasks[currentTaskIndex]) {
       error.value = t('taskDetails.taskNotFound');
@@ -529,7 +530,7 @@ async function loadTask() {
         sliderValue.value = savedProgress.value;
       }
       try {
-        const filesResponse = await axios.get(`${baseUrl}/projects/${currentProjectId}/files`);
+        const filesResponse = await api.get(`${baseUrl}/projects/${currentProjectId}/files`);
         taskFiles.value = filesResponse.data;
       } catch (fileErr) {
         console.error('Failed to load project files:', fileErr);
@@ -667,7 +668,7 @@ const toggleSubtask = async (subtask: SubTask) => {
     const updatedTasks = [...currentProject.tasks];
     updatedTasks[taskIndex.value] = updatedTask;
 
-    await axios.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks: updatedTasks });
+    await api.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks: updatedTasks });
     project.value = { ...currentProject, tasks: updatedTasks };
     task.value = updatedTask;
     savedProgress.value = newTotal;
@@ -748,7 +749,7 @@ const addTaskComment = async (content: string) => {
   };
 
   try {
-    const response = await axios.post(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments`, newComment);
+    const response = await api.post(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments`, newComment);
     project.value = response.data;
     task.value = project.value.tasks[taskIndex.value];
     showTaskComments.value = true;
@@ -761,7 +762,7 @@ const addTaskComment = async (content: string) => {
 const markTaskCommentAsRead = async (commentId: string) => {
   if (!task.value || !hasFullAccess.value) return;
   try {
-    await axios.put(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/read`);
+    await api.put(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/read`);
     if (task.value.comments) {
       const updatedComments = task.value.comments.map(c => c.id === commentId ? { ...c, isRead: true } : c);
       const updatedTask = { ...task.value, comments: updatedComments };
@@ -779,7 +780,7 @@ const markTaskCommentAsRead = async (commentId: string) => {
 const hideTaskComment = async (commentId: string) => {
   if (!project.value || isOldReadOnly.value) return;
   try {
-    const response = await axios.delete(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}`);
+    const response = await api.delete(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}`);
     project.value = response.data;
     task.value = project.value.tasks[taskIndex.value];
   } catch (error) {
@@ -791,7 +792,7 @@ const hideTaskComment = async (commentId: string) => {
 const permanentDeleteComment = async (commentId: string) => {
   if (!project.value || isOldReadOnly.value) return;
   try {
-    await axios.delete(`${baseUrl}/admin/comments/${commentId}`);
+    await api.delete(`${baseUrl}/admin/comments/${commentId}`);
     showNotification(t('commentsSection.permanentDeleteSuccess'), 'success');
     const updatedProject = await projectsStore.fetchProjectById(projectId.value);
     project.value = updatedProject;
@@ -807,7 +808,7 @@ const permanentDeleteComment = async (commentId: string) => {
 const restoreTaskComment = async (commentId: string) => {
   if (!project.value || isOldReadOnly.value) return;
   try {
-    await axios.post(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/restore`);
+    await api.post(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/restore`);
     showNotification(t('commentsSection.restoreSuccess'), 'success');
     const updatedProject = await projectsStore.fetchProjectById(projectId.value);
     project.value = updatedProject;
@@ -832,7 +833,7 @@ function getRequiredFileName(reqId: string): string {
 
 async function updateFileRequirement(fileId: number, requiredId: string) {
   try {
-    await axios.patch(`${baseUrl}/files/${fileId}/set-requirement`, {
+    await api.patch(`${baseUrl}/files/${fileId}/set-requirement`, {
       required_file_id: requiredId || null
     });
     const file = taskFiles.value.find(f => f.id === fileId);
@@ -845,7 +846,7 @@ async function updateFileRequirement(fileId: number, requiredId: string) {
 
 async function toggleFileOldVision(fileId: number) {
   try {
-    const response = await axios.patch(`${baseUrl}/files/${fileId}/toggle-old-vision`);
+    const response = await api.patch(`${baseUrl}/files/${fileId}/toggle-old-vision`);
     const updatedFile = response.data;
     const index = taskFiles.value.findIndex(f => f.id === fileId);
     if (index !== -1) {
@@ -875,7 +876,7 @@ async function handleFileUpload(file: File) {
   formData.append('file', file);
   formData.append('task_id', String(taskIndex.value));
   try {
-    await axios.post(`${baseUrl}/projects/${projectId.value}/files`, formData);
+    await api.post(`${baseUrl}/projects/${projectId.value}/files`, formData);
     await loadTask();
     showNotification(t('taskDetails.fileUploaded'), 'success');
   } catch (err: any) {
@@ -919,8 +920,8 @@ async function deleteAttachment(fileId: number) {
   if (isOldReadOnly.value) return;
   deletingAttachment.value = true;
   try {
-    await axios.delete(`${baseUrl}/files/${fileId}`);
-    const response = await axios.get(`${baseUrl}/projects/${projectId.value}`);
+    await api.delete(`${baseUrl}/files/${fileId}`);
+    const response = await api.get(`${baseUrl}/projects/${projectId.value}`);
     project.value = response.data;
     task.value = project.value.tasks[taskIndex.value];
     savedProgress.value = task.value?.progress ?? 0;
@@ -933,7 +934,7 @@ async function deleteAttachment(fileId: number) {
       sliderValue.value = savedProgress.value;
     }
     try {
-      const filesResponse = await axios.get(`${baseUrl}/projects/${projectId.value}/files`);
+      const filesResponse = await api.get(`${baseUrl}/projects/${projectId.value}/files`);
       taskFiles.value = filesResponse.data;
     } catch {}
     showNotification(t('taskDetails.fileDeleted'), 'success');
@@ -979,7 +980,7 @@ const confirmExtraChange = async () => {
   try {
     const updatedTasks = [...currentProject.tasks];
     updatedTasks[taskIndex.value] = { ...updatedTasks[taskIndex.value], progress: newTotal };
-    await axios.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks: updatedTasks });
+    await api.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks: updatedTasks });
     project.value = { ...currentProject, tasks: updatedTasks };
     task.value = updatedTasks[taskIndex.value];
     savedProgress.value = newTotal;
@@ -1001,7 +1002,7 @@ const handleTaskMove = async (fromIndex: number, toIndex: number) => {
   tasks.splice(toIndex, 0, movedTask);
 
   try {
-    await axios.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks });
+    await api.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks });
     project.value = { ...project.value, tasks };
     showNotification(t('projectDetails.tasksReordered'), 'success');
   } catch (error: any) {

@@ -60,8 +60,8 @@ import HomeButton from '@/components/HomeButton.vue';
 import { useProjectsStore } from '@/stores/projects';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
-import axios from 'axios';
 import type { User, ProjectRole } from '@/types';
+import api from'@/utils/api'
 
 const { t } = useI18n();
 const router = useRouter();
@@ -83,7 +83,7 @@ function formatDate(dateStr: string) {
 async function loadInvitations() {
   loading.value = true;
   try {
-    const res = await axios.get('/invitations');
+    const res = await api.get('/invitations');
     invitations.value = res.data;
   } catch (err) {
     console.error(err);
@@ -94,7 +94,7 @@ async function loadInvitations() {
 
 async function acceptInvite(id: number) {
   try {
-    await axios.put(`/invitations/${id}/accept`);
+    await api.put(`/invitations/${id}/accept`);
     await loadInvitations();
     await projectsStore.fetchUserProjects();
   } catch (err) {
@@ -105,7 +105,7 @@ async function acceptInvite(id: number) {
 
 async function rejectInvite(id: number) {
   try {
-    await axios.put(`/invitations/${id}/reject`);
+    await api.put(`/invitations/${id}/reject`);
     await loadInvitations();
   } catch (err) {
     console.error(err);

@@ -242,11 +242,11 @@ import { useUsersStore } from '@/stores/users';
 import HomeButton from '@/components/HomeButton.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import type { Project, Task, User, Participant, ProjectRole } from '@/types';
-import axios from 'axios';
+import api from '@/utils/api'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 const { t } = useI18n();
 
-const baseUrl = 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const route = useRoute();
 const router = useRouter();
@@ -448,7 +448,7 @@ async function sendInvite() {
   inviteSuccess.value = false;
 
   try {
-    const response = await axios.post(`${baseUrl}/projects/${projectId}/invite`, {
+    const response = await api.post(`${baseUrl}/projects/${projectId}/invite`, {
       email: inviteEmail.value,
       role: inviteRole.value,
     });

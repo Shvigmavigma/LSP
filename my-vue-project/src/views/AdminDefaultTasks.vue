@@ -142,10 +142,10 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import axios from 'axios';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import HomeButton from '@/components/HomeButton.vue';
+import api from '@/utils/api'
 
 const { t } = useI18n();
 const router = useRouter();
@@ -188,7 +188,7 @@ function generateKey(label: string): string {
 }
 
 const loadData = async () => {
-  const res = await axios.get('/default-tasks');
+  const res = await api.get('/default-tasks');
   data.value = res.data;
 };
 
@@ -243,7 +243,7 @@ const addClass = async (label: string) => {
     return;
   }
   try {
-    await axios.post('/admin/default-tasks/class', { class_key: classKey, label });
+    await api.post('/admin/default-tasks/class', { class_key: classKey, label });
     await loadData();
   } catch (e) {
     console.error(e);
@@ -261,7 +261,7 @@ const openAddClassDialog = () => {
 
 const deleteClass = async (classKey: string) => {
   try {
-    await axios.delete(`/admin/default-tasks/class/${classKey}`);
+    await api.delete(`/admin/default-tasks/class/${classKey}`);
     await loadData();
   } catch (e) {
     alert(t('adminDefaultTasks.errorDeleteClass'));
@@ -285,7 +285,7 @@ const addDirection = async (classKey: string, label: string) => {
     return;
   }
   try {
-    await axios.post(`/admin/default-tasks/class/${classKey}/direction`, { direction_key: dirKey, label });
+    await api.post(`/admin/default-tasks/class/${classKey}/direction`, { direction_key: dirKey, label });
     await loadData();
   } catch (e) {
     console.error(e);
@@ -303,7 +303,7 @@ const openAddDirectionDialog = (classKey: string) => {
 
 const deleteDirection = async (classKey: string, dirKey: string) => {
   try {
-    await axios.delete(`/admin/default-tasks/class/${classKey}/direction/${dirKey}`);
+    await api.delete(`/admin/default-tasks/class/${classKey}/direction/${dirKey}`);
     await loadData();
   } catch (e) {
     alert(t('adminDefaultTasks.errorDeleteDirection'));
@@ -327,7 +327,7 @@ const editDirection = async (classKey: string, dirKey: string, newLabel: string)
     return;
   }
   try {
-    await axios.put(`/admin/default-tasks/class/${classKey}/direction/${dirKey}`, {
+    await api.put(`/admin/default-tasks/class/${classKey}/direction/${dirKey}`, {
       new_label: newLabel,
       new_key: newKey
     });
@@ -401,12 +401,12 @@ const saveTasks = async () => {
   if (!editingTasks.value) return;
   try {
     if (currentDirection.value) {
-      await axios.put(
+      await api.put(
         `/admin/default-tasks/class/${currentClass.value}/direction/${currentDirection.value}/tasks`,
         editingTasks.value
       );
     } else {
-      await axios.put(`/admin/default-tasks/class/${currentClass.value}/tasks`, editingTasks.value);
+      await api.put(`/admin/default-tasks/class/${currentClass.value}/tasks`, editingTasks.value);
     }
     await loadData();
     editingTasks.value = null;

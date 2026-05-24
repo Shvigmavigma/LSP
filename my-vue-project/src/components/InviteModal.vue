@@ -77,7 +77,7 @@ import { ref, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth';
 import type { ProjectRole, User } from '@/types';
-import axios from 'axios';
+import api from'@/utils/api'
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -171,7 +171,7 @@ async function searchUsers() {
       return;
     }
     try {
-      const response = await axios.get('/users/', {
+      const response = await api.get('/users/', {
         params: { q: query }
       });
       // Исключаем текущего пользователя из результатов
@@ -199,7 +199,7 @@ async function submit() {
   sending.value = true;
   errorMessage.value = '';
   try {
-    await axios.post('/invitations', {
+    await api.post('/invitations', {
       project_id: props.projectId,
       invited_user_id: selectedUser.value.id,
       role: role.value

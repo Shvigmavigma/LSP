@@ -290,6 +290,7 @@ import type { Project, Task, User, Participant, ProjectRole, Suggestion } from '
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 import HomeButton from '@/components/HomeButton.vue';
+import api from '@/utils/api'
 
 const { t } = useI18n();
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -538,7 +539,7 @@ async function assignCurrentUserAsCurator() {
       });
     }
     
-    await axios.put(`${baseUrl}/projects/${projectId}`, { participants: updatedParticipants });
+    await api.put(`${baseUrl}/projects/${projectId}`, { participants: updatedParticipants });
     participants.value = updatedParticipants;
     userRole.value = 'curator';
     showNotification(t('projectEdit.curatorAssigned'), 'success');
@@ -795,7 +796,7 @@ async function handleSubmit() {
 
   try {
     if (isApplyingSuggestion.value && applyingSuggestionId.value) {
-      await axios.put(`${baseUrl}/projects/${projectId}/suggestions/${applyingSuggestionId.value}/accept`);
+      await api.put(`${baseUrl}/projects/${projectId}/suggestions/${applyingSuggestionId.value}/accept`);
       showNotification(t('projectEdit.suggestionAccepted'), 'success');
     }
 
@@ -817,7 +818,7 @@ async function handleSubmit() {
         target_type: 'project',
         changes: projectData,
       };
-      await axios.post(`${baseUrl}/projects/${projectId}/suggestions`, suggestionData);
+      await api.post(`${baseUrl}/projects/${projectId}/suggestions`, suggestionData);
       showNotification(t('projectEdit.suggestionSent'), 'success');
       setTimeout(() => router.push(`/project/${projectId}`), 1500);
     } else {

@@ -164,9 +164,11 @@ import { ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
-import axios from 'axios';
+
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import HomeButton from '@/components/HomeButton.vue';
+import api from'@/utils/api'
+
 const { t } = useI18n();
 const router = useRouter();
 
@@ -192,7 +194,7 @@ const loadData = async () => {
     const endpoint = activeTab.value === 'teachers'
       ? '/admin/accepted-emails/teachers'
       : '/admin/accepted-emails/students';
-    const response = await axios.get(endpoint);
+    const response = await api.get(endpoint);
     const data = response.data;
     emailsList.value = data.accepted_emails || [];
     domainsList.value = data.domains || [];
@@ -219,7 +221,7 @@ const saveData = async () => {
     const endpoint = activeTab.value === 'teachers'
       ? '/admin/accepted-emails/teachers'
       : '/admin/accepted-emails/students';
-    await axios.put(endpoint, payload);
+    await api.put(endpoint, payload);
     saveMessage.value = t('adminEmails.saveSuccess');
     saveSuccess.value = true;
     setTimeout(() => {

@@ -39,11 +39,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import axios from 'axios';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import HomeButton from '@/components/HomeButton.vue';
+import api from '@/utils/api'
 
 const { t } = useI18n();
 
@@ -74,7 +74,7 @@ function getTypeName(mime: string): string {
 
 async function fetchLimits() {
   try {
-    const { data } = await axios.get('/admin/file-size-limits');
+    const { data } = await api.get('/admin/file-size-limits');
     // Преобразуем байты в мегабайты для отображения
     const mbValues: Record<string, number> = {};
     for (const [mime, bytes] of Object.entries(data)) {
@@ -97,7 +97,7 @@ async function saveLimits() {
     for (const [mime, mb] of Object.entries(limits.value)) {
       bytesPayload[mime] = Math.round(mb * 1024 * 1024);
     }
-    await axios.put('/admin/file-size-limits', bytesPayload);
+    await api.put('/admin/file-size-limits', bytesPayload);
     showMessage(t('adminPanel.fileLimits.saveSuccess'), false);
   } catch (e) {
     console.error(e);
