@@ -53,6 +53,37 @@
           <span class="info-value">{{ user.speciality || $t('profile.notSpecified') }}</span>
         </div>
 
+        <!-- Google привязка в строчку -->
+        <div class="info-row">
+          <span class="info-label">{{ $t('profile.connectedAccounts') }}</span>
+          <span class="info-value">
+            <span class="oauth-status">
+              {{ googleLinked ? $t('profile.googleLinked') : $t('profile.link') }}
+            </span>
+            <button
+              v-if="!googleLinked"
+              class="mini-link-button"
+              @click="handleLinkGoogle"
+              :disabled="linkingGoogle"
+              :title="$t('profile.link')"
+            >
+              {{ linkingGoogle ? '...' : '+' }}
+            </button>
+            <button
+              v-else
+              class="mini-unlink-button"
+              @click="handleUnlinkGoogle"
+              :disabled="unlinkingGoogle"
+              :title="$t('profile.unlink')"
+            >
+              {{ unlinkingGoogle ? '...' : '×' }}
+            </button>
+          </span>
+        </div>
+
+        <div v-if="oauthError" class="oauth-error">{{ oauthError }}</div>
+        <div v-if="oauthSuccess" class="oauth-success">{{ oauthSuccess }}</div>
+
         <!-- Статус верификации email -->
         <div class="info-row verification-status">
           <span class="info-label">{{ $t('profile.emailStatus') }}</span>
@@ -96,7 +127,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import HomeButton from '@/components/HomeButton.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
@@ -108,25 +139,72 @@ import type { TeacherInfo } from '@/types';
 const { t } = useI18n();
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const user = computed(() => authStore.user);
 const avatarError = ref(false);
 const showAvatarModal = ref(false);
 const deleting = ref(false);
 const resending = ref(false);
 
+// OAuth состояния
+const googleLinked = ref(false);
+const linkingGoogle = ref(false);
+const unlinkingGoogle = ref(false);
+const oauthError = ref('');
+const oauthSuccess = ref('');
+
 const avatarUrl = computed(() => {
   if (!user.value?.avatar) return '';
   return `http://localhost:8000/avatars/${user.value.avatar}`;
 });
 
+// Функция проверки статуса привязки Google
+const checkGoogleLinkStatus = async () => {
+  try {
+    const response = await api.get('/auth/providers');
+    const providers = response.data.providers;
+    const googleProvider = providers.find((p: any) => p.provider === 'google');
+    googleLinked.value = googleProvider ? googleProvider.is_linked : false;
+    console.log('Google link status checked:', googleLinked.value);
+  } catch (error) {
+    console.error('Error checking Google link status:', error);
+    // Fallback: проверяем через данные пользователя
+    googleLinked.value = !!user.value?.google_id;
+    console.log('Google link status from user data:', googleLinked.value);
+  }
+};
+
 onMounted(async () => {
+  // Проверяем аутентификацию
   if (!authStore.isAuthenticated) {
     const isValid = await authStore.checkAuth();
     if (!isValid) {
       router.push('/login');
+      return;
     }
   }
+  
+  // Проверяем статус привязки Google
+  await checkGoogleLinkStatus();
+  
+  // Проверяем, был ли только что привязан Google
+  if (route.query.google_linked === 'true') {
+    oauthSuccess.value = t('profile.googleLinked');
+    // Обновляем данные пользователя
+    await authStore.checkAuth();
+    // Перепроверяем статус привязки
+    await checkGoogleLinkStatus();
+    // Очищаем query параметры
+    router.replace({ query: {} });
+    
+    // Убираем сообщение через 5 секунд
+    setTimeout(() => {
+      oauthSuccess.value = '';
+    }, 5000);
+  }
+  
   console.log('Profile mounted - user:', user.value);
+  console.log('Google linked status:', googleLinked.value);
 });
 
 const openAvatarModal = () => {
@@ -213,6 +291,79 @@ const resendVerification = async () => {
     }
   } finally {
     resending.value = false;
+  }
+};
+
+// Обработчики привязки/отвязки Google
+const handleLinkGoogle = async () => {
+  linkingGoogle.value = true;
+  oauthError.value = '';
+  
+  try {
+    // ✅ Измените на GET запрос
+    const response = await api.get('/auth/link/google');
+    // Перенаправляем на Google для авторизации
+    window.location.href = response.data.url;
+  } catch (error: any) {
+    console.error('Error linking Google:', error);
+    oauthError.value = error.response?.data?.detail || t('profile.linkError');
+  } finally {
+    linkingGoogle.value = false;
+  }
+};
+
+// В Profile.vue обновите handleUnlinkGoogle:
+
+const handleUnlinkGoogle = async () => {
+  if (!confirm(t('profile.confirmUnlink'))) return;
+  
+  unlinkingGoogle.value = true;
+  oauthError.value = '';
+  oauthSuccess.value = '';
+  
+  try {
+    const response = await api.post('/auth/unlink/google');
+    
+    // Обновляем локальное состояние
+    googleLinked.value = false;
+    
+    // Обновляем данные пользователя в сторе
+    if (authStore.user) {
+      authStore.user.google_id = null;
+      authStore.user.oauth_providers = authStore.user.oauth_providers?.filter(
+        (p: string) => p !== 'google'
+      ) || [];
+    }
+    
+    // Показываем сообщение об успехе
+    oauthSuccess.value = t('profile.googleUnlinked');
+    
+    // Обновляем данные с сервера
+    await authStore.checkAuth();
+    
+    // Убираем сообщение через 5 секунд
+    setTimeout(() => {
+      oauthSuccess.value = '';
+    }, 5000);
+    
+    console.log('Google unlinked successfully');
+  } catch (error: any) {
+    console.error('Error unlinking Google:', error);
+    
+    if (error.response?.status === 400) {
+      oauthError.value = t('profile.noGoogleAccount');
+    } else if (error.response?.status === 401) {
+      oauthError.value = t('profile.sessionExpired');
+      // Перенаправляем на логин если сессия истекла
+      setTimeout(() => {
+        authStore.logout();
+        router.push('/login');
+      }, 2000);
+    } else {
+      oauthError.value = error.response?.data?.detail || t('profile.unlinkError');
+    }
+  } finally {
+    unlinkingGoogle.value = false;
   }
 };
 
@@ -327,7 +478,7 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
 .info-row {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-color);
   overflow-wrap: break-word;
@@ -357,8 +508,65 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 8px;
   font-weight: normal;
+}
+
+.oauth-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.provider-icon {
+  font-size: 1.1rem;
+}
+
+.mini-link-button,
+.mini-unlink-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.mini-link-button {
+  background: var(--accent-color);
+  color: var(--button-text);
+}
+
+.mini-link-button:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: scale(1.1);
+}
+
+.mini-unlink-button {
+  background: var(--danger-bg);
+  color: var(--danger-color);
+}
+
+.mini-unlink-button:hover:not(:disabled) {
+  background: var(--danger-hover);
+  color: white;
+  transform: scale(1.1);
+}
+
+.mini-link-button:disabled,
+.mini-unlink-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .verification-status {
@@ -488,5 +696,20 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
 .delete-account-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.oauth-error {
+  color: var(--danger-color);
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: -10px;
+}
+
+.oauth-success {
+  color: #4caf50;
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: -10px;
+  font-weight: 500;
 }
 </style>

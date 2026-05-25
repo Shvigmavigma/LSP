@@ -1,6 +1,8 @@
 {
     "common": {
         "welcome": "Добро пожаловать",
+        "linking": "Привязка...",
+        "unlinking": "Отвязка...",
         "upload": "Загрузить",
         "confirmDelete": "Вы уверены, что хотите удалить этот файл?",
         "download": "Скачать",
@@ -489,6 +491,14 @@
     },
     "profile": {
         "title": "Личный кабинет",
+        "connectedAccounts": "Аккаунт Google",
+        "link": "Привязать",
+        "unlink": "Отвязать",
+        "googleLinked": "Google аккаунт успешно привязан!",
+        "googleUnlinked": "Google аккаунт успешно отвязан!",
+        "confirmUnlink": "Вы уверены, что хотите отвязать Google аккаунт?",
+        "linkError": "Не удалось привязать Google аккаунт",
+        "unlinkError": "Не удалось отвязать Google аккаунт",
         "nickname": "Никнейм",
         "fullname": "Полное имя",
         "email": "Email",

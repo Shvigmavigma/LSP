@@ -1,15 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 import httpx
 import urllib.parse
+import json
 from database import session_local
 from models import User
 from auth import (
     create_access_token, 
     create_refresh_token, 
     get_current_user,
-    get_password_hash
+    get_password_hash,
+    verify_password
 )
 from oauth_config import (
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI,
@@ -17,6 +19,9 @@ from oauth_config import (
 )
 from core.memory_store import memory_store as redis_client
 import secrets
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["OAuth"])
 
@@ -38,7 +43,7 @@ async def google_login():
     authorization_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
         f"?client_id={GOOGLE_CLIENT_ID}"
-        f"&redirect_uri={GOOGLE_REDIRECT_URI}"
+        f"&redirect_uri={urllib.parse.quote(GOOGLE_REDIRECT_URI)}"
         "&response_type=code"
         "&scope=openid%20email%20profile"
         f"&state={state}"
@@ -46,6 +51,7 @@ async def google_login():
         "&prompt=consent"
     )
     
+    logger.info(f"Google login initiated with state: {state}")
     return {"url": authorization_url}
 
 
@@ -57,8 +63,12 @@ async def google_callback(
 ):
     """Обрабатывает callback от Google для входа"""
     
+    logger.info(f"Google callback received. State: {state}, Code: {code[:20]}...")
+    
     # Проверяем state
-    if not redis_client.get(f"oauth_state:{state}"):
+    stored_state = redis_client.get(f"oauth_state:{state}")
+    if not stored_state:
+        logger.error(f"Invalid state: {state}")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
@@ -87,6 +97,7 @@ async def google_callback(
             )
             
             if token_response.status_code != 200:
+                logger.error(f"Token error: {token_response.text}")
                 return HTMLResponse(content=f"""
                 <!DOCTYPE html>
                 <html>
@@ -94,6 +105,7 @@ async def google_callback(
                 <body style="font-family:sans-serif;text-align:center;padding:40px;">
                     <h2>❌ Token Error</h2>
                     <p>Failed to get authorization token from Google.</p>
+                    <p>Error: {token_response.text[:200]}</p>
                     <p><a href="http://localhost:5173/login">Back to login</a></p>
                 </body>
                 </html>
@@ -103,6 +115,7 @@ async def google_callback(
             access_token = token_data.get("access_token")
             
             if not access_token:
+                logger.error("No access token in response")
                 return HTMLResponse(content="""
                 <!DOCTYPE html>
                 <html>
@@ -122,6 +135,7 @@ async def google_callback(
             )
             
             if user_info_response.status_code != 200:
+                logger.error(f"User info error: {user_info_response.text}")
                 return HTMLResponse(content="""
                 <!DOCTYPE html>
                 <html>
@@ -135,8 +149,10 @@ async def google_callback(
                 """)
             
             user_data = user_info_response.json()
+            logger.info(f"User data received: {json.dumps(user_data, indent=2)}")
     
     except httpx.ConnectTimeout:
+        logger.error("Connection timeout")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
@@ -150,6 +166,7 @@ async def google_callback(
         </html>
         """)
     except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
         return HTMLResponse(content=f"""
         <!DOCTYPE html>
         <html>
@@ -166,6 +183,7 @@ async def google_callback(
     email = user_data.get("email")
     
     if not google_id or not email:
+        logger.error(f"Incomplete user data. google_id: {google_id}, email: {email}")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
@@ -182,6 +200,7 @@ async def google_callback(
     user = db.query(User).filter(User.google_id == google_id).first()
     
     if not user:
+        logger.warning(f"User with google_id {google_id} not found")
         error_message = urllib.parse.quote(
             "Аккаунт Google не привязан. Сначала войдите через логин/пароль и привяжите Google в профиле."
         )
@@ -218,6 +237,7 @@ async def google_callback(
         """)
     
     if not user.is_active:
+        logger.warning(f"User {user.id} is banned")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
@@ -237,6 +257,8 @@ async def google_callback(
     
     frontend_url = f"http://localhost:5173/login?oauth_token={jwt_token}"
     
+    logger.info(f"User {user.id} logged in via Google")
+    
     return HTMLResponse(f"""
     <!DOCTYPE html>
     <html>
@@ -255,12 +277,13 @@ async def google_callback(
 
 # ============ Google OAuth - Привязка ============
 
-@router.post("/link/google")
+@router.get("/link/google")  # ← ИЗМЕНИЛ POST на GET
 async def link_google_account(
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Начинает привязку Google аккаунта"""
+    
+    logger.info(f"User {current_user.id} initiating Google link")
     
     state = secrets.token_urlsafe(32)
     redis_client.setex(f"oauth_state:{state}", 600, f"link:{current_user.id}")
@@ -268,7 +291,7 @@ async def link_google_account(
     authorization_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
         f"?client_id={GOOGLE_CLIENT_ID}"
-        f"&redirect_uri={GOOGLE_LINK_REDIRECT_URI}"
+        f"&redirect_uri={urllib.parse.quote(GOOGLE_LINK_REDIRECT_URI)}"
         "&response_type=code"
         "&scope=openid%20email%20profile"
         f"&state={state}"
@@ -276,6 +299,7 @@ async def link_google_account(
         "&prompt=consent"
     )
     
+    logger.info(f"Google link URL generated for user {current_user.id}")
     return {"url": authorization_url}
 
 
@@ -287,24 +311,43 @@ async def google_link_callback(
 ):
     """Обрабатывает callback для привязки Google"""
     
+    logger.info(f"Google link callback received. State: {state}")
+    
     state_data = redis_client.get(f"oauth_state:{state}")
     if not state_data:
+        logger.error(f"Invalid state in link callback: {state}")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
         <head><meta charset="UTF-8"><title>Error</title></head>
         <body style="font-family:sans-serif;text-align:center;padding:40px;">
             <h2>❌ Invalid State</h2>
+            <p>Security check failed. Please try again.</p>
             <p><a href="http://localhost:5173/profile">Back to profile</a></p>
         </body>
         </html>
         """)
     redis_client.delete(f"oauth_state:{state}")
     
+    # Проверяем, что state_data начинается с "link:"
+    if not state_data.startswith("link:"):
+        logger.error(f"Invalid state data format: {state_data}")
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ Invalid State Format</h2>
+            <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+        </body>
+        </html>
+        """)
+    
     user_id = int(state_data.split(":")[1])
     current_user = db.query(User).filter(User.id == user_id).first()
     
     if not current_user:
+        logger.error(f"User {user_id} not found for Google link")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
@@ -315,6 +358,8 @@ async def google_link_callback(
         </body>
         </html>
         """)
+    
+    logger.info(f"Processing Google link for user {current_user.id}")
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -330,12 +375,14 @@ async def google_link_callback(
             )
             
             if token_response.status_code != 200:
+                logger.error(f"Token error in link: {token_response.text}")
                 return HTMLResponse(content="""
                 <!DOCTYPE html>
                 <html>
                 <head><meta charset="UTF-8"><title>Error</title></head>
                 <body style="font-family:sans-serif;text-align:center;padding:40px;">
                     <h2>❌ Token Error</h2>
+                    <p>Failed to get authorization token from Google.</p>
                     <p><a href="http://localhost:5173/profile">Back to profile</a></p>
                 </body>
                 </html>
@@ -344,12 +391,26 @@ async def google_link_callback(
             token_data = token_response.json()
             access_token = token_data.get("access_token")
             
+            if not access_token:
+                logger.error("No access token in link response")
+                return HTMLResponse(content="""
+                <!DOCTYPE html>
+                <html>
+                <head><meta charset="UTF-8"><title>Error</title></head>
+                <body style="font-family:sans-serif;text-align:center;padding:40px;">
+                    <h2>❌ No Access Token</h2>
+                    <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+                </body>
+                </html>
+                """)
+            
             user_info_response = await client.get(
                 "https://www.googleapis.com/oauth2/v3/userinfo",
                 headers={"Authorization": f"Bearer {access_token}"}
             )
             
             if user_info_response.status_code != 200:
+                logger.error(f"User info error in link: {user_info_response.text}")
                 return HTMLResponse(content="""
                 <!DOCTYPE html>
                 <html>
@@ -362,8 +423,10 @@ async def google_link_callback(
                 """)
             
             user_data = user_info_response.json()
+            logger.info(f"Google user data for link: {json.dumps(user_data, indent=2)}")
     
     except httpx.ConnectTimeout:
+        logger.error("Connection timeout in link callback")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
@@ -376,13 +439,14 @@ async def google_link_callback(
         </html>
         """)
     except Exception as e:
+        logger.error(f"Unexpected error in link callback: {str(e)}")
         return HTMLResponse(content=f"""
         <!DOCTYPE html>
         <html>
         <head><meta charset="UTF-8"><title>Error</title></head>
         <body style="font-family:sans-serif;text-align:center;padding:40px;">
             <h2>❌ Error</h2>
-            <p>{str(e)}</p>
+            <p>An error occurred: {str(e)}</p>
             <p><a href="http://localhost:5173/profile">Back to profile</a></p>
         </body>
         </html>
@@ -390,6 +454,7 @@ async def google_link_callback(
     
     google_id = user_data.get("sub")
     if not google_id:
+        logger.error("No Google ID in user data")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
@@ -408,6 +473,7 @@ async def google_link_callback(
     ).first()
     
     if existing_user:
+        logger.warning(f"Google account {google_id} already linked to user {existing_user.id}")
         return HTMLResponse(content="""
         <!DOCTYPE html>
         <html>
@@ -422,10 +488,31 @@ async def google_link_callback(
     
     # Привязываем Google
     current_user.google_id = google_id
-    if "google" not in (current_user.oauth_providers or []):
-        current_user.oauth_providers = (current_user.oauth_providers or []) + ["google"]
     
-    db.commit()
+    # Безопасно обновляем oauth_providers
+    if current_user.oauth_providers is None:
+        current_user.oauth_providers = ["google"]
+    elif "google" not in current_user.oauth_providers:
+        current_user.oauth_providers = current_user.oauth_providers + ["google"]
+    
+    try:
+        db.commit()
+        db.refresh(current_user)
+        logger.info(f"Google account {google_id} linked to user {current_user.id}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Database error during Google link: {str(e)}")
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="UTF-8"><title>Error</title></head>
+        <body style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h2>❌ Database Error</h2>
+            <p>Failed to save Google account link.</p>
+            <p><a href="http://localhost:5173/profile">Back to profile</a></p>
+        </body>
+        </html>
+        """)
     
     return HTMLResponse("""
     <!DOCTYPE html>
@@ -444,7 +531,9 @@ async def google_link_callback(
 
 
 # ============ Управление OAuth аккаунтами ============
-
+# ============ Управление OAuth аккаунтами ============
+from sqlalchemy import JSON
+import json
 @router.post("/unlink/google")
 async def unlink_google_account(
     db: Session = Depends(get_db),
@@ -452,13 +541,22 @@ async def unlink_google_account(
 ):
     """Отвязывает Google аккаунт"""
     
-    current_user.google_id = None
-    current_user.oauth_providers = [p for p in (current_user.oauth_providers or []) if p != "google"]
-    
-    db.commit()
-    
-    return {"message": "Google account unlinked successfully"}
-
+    try:
+        # Используем прямой запрос для обновления
+        db.query(User).filter(User.id == current_user.id).update({
+            "google_id": None
+        }, synchronize_session=False)
+        
+        db.commit()
+        
+        return {
+            "message": "Google account unlinked successfully"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/providers")
 async def get_linked_providers(
@@ -466,11 +564,14 @@ async def get_linked_providers(
 ):
     """Возвращает список привязанных OAuth провайдеров"""
     
+    logger.info(f"Getting providers for user {current_user.id}")
+    
     return {
         "providers": [
             {
                 "provider": "google",
-                "is_linked": bool(current_user.google_id)
+                "is_linked": bool(current_user.google_id),
+                "email": current_user.email  # Дополнительная информация
             }
         ]
     }

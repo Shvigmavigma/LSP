@@ -1,6 +1,8 @@
 {
     "common": {
         "welcome": "Сардэчна запрашаем",
+        "linking": "Прывязка...",
+        "unlinking": "Адвязка...",
         "confirmDelete": "Вы ўпэўнены, што хочаце выдаліць гэты файл?",
         "upload": "Загрузіць",
         "download": "Спампаваць",
@@ -487,6 +489,14 @@
     },
     "profile": {
         "title": "Асабісты кабінет",
+        "connectedAccounts": "Google акаўнт",
+        "link": "Прывязаць",
+        "unlink": "Адвязаць",
+        "googleLinked": "Google акаўнт паспяхова прывязаны!",
+        "googleUnlinked": "Google акаўнт паспяхова адвязаны!",
+        "confirmUnlink": "Вы ўпэўнены, што хочаце адвязаць Google акаўнт?",
+        "linkError": "Не атрымалася прывязаць Google акаўнт",
+        "unlinkError": "Не атрымалася адвязаць Google акаўнт",
         "nickname": "Мянушка",
         "fullname": "Поўнае імя",
         "email": "Email",
