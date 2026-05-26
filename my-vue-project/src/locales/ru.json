@@ -427,12 +427,14 @@
     },
     "allProjects": {
         "title": "Все проекты",
-        "filterAll": "Все проекты",
+        "searchPlaceholder": "Поиск проектов...",
+        "noProjects": "Проекты не найдены",
+        "filterAll": "Все",
         "filterFree": "Свободные",
         "filterTaken": "Занятые",
-        "searchPlaceholder": "Поиск по названию...",
-        "noProjects": "Проекты не найдены",
-        "participantsLabel": "Участники"
+        "participantsLabel": "Участники",
+        "vacancies": "Вакансии",
+        "loading": "Загрузка проектов..."
     },
     "allUsers": {
         "title": "Пользователи",

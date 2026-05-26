@@ -76,6 +76,8 @@ FILE_SIZE_LIMITS_FILE = "file_size_limits.json"
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 
 ]
 
@@ -1768,7 +1770,6 @@ async def search_projects(q: Optional[str] = Query(None), db: Session = Depends(
     if not q:
         return []
     return db.query(Project).filter(Project.title.ilike(f"%{q}%")).all()
-
 @app.delete("/projects/{project_id}", tags=["Projects"])
 async def delete_project(
     project_id: int,
@@ -1778,15 +1779,43 @@ async def delete_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    
     if project.hidden_by_users is None:
         project.hidden_by_users = []
+    
+    # Admin or curator can permanently delete the project
     if current_user.is_admin or is_curator(current_user):
-        db.delete(project)
-        db.commit()
-        return {"message": f"Project {project_id} permanently deleted successfully"}
+        try:
+            # 1. Delete related invitations FIRST
+            invitations = db.query(Invitation).filter(Invitation.project_id == project_id).all()
+            for invitation in invitations:
+                db.delete(invitation)
+            
+            # 2. Delete related files
+            files = db.query(ProjectFile).filter(ProjectFile.project_id == project_id).all()
+            for f in files:
+                file_path = os.path.join("uploads", f.filename)
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except OSError as e:
+                        print(f"Error deleting file {file_path}: {e}")
+                db.delete(f)
+            
+            # 3. Now it's safe to delete the project
+            db.delete(project)
+            db.commit()
+            return {"message": f"Project {project_id} permanently deleted successfully"}
+            
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Error deleting project: {str(e)}")
+    
+    # Non-admin logic remains the same (hide instead of delete)
     participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
     if not participant or participant.get("role") != ProjectRole.CUSTOMER.value:
         raise HTTPException(status_code=403, detail="Only customer, curator or admin can delete/hide the project")
+    
     if current_user.id not in project.hidden_by_users:
         project.hidden_by_users.append(current_user.id)
     if not project.is_hidden:
@@ -1796,7 +1825,6 @@ async def delete_project(
     db.commit()
     db.refresh(project)
     return {"message": f"Project {project_id} hidden successfully"}
-
 @app.post("/projects/{project_id}/tasks/{task_index}/comments", response_model=ProjectResponse, tags=["Projects"])
 async def add_task_comment(
     project_id: int,
