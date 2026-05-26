@@ -54,6 +54,21 @@
       >
         <h3 class="card-title">{{ project.title }}</h3>
         <p class="card-description">{{ project.body.slice(0, 150) }}...</p>
+        
+        <!-- Вакансии проекта -->
+        <div v-if="getProjectVacancies(project).length > 0" class="project-vacancies">
+          <div class="vacancies-title">{{ $t('allProjects.vacancies') }}:</div>
+          <div class="vacancies-list">
+            <span 
+              v-for="vacancy in getProjectVacancies(project)" 
+              :key="vacancy.role" 
+              class="vacancy-badge"
+            >
+              {{ getRoleDisplay(vacancy.role) }}: {{ vacancy.deficit }}
+            </span>
+          </div>
+        </div>
+        
         <div class="card-footer">
           <span class="participants-label">{{ $t('allProjects.participantsLabel') }}:</span>
           <div class="participants-list">
@@ -96,13 +111,15 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUsersStore } from '@/stores/users';
+import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import type { Project, ProjectRole } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
-import api from'@/utils/api'
+import api from '@/utils/api';
 
 const router = useRouter();
 const usersStore = useUsersStore();
+const { t } = useI18n();
 const projects = ref<Project[]>([]);
 const search = ref('');
 const loading = ref(true);
@@ -111,12 +128,50 @@ const filterType = ref<'all' | 'free' | 'taken'>('all');
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-const filteredProjects = computed(() => {
-  if (filterType.value === 'all') return projects.value;
-  if (filterType.value === 'free') {
-    return projects.value.filter(p => !p.participants.some(part => part.role === 'executor'));
+// Функция для получения вакансий проекта
+function getProjectVacancies(project: Project): Array<{ role: ProjectRole; deficit: number }> {
+  const required = project.required_roles || {};
+  const vacancies: Array<{ role: ProjectRole; deficit: number }> = [];
+  
+  for (const [role, target] of Object.entries(required)) {
+    const current = project.participants?.filter(p => p.role === role).length || 0;
+    const deficit = Math.max(0, (target as number) - current);
+    if (deficit > 0) {
+      vacancies.push({ role: role as ProjectRole, deficit });
+    }
   }
-  return projects.value.filter(p => p.participants.some(part => part.role === 'executor'));
+  
+  return vacancies;
+}
+
+// Функция для получения отображаемого названия роли
+function getRoleDisplay(role: ProjectRole): string {
+  return t(`roles.${role}`);
+}
+
+// Проверка, есть ли в проекте вакансии
+function hasVacancies(project: Project): boolean {
+  return getProjectVacancies(project).length > 0;
+}
+
+// Проверка, есть ли в проекте исполнители
+function hasExecutors(project: Project): boolean {
+  return project.participants?.some(p => p.role === 'executor') || false;
+}
+
+const filteredProjects = computed(() => {
+  let result = projects.value;
+  
+  // Применяем фильтр типа
+  if (filterType.value === 'free') {
+    // Свободные - проекты с вакансиями (любые свободные роли)
+    result = projects.value.filter(p => hasVacancies(p));
+  } else if (filterType.value === 'taken') {
+    // Занятые - проекты без вакансий (все роли заполнены)
+    result = projects.value.filter(p => !hasVacancies(p));
+  }
+  
+  return result;
 });
 
 onMounted(async () => {
@@ -309,6 +364,36 @@ function goHome() {
   margin-bottom: 16px;
   overflow-wrap: break-word;
 }
+
+/* Стили для вакансий */
+.project-vacancies {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(66, 185, 131, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(66, 185, 131, 0.1);
+}
+.vacancies-title {
+  font-weight: 600;
+  color: var(--accent-color);
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+.vacancies-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vacancy-badge {
+  background: var(--accent-color);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .card-footer {
   border-top: 1px solid var(--border-color);
   padding-top: 12px;

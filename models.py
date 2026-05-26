@@ -47,7 +47,7 @@ class Project(Base):
     hidden_by_users = Column(JSON, default=list)
     is_old = Column(Boolean, default=False)
     required_roles = Column(JSON, default={})
-    
+    invitations = relationship("Invitation", back_populates="project", cascade="all, delete-orphan")
 class ProjectFile(Base):
     __tablename__ = "project_files"
 
@@ -78,6 +78,6 @@ class Invitation(Base):
     expires_at = Column(DateTime, nullable=True)
 
     # Связи (опционально, для удобства)
-    project = relationship("Project", backref="invitations")
+    project = relationship("Project", back_populates="invitations")
     inviter = relationship("User", foreign_keys=[invited_by])
     invitee = relationship("User", foreign_keys=[invited_user_id])
