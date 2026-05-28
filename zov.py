@@ -3,7 +3,6 @@ from sqlalchemy import text
 
 def migrate():
     with engine.connect() as conn:
-        # Проверяем существование колонок
         result = conn.execute(text("PRAGMA table_info(users)"))
         columns = [row[1] for row in result]
         

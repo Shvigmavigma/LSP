@@ -98,7 +98,6 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 AVATAR_DIR = "avatars"
 app.include_router(oauth_router)
 
-# Добавляем колонку required_roles в таблицу projects, если её нет
 def ensure_required_roles_column():
     try:
         with engine.connect() as conn:
@@ -185,7 +184,6 @@ def save_file_limits(data: dict):
     with open(FILE_SIZE_LIMITS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
-# Новая зависимость: авторизация через query-параметр или заголовок
 async def get_user_from_query_or_header(
     request: Request,
     token: Optional[str] = Query(None),
@@ -230,7 +228,7 @@ def count_participants_by_role(project: Project, role: str) -> int:
 def user_can_act_as_role(user: User, role: str) -> bool:
     """Проверяет, может ли пользователь выполнять данную роль в проекте."""
     if role == "executor":
-        return True   # любой пользователь может быть исполнителем
+        return True   
     if not user.is_teacher:
         return False
     if role == "curator":
@@ -248,8 +246,7 @@ def has_full_edit_permission(project: Project, user: User) -> bool:
     role = get_participant_role(project, user.id)
     if role == ProjectRole.CUSTOMER.value:
         return True
-    # Если в проекте нет заказчика и куратора, а пользователь — исполнитель,
-    # то он получает права заказчика
+    # Если в проекте нет заказчика и куратора, а пользователь — исполнитель, то он получает права заказчика
     if role == ProjectRole.EXECUTOR.value:
         has_customer = any(p.get("role") == ProjectRole.CUSTOMER.value for p in (project.participants or []))
         has_curator = any(p.get("role") == ProjectRole.CURATOR.value for p in (project.participants or []))
@@ -446,8 +443,6 @@ async def delete_my_account(
     Удаляет аватар, удаляет пользователя из всех проектов, затем удаляет сам аккаунт.
     """
     user_id = current_user.id
-    
-    # Удаляем аватар если есть
     if current_user.avatar:
         filepath = os.path.join(AVATAR_DIR, current_user.avatar)
         if os.path.exists(filepath):
@@ -1783,15 +1778,13 @@ async def delete_project(
     if project.hidden_by_users is None:
         project.hidden_by_users = []
     
-    # Admin or curator can permanently delete the project
     if current_user.is_admin or is_curator(current_user):
         try:
-            # 1. Delete related invitations FIRST
+            
             invitations = db.query(Invitation).filter(Invitation.project_id == project_id).all()
             for invitation in invitations:
                 db.delete(invitation)
             
-            # 2. Delete related files
             files = db.query(ProjectFile).filter(ProjectFile.project_id == project_id).all()
             for f in files:
                 file_path = os.path.join("uploads", f.filename)
@@ -1802,7 +1795,7 @@ async def delete_project(
                         print(f"Error deleting file {file_path}: {e}")
                 db.delete(f)
             
-            # 3. Now it's safe to delete the project
+            
             db.delete(project)
             db.commit()
             return {"message": f"Project {project_id} permanently deleted successfully"}

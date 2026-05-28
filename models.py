@@ -77,7 +77,6 @@ class Invitation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=True)
 
-    # Связи (опционально, для удобства)
     project = relationship("Project", back_populates="invitations")
     inviter = relationship("User", foreign_keys=[invited_by])
     invitee = relationship("User", foreign_keys=[invited_user_id])

@@ -195,8 +195,6 @@ async def google_callback(
         </body>
         </html>
         """)
-    
-    # 🔥 Ищем пользователя ТОЛЬКО по google_id (не создаем нового!)
     user = db.query(User).filter(User.google_id == google_id).first()
     
     if not user:
@@ -329,7 +327,6 @@ async def google_link_callback(
         """)
     redis_client.delete(f"oauth_state:{state}")
     
-    # Проверяем, что state_data начинается с "link:"
     if not state_data.startswith("link:"):
         logger.error(f"Invalid state data format: {state_data}")
         return HTMLResponse(content="""
@@ -531,7 +528,6 @@ async def google_link_callback(
 
 
 # ============ Управление OAuth аккаунтами ============
-# ============ Управление OAuth аккаунтами ============
 from sqlalchemy import JSON
 import json
 @router.post("/unlink/google")
@@ -571,7 +567,7 @@ async def get_linked_providers(
             {
                 "provider": "google",
                 "is_linked": bool(current_user.google_id),
-                "email": current_user.email  # Дополнительная информация
+                "email": current_user.email
             }
         ]
     }
