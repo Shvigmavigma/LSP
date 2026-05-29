@@ -1193,6 +1193,101 @@ async def toggle_hide_project(
     db.refresh(project)
     return project
 
+@app.patch("/projects/{project_id}/links", response_model=ProjectResponse, tags=["Projects"])
+async def update_project_links(
+    project_id: int,
+    links_update: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Обновление ссылок проекта (GitHub, Google Drive).
+    Доступно всем участникам проекта (любая роль).
+    Ожидает JSON: {"github": "url"} или {"google_drive": "url"} или оба сразу.
+    Для удаления ссылки передайте null: {"github": null}
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Старый проект нельзя редактировать")
+    
+    if not is_project_participant(project, current_user.id):
+        raise HTTPException(status_code=403, detail="Только участники проекта могут изменять ссылки")
+    
+    if project.links is None:
+        project.links = {}
+    
+    if "github" in links_update:
+        if links_update["github"] is None:
+            project.links.pop("github", None)
+        else:
+            project.links["github"] = links_update["github"]
+    
+    if "google_drive" in links_update:
+        if links_update["google_drive"] is None:
+            project.links.pop("google_drive", None)
+        else:
+            project.links["google_drive"] = links_update["google_drive"]
+    
+    flag_modified(project, "links")
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@app.delete("/projects/{project_id}/links/github", response_model=ProjectResponse, tags=["Projects"])
+async def delete_github_link(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Удаление ссылки GitHub из проекта. Доступно всем участникам."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Старый проект нельзя редактировать")
+    
+    if not is_project_participant(project, current_user.id):
+        raise HTTPException(status_code=403, detail="Только участники проекта могут удалять ссылки")
+    
+    if project.links and "github" in project.links:
+        del project.links["github"]
+        flag_modified(project, "links")
+        db.commit()
+        db.refresh(project)
+    
+    return project
+
+
+@app.delete("/projects/{project_id}/links/google-drive", response_model=ProjectResponse, tags=["Projects"])
+async def delete_google_drive_link(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Удаление ссылки Google Drive из проекта. Доступно всем участникам."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Старый проект нельзя редактировать")
+    
+    if not is_project_participant(project, current_user.id):
+        raise HTTPException(status_code=403, detail="Только участники проекта могут удалять ссылки")
+    
+    if project.links and "google_drive" in project.links:
+        del project.links["google_drive"]
+        flag_modified(project, "links")
+        db.commit()
+        db.refresh(project)
+    
+    return project
+
 @app.put("/projects/{project_id}/join-requests/{request_id}/accept", response_model=ProjectResponse, tags=["Projects"])
 async def accept_join_request(
     project_id: int,
