@@ -1045,65 +1045,114 @@ const sendInvite = async (userId: number, role: ProjectRole) => {
 };
 
 // ---- Ссылки проекта ----
-async function updateProjectLinks(updates: Partial<NonNullable<Project['links']>>) {
+async function updateProjectLinks(updates: Record<string, string | null>) {
   if (!project.value) return;
   try {
-    const newLinks = { ...(project.value.links || {}), ...updates };
-    await axios.put(`${baseUrl}/projects/${project.value.id}`, { links: newLinks });
-    project.value.links = newLinks;
-  } catch (err) {
-    alert(t('projectDetails.linkUpdateError'));
+    // Используем PATCH эндпоинт для обновления ссылок
+    const response = await axios.patch(
+      `${baseUrl}/projects/${project.value.id}/links`,
+      updates
+    );
+    project.value = response.data;
+    showNotification(t('projectDetails.linkUpdated'), 'success');
+  } catch (err: any) {
+    const errorMsg = err.response?.data?.detail || t('projectDetails.linkUpdateError');
+    showNotification(errorMsg, 'error');
   }
 }
 function saveGithubLink() {
-  if (githubInput.value.trim()) updateProjectLinks({ github: githubInput.value.trim() });
+  if (githubInput.value.trim()) {
+    updateProjectLinks({ github: githubInput.value.trim() });
+  }
   showGithubInput.value = false;
   githubInput.value = '';
 }
-function cancelGithub() { showGithubInput.value = false; githubInput.value = ''; }
+function cancelGithub() { 
+  showGithubInput.value = false; 
+  githubInput.value = ''; 
+}
 function startEditGithub() {
   githubEditValue.value = project.value?.links?.github || '';
   showEditGithub.value = true;
 }
 function saveEditGithub() {
-  if (githubEditValue.value.trim()) updateProjectLinks({ github: githubEditValue.value.trim() });
+  if (githubEditValue.value.trim()) {
+    updateProjectLinks({ github: githubEditValue.value.trim() });
+  }
   showEditGithub.value = false;
   githubEditValue.value = '';
 }
-function cancelEditGithub() { showEditGithub.value = false; githubEditValue.value = ''; }
+
+function cancelEditGithub() { 
+  showEditGithub.value = false; 
+  githubEditValue.value = ''; 
+}
+
 async function deleteGithubLink() {
   if (!project.value?.links?.github) return;
   if (confirm(t('projectDetails.confirmDeleteGithub'))) {
-    const newLinks = { ...project.value.links };
-    delete newLinks.github;
-    await updateProjectLinks(newLinks);
+    try {
+      // Используем DELETE эндпоинт для удаления GitHub ссылки
+      const response = await axios.delete(
+        `${baseUrl}/projects/${project.value.id}/links/github`
+      );
+      project.value = response.data;
+      showNotification(t('projectDetails.linkDeleted'), 'success');
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.detail || t('projectDetails.linkDeleteError');
+      showNotification(errorMsg, 'error');
+    }
   }
 }
+
+// Google Drive ссылки
 function saveDriveLink() {
-  if (driveInput.value.trim()) updateProjectLinks({ google_drive: driveInput.value.trim() });
+  if (driveInput.value.trim()) {
+    updateProjectLinks({ google_drive: driveInput.value.trim() });
+  }
   showDriveInput.value = false;
   driveInput.value = '';
 }
-function cancelDrive() { showDriveInput.value = false; driveInput.value = ''; }
+
+function cancelDrive() { 
+  showDriveInput.value = false; 
+  driveInput.value = ''; 
+}
+
 function startEditDrive() {
   driveEditValue.value = project.value?.links?.google_drive || '';
   showEditDrive.value = true;
 }
+
 function saveEditDrive() {
-  if (driveEditValue.value.trim()) updateProjectLinks({ google_drive: driveEditValue.value.trim() });
+  if (driveEditValue.value.trim()) {
+    updateProjectLinks({ google_drive: driveEditValue.value.trim() });
+  }
   showEditDrive.value = false;
   driveEditValue.value = '';
 }
-function cancelEditDrive() { showEditDrive.value = false; driveEditValue.value = ''; }
+
+function cancelEditDrive() { 
+  showEditDrive.value = false; 
+  driveEditValue.value = ''; 
+}
+
 async function deleteDriveLink() {
   if (!project.value?.links?.google_drive) return;
   if (confirm(t('projectDetails.confirmDeleteDrive'))) {
-    const newLinks = { ...project.value.links };
-    delete newLinks.google_drive;
-    await updateProjectLinks(newLinks);
+    try {
+      // Используем DELETE эндпоинт для удаления Google Drive ссылки
+      const response = await axios.delete(
+        `${baseUrl}/projects/${project.value.id}/links/google-drive`
+      );
+      project.value = response.data;
+      showNotification(t('projectDetails.linkDeleted'), 'success');
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.detail || t('projectDetails.linkDeleteError');
+      showNotification(errorMsg, 'error');
+    }
   }
 }
-
 // ---- Удаление/скрытие проекта ----
 const handleProjectDelete = async () => {
   if (!project.value) return;
