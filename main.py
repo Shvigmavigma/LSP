@@ -21,7 +21,7 @@ from auth import get_current_admin
 from oauth_routes import router as oauth_router
 load_dotenv()
 from sqlalchemy.orm.attributes import flag_modified
-from models import Base, User, Project, ProjectFile, Invitation
+from models import Base, User, Project, ProjectFile, Invitation, ProjectCheckpoint, ProjectChange  # ← Добавлены новые модели
 from database import engine, session_local
 from schemas import (
     StudentCreate, StudentResponse, StudentUpdate,
@@ -35,11 +35,12 @@ from schemas import (
     InvitationCreate, InvitationInfo,
     ProjectFileResponse, InvitationResponse,
     RequiredFile, TaskTemplate,
-    ApprovalStatus,
-    ApprovalInfo,
-    ApprovalAction,
-    ApprovalRequest,
-    ProjectApprovalList
+    ApprovalStatus, ApprovalInfo, ApprovalAction, ApprovalRequest, ProjectApprovalList,
+    # Новые схемы для версионирования ← Добавлены
+    ProjectCheckpointResponse, ProjectChangeResponse,
+    ProjectVersionDetail, ProjectVersionHistory, ProjectVersionStats,
+    CreateCheckpointRequest, CreateCheckpointResponse,
+    RestoreVersionResponse, DeleteVersionResponse
 )
 
 from willow import Image
@@ -47,23 +48,15 @@ from PIL import Image as PILImage
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 
 from auth import (
-    verify_password,
-    get_password_hash,
-    create_access_token,
-    create_refresh_token,
-    get_current_user,
-    SECRET_KEY,
-    ALGORITHM,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    REFRESH_TOKEN_EXPIRE_DAYS,
-    oauth2_scheme
+    verify_password, get_password_hash, create_access_token, create_refresh_token,
+    get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS, oauth2_scheme
 )
 
 from fastapi.security import OAuth2PasswordRequestFormStrict
 from email_utils import generate_verification_code, send_verification_email, send_password_reset_email
 from core.memory_store import memory_store as redis_client
 
-# ==================== RATE LIMITING ====================
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -102,38 +95,313 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 AVATAR_DIR = "avatars"
 app.include_router(oauth_router)
 
-# ==================== MIGRATION ====================
-@app.on_event("startup")
-async def startup_event():
-    """Добавляет новые колонки при старте, если их нет"""
-    try:
-        with engine.connect() as conn:
-            result = conn.execute(text("PRAGMA table_info(projects)"))
-            columns = [row[1] for row in result]
-            
-            if "required_roles" not in columns:
-                conn.execute(text("ALTER TABLE projects ADD COLUMN required_roles JSON DEFAULT '{}'"))
-                conn.commit()
-                print("Column 'required_roles' added to projects table")
-            
-            new_columns = {
-                "is_approved": "BOOLEAN DEFAULT FALSE",
-                "approval_status": "VARCHAR DEFAULT 'draft'",
-                "approval_requested_at": "TIMESTAMP",
-                "approval_requested_by": "INTEGER REFERENCES users(id)",
-                "approval_handled_at": "TIMESTAMP",
-                "approval_handled_by": "INTEGER REFERENCES users(id)",
-                "approval_comment": "VARCHAR"
-            }
-            
-            for col_name, col_type in new_columns.items():
-                if col_name not in columns:
-                    conn.execute(text(f"ALTER TABLE projects ADD COLUMN {col_name} {col_type}"))
-                    conn.commit()
-                    print(f"Added column {col_name} to projects table")
-                    
-    except Exception as e:
-        print(f"Error during migration: {e}")
+# ==================== СИСТЕМА ОЧКОВ СЛОЖНОСТИ ====================
+
+CHANGE_POINTS = {
+    # 1 очко - мелкие изменения
+    "comment_add": 1,
+    "comment_delete": 1,
+    "comment_restore": 1,
+    "comment_mark_read": 1,
+    "task_comment_add": 1,
+    "task_comment_delete": 1,
+    "task_comment_restore": 1,
+    "link_update": 1,
+    "link_delete": 1,
+    "gantt_update": 1,
+    "subtask_move": 1,
+    "task_reorder": 1,
+    "task_move": 1,
+    
+    # 3 очка - изменения уровня задач
+    "task_update": 3,
+    "task_status_change": 3,
+    "tasks_bulk_update": 3,
+    "file_upload": 3,
+    "file_delete": 3,
+    "file_requirement_set": 3,
+    "file_old_vision_toggle": 3,
+    "suggestion_create": 3,
+    "suggestion_accept": 3,
+    "suggestion_reject": 3,
+    "join_request_create": 3,
+    "join_request_accept": 3,
+    "join_request_reject": 3,
+    "invitation_create": 3,
+    "invitation_accept": 3,
+    "invitation_reject": 3,
+    "invitation_cancel": 3,
+    
+    # 5 очков - изменения уровня проекта
+    "project_title_update": 5,
+    "project_body_update": 5,
+    "project_underbody_update": 5,
+    "project_full_update": 5,
+    "participant_add": 5,
+    "participant_remove": 5,
+    "participant_role_change": 5,
+    "required_roles_change": 5,
+    "project_approval_request": 5,
+    "project_approval_cancel": 5,
+    "project_approval_decision": 5,
+    "project_hide_toggle": 5,
+    "project_mark_old": 5,
+    "project_unmark_old": 5,
+    "project_leave": 5,
+    
+    # 10 очков - критические изменения
+    "project_create": 10,
+    "project_delete": 10,
+    "admin_delete_project": 10,
+    "admin_delete_all_files": 10,
+    "admin_update_project": 5,
+    "admin_toggle_file_limits": 3,
+}
+
+POINTS_THRESHOLD = 50  # Порог для автоматического чекпоинта
+
+
+# ==================== ФУНКЦИИ ДЛЯ РАБОТЫ СО СНИМКАМИ ====================
+
+def create_project_snapshot(project: Project) -> dict:
+    """Создаёт полный снимок текущего состояния проекта."""
+    return {
+        "title": project.title,
+        "body": project.body,
+        "underbody": project.underbody,
+        "participants": project.participants,
+        "tasks": project.tasks,
+        "links": project.links,
+        "comments": project.comments,
+        "suggestions": project.suggestions,
+        "join_requests": project.join_requests,
+        "required_roles": project.required_roles,
+        "is_hidden": project.is_hidden,
+        "hidden_by": project.hidden_by,
+        "hidden_by_users": project.hidden_by_users,
+        "is_old": project.is_old,
+        "ignore_file_limits": project.ignore_file_limits,
+        # Поля одобрения
+        "is_approved": getattr(project, 'is_approved', False),
+        "approval_status": getattr(project, 'approval_status', 'draft'),
+        "approval_requested_at": project.approval_requested_at.isoformat() if getattr(project, 'approval_requested_at', None) else None,
+        "approval_requested_by": getattr(project, 'approval_requested_by', None),
+        "approval_handled_at": project.approval_handled_at.isoformat() if getattr(project, 'approval_handled_at', None) else None,
+        "approval_handled_by": getattr(project, 'approval_handled_by', None),
+        "approval_comment": getattr(project, 'approval_comment', None),
+    }
+
+
+def compute_project_diff(old_snapshot: dict, new_snapshot: dict) -> dict:
+    """Вычисляет разницу между двумя снимками проекта.
+    Возвращает словарь только с изменившимися полями."""
+    diff = {}
+    for key in new_snapshot:
+        if key not in old_snapshot or old_snapshot[key] != new_snapshot[key]:
+            diff[key] = new_snapshot[key]
+    return diff
+
+
+def apply_diff(base_snapshot: dict, diff: dict) -> dict:
+    """Применяет diff к базовому снимку.
+    Возвращает новый снимок с применёнными изменениями."""
+    result = base_snapshot.copy()
+    for key, value in diff.items():
+        result[key] = value
+    return result
+
+
+# ==================== ФУНКЦИИ ДЛЯ РАБОТЫ С ЧЕКПОИНТАМИ ====================
+
+def get_current_checkpoint_version(db: Session, project_id: int) -> int:
+    """Получает номер последнего чекпоинта проекта. 0 если нет."""
+    last = db.query(ProjectCheckpoint).filter(
+        ProjectCheckpoint.project_id == project_id
+    ).order_by(ProjectCheckpoint.version.desc()).first()
+    return last.version if last else 0
+
+
+def get_current_change_version(db: Session, project_id: int, checkpoint_version: int) -> int:
+    """Получает номер последнего изменения в чекпоинте. 0 если нет."""
+    last = db.query(ProjectChange).filter(
+        ProjectChange.project_id == project_id,
+        ProjectChange.checkpoint_version == checkpoint_version
+    ).order_by(ProjectChange.change_version.desc()).first()
+    return last.change_version if last else 0
+
+
+def get_total_points_since_last_checkpoint(db: Session, project_id: int) -> int:
+    """Считает сумму очков всех изменений после последнего чекпоинта."""
+    last_checkpoint = db.query(ProjectCheckpoint).filter(
+        ProjectCheckpoint.project_id == project_id
+    ).order_by(ProjectCheckpoint.version.desc()).first()
+    
+    if not last_checkpoint:
+        return 0
+    
+    changes = db.query(ProjectChange).filter(
+        ProjectChange.project_id == project_id,
+        ProjectChange.checkpoint_version == last_checkpoint.version
+    ).all()
+    
+    return sum(c.points for c in changes)
+
+
+# ==================== ОСНОВНЫЕ ФУНКЦИИ ВЕРСИОНИРОВАНИЯ ====================
+
+async def record_change(
+    db: Session,
+    project_id: int,
+    change_type: str,
+    points: int,
+    diff: dict,
+    user_id: int,
+    description: str = ""
+):
+    """
+    Записывает изменение в историю.
+    Если нет чекпоинта - создаёт первый.
+    Если накоплено >= POINTS_THRESHOLD очков - создаёт авто-чекпоинт.
+    """
+    # Получаем или создаём чекпоинт
+    cp_version = get_current_checkpoint_version(db, project_id)
+    if cp_version == 0:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if project:
+            cp_version = await create_checkpoint(db, project, user_id, "Initial checkpoint")
+    
+    # Определяем номер изменения
+    ch_version = get_current_change_version(db, project_id, cp_version) + 1
+    
+    # Создаём запись об изменении
+    change = ProjectChange(
+        project_id=project_id,
+        checkpoint_version=cp_version,
+        change_version=ch_version,
+        change_type=change_type,
+        points=points,
+        diff=diff,
+        created_by=user_id,
+        description=description
+    )
+    db.add(change)
+    db.flush()  # Сохраняем без коммита
+    
+    # Проверяем, не пора ли создать авто-чекпоинт
+    total_points = get_total_points_since_last_checkpoint(db, project_id)
+    if total_points >= POINTS_THRESHOLD:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if project:
+            await create_checkpoint(
+                db, project, user_id,
+                f"Auto-checkpoint: {total_points} points accumulated",
+                total_points
+            )
+    
+    return change
+
+
+async def create_checkpoint(
+    db: Session,
+    project: Project,
+    user_id: int,
+    message: str = "",
+    total_points: int = 0
+) -> int:
+    """
+    Создаёт новый чекпоинт с полным снимком проекта.
+    Возвращает номер новой версии.
+    """
+    version = get_current_checkpoint_version(db, project.id) + 1
+    snapshot = create_project_snapshot(project)
+    
+    checkpoint = ProjectCheckpoint(
+        project_id=project.id,
+        version=version,
+        snapshot=snapshot,
+        created_by=user_id,
+        message=message,
+        total_points=total_points
+    )
+    db.add(checkpoint)
+    db.flush()
+    
+    return checkpoint.version
+
+
+async def restore_to_version(
+    db: Session,
+    project: Project,
+    checkpoint_version: int,
+    change_version: int = 0
+):
+    """
+    Восстанавливает проект до указанной версии.
+    checkpoint_version - номер чекпоинта
+    change_version - номер изменения (0 = весь чекпоинт)
+    
+    ВАЖНО: Все версии после указанной будут УДАЛЕНЫ!
+    """
+    # Находим чекпоинт
+    checkpoint = db.query(ProjectCheckpoint).filter(
+        ProjectCheckpoint.project_id == project.id,
+        ProjectCheckpoint.version == checkpoint_version
+    ).first()
+    
+    if not checkpoint:
+        raise HTTPException(status_code=404, detail="Checkpoint not found")
+    
+    # Берём базовый снимок
+    snapshot = checkpoint.snapshot.copy()
+    
+    # Накатываем изменения если нужно
+    if change_version > 0:
+        changes = db.query(ProjectChange).filter(
+            ProjectChange.project_id == project.id,
+            ProjectChange.checkpoint_version == checkpoint_version,
+            ProjectChange.change_version <= change_version
+        ).order_by(ProjectChange.change_version.asc()).all()
+        
+        for change in changes:
+            snapshot = apply_diff(snapshot, change.diff)
+    
+    # Применяем снимок к проекту
+    for key, value in snapshot.items():
+        if hasattr(project, key):
+            setattr(project, key, value)
+    
+    db.flush()
+    
+    # Удаляем все последующие изменения в этом чекпоинте
+    if change_version > 0:
+        db.query(ProjectChange).filter(
+            ProjectChange.project_id == project.id,
+            ProjectChange.checkpoint_version == checkpoint_version,
+            ProjectChange.change_version > change_version
+        ).delete()
+    else:
+        db.query(ProjectChange).filter(
+            ProjectChange.project_id == project.id,
+            ProjectChange.checkpoint_version == checkpoint_version
+        ).delete()
+    
+    # Удаляем все последующие чекпоинты
+    db.query(ProjectCheckpoint).filter(
+        ProjectCheckpoint.project_id == project.id,
+        ProjectCheckpoint.version > checkpoint_version
+    ).delete()
+    
+    # Удаляем изменения последующих чекпоинтов
+    db.query(ProjectChange).filter(
+        ProjectChange.project_id == project.id,
+        ProjectChange.checkpoint_version > checkpoint_version
+    ).delete()
+    
+    db.commit()
+    db.refresh(project)
+    
+    return project
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -256,7 +524,6 @@ def user_can_act_as_role(user: User, role: str) -> bool:
     if role == "curator":
         return user.teacher_info and user.teacher_info.get("curator", False)
     return role in user.teacher_info.get("roles", []) if user.teacher_info else False
-
 def has_full_edit_permission(project: Project, user: User) -> bool:
     if user.is_admin or is_curator(user):
         return True
@@ -288,6 +555,309 @@ def get_approval_info(project: Project) -> dict:
         "approval_handled_at": project.approval_handled_at.isoformat() if hasattr(project, 'approval_handled_at') and project.approval_handled_at else None,
         "approval_handled_by": project.approval_handled_by if hasattr(project, 'approval_handled_by') else None,
         "approval_comment": project.approval_comment if hasattr(project, 'approval_comment') else None
+    }
+
+# ==================== ЭНДПОИНТЫ ВЕРСИОНИРОВАНИЯ ====================
+
+@app.get("/projects/{project_id}/versions", tags=["Projects"])
+async def get_project_versions(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Получить полную историю версий проекта.
+    Возвращает все чекпоинты с их изменениями.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(status_code=403, detail="Only project participants can view versions")
+    
+    # Получаем все чекпоинты от новых к старым
+    checkpoints = db.query(ProjectCheckpoint).filter(
+        ProjectCheckpoint.project_id == project_id
+    ).order_by(ProjectCheckpoint.version.desc()).all()
+    
+    result = []
+    for cp in checkpoints:
+        # Получаем изменения для этого чекпоинта
+        changes = db.query(ProjectChange).filter(
+            ProjectChange.project_id == project_id,
+            ProjectChange.checkpoint_version == cp.version
+        ).order_by(ProjectChange.change_version.asc()).all()
+        
+        checkpoint_data = {
+            "version": str(cp.version),
+            "is_current": False,
+            "created_at": cp.created_at.isoformat() if cp.created_at else None,
+            "created_by": cp.created_by,
+            "message": cp.message,
+            "total_points": cp.total_points,
+            "changes_count": len(changes),
+            "changes": [
+                {
+                    "version": f"{c.checkpoint_version}.{c.change_version}",
+                    "checkpoint_version": c.checkpoint_version,
+                    "change_version": c.change_version,
+                    "type": c.change_type,
+                    "points": c.points,
+                    "description": c.description,
+                    "created_at": c.created_at.isoformat() if c.created_at else None,
+                    "created_by": c.created_by
+                }
+                for c in changes
+            ]
+        }
+        result.append(checkpoint_data)
+    
+    # Добавляем текущую версию (несохранённые изменения)
+    current_cp_version = get_current_checkpoint_version(db, project_id)
+    if current_cp_version > 0:
+        current_changes = db.query(ProjectChange).filter(
+            ProjectChange.project_id == project_id,
+            ProjectChange.checkpoint_version == current_cp_version
+        ).order_by(ProjectChange.change_version.asc()).all()
+        
+        current_points = sum(c.points for c in current_changes)
+        
+        result.insert(0, {
+            "version": f"{current_cp_version}.{len(current_changes)} (current)",
+            "is_current": True,
+            "created_at": None,
+            "created_by": None,
+            "message": "Current state (not saved as checkpoint)",
+            "total_points": current_points,
+            "points_to_next_checkpoint": max(0, POINTS_THRESHOLD - current_points),
+            "changes_count": len(current_changes),
+            "changes": [
+                {
+                    "version": f"{c.checkpoint_version}.{c.change_version}",
+                    "checkpoint_version": c.checkpoint_version,
+                    "change_version": c.change_version,
+                    "type": c.change_type,
+                    "points": c.points,
+                    "description": c.description,
+                    "created_at": c.created_at.isoformat() if c.created_at else None,
+                    "created_by": c.created_by
+                }
+                for c in current_changes
+            ]
+        })
+    
+    return {
+        "project_id": project_id,
+        "points_threshold": POINTS_THRESHOLD,
+        "checkpoints": result
+    }
+
+
+@app.post("/projects/{project_id}/checkpoint", tags=["Projects"])
+async def create_manual_checkpoint(
+    project_id: int,
+    request: CreateCheckpointRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Создать ручной чекпоинт (точку сохранения).
+    Доступно заказчику, куратору и админу.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not (current_user.is_admin or is_curator(current_user) or 
+            get_participant_role(project, current_user.id) == ProjectRole.CUSTOMER.value):
+        raise HTTPException(status_code=403, detail="Only customer, curator or admin can create checkpoints")
+    
+    total_points = get_total_points_since_last_checkpoint(db, project_id)
+    version = await create_checkpoint(db, project, current_user.id, request.message, total_points)
+    
+    db.commit()
+    
+    return CreateCheckpointResponse(
+        message=f"Checkpoint version {version} created successfully",
+        version=version,
+        total_points=total_points
+    )
+
+
+@app.post("/projects/{project_id}/restore/{checkpoint_version}", tags=["Projects"])
+async def restore_project_version(
+    project_id: int,
+    checkpoint_version: int,
+    change_version: int = Query(0, description="Номер изменения (0 = весь чекпоинт)"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Восстановить проект до определённой версии.
+    
+    Примеры:
+    - /restore/1/0 - восстановить до чекпоинта 1 (все изменения чекпоинта 1 будут удалены)
+    - /restore/1/3 - восстановить до изменения 1.3 (изменения после 1.3 будут удалены)
+    
+    ВНИМАНИЕ: Все версии после указанной будут безвозвратно удалены!
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not (current_user.is_admin or is_curator(current_user) or 
+            get_participant_role(project, current_user.id) == ProjectRole.CUSTOMER.value):
+        raise HTTPException(status_code=403, detail="Only customer, curator or admin can restore versions")
+    
+    await restore_to_version(db, project, checkpoint_version, change_version)
+    
+    return RestoreVersionResponse(
+        message=f"Project restored to version {checkpoint_version}.{change_version}",
+        warning="All changes after this version have been permanently deleted"
+    )
+
+
+@app.delete("/projects/{project_id}/versions/{checkpoint_version}", tags=["Projects"])
+async def delete_version(
+    project_id: int,
+    checkpoint_version: int,
+    change_version: int = Query(0, description="0 = удалить весь чекпоинт, >0 = удалить конкретное изменение"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Удалить чекпоинт или конкретное изменение.
+    
+    - change_version=0: удаляет весь чекпоинт и все его изменения
+    - change_version>0: удаляет только одно изменение, остальные сдвигаются
+    
+    Доступно только админам и кураторам.
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Only admins and curators can delete versions")
+    
+    if change_version == 0:
+        # Удаляем весь чекпоинт
+        total_checkpoints = db.query(ProjectCheckpoint).filter(
+            ProjectCheckpoint.project_id == project_id
+        ).count()
+        
+        if total_checkpoints <= 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the last checkpoint")
+        
+        # Удаляем все изменения этого чекпоинта
+        db.query(ProjectChange).filter(
+            ProjectChange.project_id == project_id,
+            ProjectChange.checkpoint_version == checkpoint_version
+        ).delete()
+        
+        # Удаляем сам чекпоинт
+        db.query(ProjectCheckpoint).filter(
+            ProjectCheckpoint.project_id == project_id,
+            ProjectCheckpoint.version == checkpoint_version
+        ).delete()
+        
+        # Сдвигаем номера последующих чекпоинтов
+        subsequent_checkpoints = db.query(ProjectCheckpoint).filter(
+            ProjectCheckpoint.project_id == project_id,
+            ProjectCheckpoint.version > checkpoint_version
+        ).order_by(ProjectCheckpoint.version.asc()).all()
+        
+        for cp in subsequent_checkpoints:
+            old_version = cp.version
+            cp.version -= 1
+            # Обновляем checkpoint_version в связанных изменениях
+            db.query(ProjectChange).filter(
+                ProjectChange.project_id == project_id,
+                ProjectChange.checkpoint_version == old_version
+            ).update({ProjectChange.checkpoint_version: cp.version})
+        
+        db.commit()
+        
+        return DeleteVersionResponse(
+            message=f"Checkpoint {checkpoint_version} and all its changes deleted. Subsequent checkpoints renumbered."
+        )
+    else:
+        # Удаляем конкретное изменение
+        deleted = db.query(ProjectChange).filter(
+            ProjectChange.project_id == project_id,
+            ProjectChange.checkpoint_version == checkpoint_version,
+            ProjectChange.change_version == change_version
+        ).delete()
+        
+        if deleted == 0:
+            raise HTTPException(status_code=404, detail="Change version not found")
+        
+        # Сдвигаем номера последующих изменений в этом чекпоинте
+        subsequent_changes = db.query(ProjectChange).filter(
+            ProjectChange.project_id == project_id,
+            ProjectChange.checkpoint_version == checkpoint_version,
+            ProjectChange.change_version > change_version
+        ).order_by(ProjectChange.change_version.asc()).all()
+        
+        for c in subsequent_changes:
+            c.change_version -= 1
+        
+        db.commit()
+        
+        return DeleteVersionResponse(
+            message=f"Change {checkpoint_version}.{change_version} deleted. Subsequent changes renumbered."
+        )
+
+
+@app.get("/projects/{project_id}/version-stats", tags=["Projects"])
+async def get_version_stats(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Получить статистику версионирования проекта:
+    - Количество чекпоинтов и изменений
+    - Текущая версия и количество очков
+    - Сколько осталось до авто-чекпоинта
+    """
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not is_project_participant(project, current_user.id):
+        raise HTTPException(status_code=403, detail="Only project participants can view stats")
+    
+    total_checkpoints = db.query(ProjectCheckpoint).filter(
+        ProjectCheckpoint.project_id == project_id
+    ).count()
+    
+    total_changes = db.query(ProjectChange).filter(
+        ProjectChange.project_id == project_id
+    ).count()
+    
+    current_version = get_current_checkpoint_version(db, project_id)
+    current_points = get_total_points_since_last_checkpoint(db, project_id)
+    change_stats = {}
+    for change_type in CHANGE_POINTS.keys():
+        count = db.query(ProjectChange).filter(
+            ProjectChange.project_id == project_id,
+            ProjectChange.change_type == change_type
+        ).count()
+        if count > 0:
+            change_stats[change_type] = count
+    
+    return {
+        "project_id": project_id,
+        "points_threshold": POINTS_THRESHOLD,
+        "total_checkpoints": total_checkpoints,
+        "total_changes": total_changes,
+        "current_version": current_version,
+        "current_points": current_points,
+        "points_to_next_checkpoint": max(0, POINTS_THRESHOLD - current_points),
+        "progress_percent": min(100, round(current_points / POINTS_THRESHOLD * 100)),
+        "change_stats": change_stats
     }
 
 # ==================== ЭНД ТОКЕНОВ ====================
@@ -323,10 +893,21 @@ async def toggle_project_file_limits(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    old_snapshot = create_project_snapshot(project)
+    
     project.ignore_file_limits = not project.ignore_file_limits
+    
     db.commit()
     db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "admin_toggle_file_limits", 3, diff,
+                       admin.id, f"Admin toggled file limits")
+    db.commit()
     return project
+
 
 @app.get("/admin/file-size-limits", tags=["Admin"])
 async def get_file_size_limits(admin: User = Depends(get_current_admin)):
@@ -569,13 +1150,24 @@ async def admin_update_project(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
+
+    old_snapshot = create_project_snapshot(project)
+    
     update_data = project_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if hasattr(project, field):
             setattr(project, field, value)
+    
     db.commit()
     db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "admin_update_project", 5, diff,
+                       admin.id, f"Admin updated project")
+    db.commit()
     return project
+
 
 @app.delete("/admin/projects/{project_id}", tags=["Admin"])
 async def admin_delete_project(
@@ -1039,9 +1631,17 @@ async def mark_project_old(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
+
+    old_snapshot = create_project_snapshot(project)
     project.is_old = True
     db.commit()
     db.refresh(project)
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "project_mark_old", 5, diff,
+                       current_user.id, f"Project marked as old by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.put("/projects/{project_id}/unmark-old", response_model=ProjectResponse, tags=["Projects"])
@@ -1055,11 +1655,18 @@ async def unmark_project_old(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
+
+    old_snapshot = create_project_snapshot(project)
     project.is_old = False
     db.commit()
     db.refresh(project)
-    return project
 
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "project_unmark_old", 5, diff,
+                       current_user.id, f"Project unmarked as old by {current_user.nickname}")
+    db.commit()
+    return project
 @app.post("/projects/{project_id}/join-requests", response_model=ProjectResponse, tags=["Projects"])
 async def create_join_request(
     project_id: int,
@@ -1105,6 +1712,8 @@ async def create_join_request(
         if existing:
             raise HTTPException(status_code=400, detail="You already have a pending request for this role")
 
+    old_snapshot = create_project_snapshot(project)
+
     new_request = {
         "id": str(uuid.uuid4()),
         "user_id": current_user.id,
@@ -1118,6 +1727,12 @@ async def create_join_request(
     flag_modified(project, "join_requests")
     db.commit()
     db.refresh(project)
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "join_request_create", 3, diff,
+                       current_user.id, f"Join request created by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.patch("/projects/{project_id}/hide", response_model=ProjectResponse, tags=["Projects"])
@@ -1131,6 +1746,9 @@ async def toggle_hide_project(
         raise HTTPException(status_code=404, detail="Project not found")
     if project.hidden_by_users is None:
         project.hidden_by_users = []
+
+    old_snapshot = create_project_snapshot(project)
+
     if current_user.is_admin or is_curator(current_user):
         project.is_hidden = not project.is_hidden
         if project.is_hidden:
@@ -1146,8 +1764,15 @@ async def toggle_hide_project(
             project.hidden_by = current_user.id
         else:
             project.hidden_by = None
+
     db.commit()
     db.refresh(project)
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "project_hide_toggle", 5, diff,
+                       current_user.id, f"Project visibility toggled by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.patch("/projects/{project_id}/links", response_model=ProjectResponse, tags=["Projects"])
@@ -1167,6 +1792,8 @@ async def update_project_links(
     if not is_project_participant(project, current_user.id):
         raise HTTPException(status_code=403, detail="Только участники проекта могут изменять ссылки")
     
+    old_snapshot = create_project_snapshot(project)
+    
     if project.links is None:
         project.links = {}
     
@@ -1185,6 +1812,12 @@ async def update_project_links(
     flag_modified(project, "links")
     db.commit()
     db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "link_update", 1, diff, current_user.id,
+                       f"Links updated by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.delete("/projects/{project_id}/links/github", response_model=ProjectResponse, tags=["Projects"])
@@ -1203,12 +1836,19 @@ async def delete_github_link(
     if not is_project_participant(project, current_user.id):
         raise HTTPException(status_code=403, detail="Только участники проекта могут удалять ссылки")
     
+    old_snapshot = create_project_snapshot(project)
+    
     if project.links and "github" in project.links:
         del project.links["github"]
         flag_modified(project, "links")
         db.commit()
         db.refresh(project)
     
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "link_delete", 1, diff, current_user.id,
+                       f"GitHub link deleted by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.delete("/projects/{project_id}/links/google-drive", response_model=ProjectResponse, tags=["Projects"])
@@ -1227,14 +1867,20 @@ async def delete_google_drive_link(
     if not is_project_participant(project, current_user.id):
         raise HTTPException(status_code=403, detail="Только участники проекта могут удалять ссылки")
     
+    old_snapshot = create_project_snapshot(project)
+    
     if project.links and "google_drive" in project.links:
         del project.links["google_drive"]
         flag_modified(project, "links")
         db.commit()
         db.refresh(project)
     
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "link_delete", 1, diff, current_user.id,
+                       f"Google Drive link deleted by {current_user.nickname}")
+    db.commit()
     return project
-
 @app.put("/projects/{project_id}/join-requests/{request_id}/accept", response_model=ProjectResponse, tags=["Projects"])
 async def accept_join_request(
     project_id: int,
@@ -1271,6 +1917,8 @@ async def accept_join_request(
     if deficit <= 0:
         raise HTTPException(status_code=400, detail=f"No open positions left for role {requested_role}")
 
+    old_snapshot = create_project_snapshot(project)
+
     new_participant = {
         "user_id": request_obj["user_id"],
         "role": requested_role,
@@ -1284,6 +1932,12 @@ async def accept_join_request(
     flag_modified(project, "participants")
     db.commit()
     db.refresh(project)
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "join_request_accept", 3, diff,
+                       current_user.id, f"Join request accepted by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.post("/projects/{project_id}/comments/{comment_id}/restore", response_model=ProjectResponse, tags=["Projects"])
@@ -1303,10 +1957,19 @@ async def restore_comment(
         raise HTTPException(status_code=404, detail="Comment not found")
     if not comment.get("hidden"):
         raise HTTPException(status_code=400, detail="Comment is not hidden")
+    
+    old_snapshot = create_project_snapshot(project)
+    
     comment["hidden"] = False
     flag_modified(project, "comments")
     db.commit()
     db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "comment_restore", 1, diff, current_user.id,
+                       f"Comment restored by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.post("/projects/{project_id}/tasks/{task_index}/comments/{comment_id}/restore", response_model=ProjectResponse, tags=["Projects"])
@@ -1336,7 +1999,7 @@ async def restore_task_comment(
     db.refresh(project)
     return project
 
-@app.put("/projects/{project_id}/join-requests/{request_id}/reject", response_model=ProjectResponse, tags=["Projects"])
+@app.p@app.put("/projects/{project_id}/join-requests/{request_id}/reject", response_model=ProjectResponse, tags=["Projects"])
 async def reject_join_request(
     project_id: int,
     request_id: str,
@@ -1350,6 +2013,7 @@ async def reject_join_request(
         role = get_participant_role(project, current_user.id)
         if role not in [ProjectRole.CUSTOMER.value, ProjectRole.CURATOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, curator or admin can reject join requests")
+    
     request_obj = None
     for r in (project.join_requests or []):
         if r.get("id") == request_id:
@@ -1359,10 +2023,19 @@ async def reject_join_request(
         raise HTTPException(status_code=404, detail="Join request not found")
     if request_obj.get("status") != "pending":
         raise HTTPException(status_code=400, detail="Request already processed")
+
+    old_snapshot = create_project_snapshot(project)
+    
     request_obj["status"] = "rejected"
     flag_modified(project, "join_requests")
     db.commit()
     db.refresh(project)
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "join_request_reject", 3, diff,
+                       current_user.id, f"Join request rejected by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.post("/projects/{project_id}/leave", response_model=ProjectResponse, tags=["Projects"])
@@ -1372,33 +2045,19 @@ async def leave_project(
     current_user: User = Depends(get_current_user)
 ):
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    if not project: raise HTTPException(404)
+    if not is_project_participant(project, current_user.id): raise HTTPException(400, "Not a participant")
+    if len(project.participants or []) == 1: raise HTTPException(400, "Cannot leave as only participant")
     
-    if not is_project_participant(project, current_user.id):
-        raise HTTPException(status_code=400, detail="You are not a participant of this project")
-    
+    old_snapshot = create_project_snapshot(project)
     user_role = get_participant_role(project, current_user.id)
     
-    if len(project.participants or []) == 1:
-        raise HTTPException(
-            status_code=400, 
-            detail="Cannot leave the project because you are the only participant. Consider deleting the project instead."
-        )
-    
     if project.participants:
-        project.participants = [
-            p for p in project.participants 
-            if p.get("user_id") != current_user.id
-        ]
+        project.participants = [p for p in project.participants if p.get("user_id") != current_user.id]
         flag_modified(project, "participants")
     
     if user_role == ProjectRole.CUSTOMER.value:
-        has_customer = any(
-            p.get("role") == ProjectRole.CUSTOMER.value 
-            for p in (project.participants or [])
-        )
-        
+        has_customer = any(p.get("role") == ProjectRole.CUSTOMER.value for p in (project.participants or []))
         if not has_customer and project.participants:
             project.participants[0]["role"] = ProjectRole.CUSTOMER.value
             flag_modified(project, "participants")
@@ -1407,9 +2066,12 @@ async def leave_project(
         project.hidden_by_users.remove(current_user.id)
         flag_modified(project, "hidden_by_users")
     
+    db.commit(); db.refresh(project)
+    new_snapshot = create_project_snapshot(project)
+    await record_change(db, project_id, "participant_remove", 5,
+                       compute_project_diff(old_snapshot, new_snapshot),
+                       current_user.id, f"User {current_user.nickname} left project")
     db.commit()
-    db.refresh(project)
-    
     return project
 
 @app.post("/projects/", response_model=ProjectResponse, tags=["Projects"])
@@ -1475,6 +2137,12 @@ async def create_project(
     db.add(db_project)
     db.commit()
     db.refresh(db_project)
+    
+    snapshot = create_project_snapshot(db_project)
+    await create_checkpoint(db, db_project, current_user.id, "Project created", 10)
+    await record_change(db, db_project.id, "project_create", 10, snapshot,
+                       current_user.id, f"Project created by {current_user.nickname}")
+    db.commit()
     return db_project
 
 @app.get("/projects/", response_model=List[ProjectResponse], tags=["Projects"])
@@ -1532,7 +2200,7 @@ async def update_project(
         raise HTTPException(status_code=404, detail="Project not found")
 
     if project.is_old and not (current_user.is_admin or is_curator(current_user)):
-        raise HTTPException(status_code=403, detail="Старый проект нельзя редактировать. Только администратор может изменять его.")
+        raise HTTPException(status_code=403, detail="Старый проект нельзя редактировать")
 
     participant_role = get_participant_role(project, current_user.id)
 
@@ -1540,6 +2208,7 @@ async def update_project(
         if participant_role not in [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value]:
             raise HTTPException(status_code=403, detail="Only customer, executor, curator or admin can update the project")
 
+    old_snapshot = create_project_snapshot(project)
     full_edit = has_full_edit_permission(project, current_user)
 
     if not full_edit and not (current_user.is_admin or is_curator(current_user)):
@@ -1554,27 +2223,20 @@ async def update_project(
             old_tasks = project.tasks or []
             titles = [task.get('title', '').strip().lower() for task in new_tasks if task.get('title')]
             if len(titles) != len(set(titles)):
-                raise HTTPException(status_code=400, detail="Task titles must be unique within a project")
+                raise HTTPException(400, "Task titles must be unique")
             for i, new_task in enumerate(new_tasks):
                 old_task = old_tasks[i] if i < len(old_tasks) else None
                 if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
                     required_files = new_task.get("required_files", [])
-                    if required_files:
-                        for req in required_files:
-                            req_id = req.get("id")
-                            if not req_id:
-                                continue
-                            attached = db.query(ProjectFile).filter(
-                                ProjectFile.project_id == project_id,
-                                ProjectFile.task_id == i,
-                                ProjectFile.required_file_id == req_id,
-                                ProjectFile.is_deleted == False
-                            ).first()
-                            if not attached:
-                                raise HTTPException(
-                                    401,
-                                    f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}"
-                                )
+                    for req in required_files:
+                        req_id = req.get("id")
+                        if not req_id: continue
+                        attached = db.query(ProjectFile).filter(
+                            ProjectFile.project_id == project_id, ProjectFile.task_id == i,
+                            ProjectFile.required_file_id == req_id, ProjectFile.is_deleted == False
+                        ).first()
+                        if not attached:
+                            raise HTTPException(401, f"Нужен файл: {req.get('name')}")
                 if "attachments" not in new_task and old_task and "attachments" in old_task:
                     new_task["attachments"] = old_task["attachments"]
             project.tasks = new_tasks
@@ -1583,78 +2245,69 @@ async def update_project(
             project.links = filtered_update['links']
             flag_modified(project, "links")
 
+        db.commit(); db.refresh(project)
+        new_snapshot = create_project_snapshot(project)
+        await record_change(db, project_id, "project_full_update", 5,
+                           compute_project_diff(old_snapshot, new_snapshot),
+                           current_user.id, f"Project updated by {current_user.nickname}")
         db.commit()
-        db.refresh(project)
         return project
 
     if project_update.required_roles is not None:
         if not (current_user.is_admin or is_curator(current_user)):
             if participant_role != ProjectRole.CUSTOMER.value:
-                raise HTTPException(status_code=403, detail="Only customer, curator or admin can change required roles")
+                raise HTTPException(403, "Only customer, curator or admin can change required roles")
         for role, count in project_update.required_roles.items():
             if role not in [r.value for r in ProjectRole]:
-                raise HTTPException(status_code=400, detail=f"Invalid role '{role}'")
+                raise HTTPException(400, f"Invalid role '{role}'")
             if not isinstance(count, int) or count < 0:
-                raise HTTPException(status_code=400, detail=f"Count for role '{role}' must be a non-negative integer")
+                raise HTTPException(400, f"Count must be non-negative")
         project.required_roles = project_update.required_roles
         flag_modified(project, "required_roles")
 
-    if project_update.title is not None:
-        project.title = project_update.title
-    if project_update.body is not None:
-        project.body = project_update.body
-    if project_update.underbody is not None:
-        project.underbody = project_update.underbody
+    if project_update.title is not None: project.title = project_update.title
+    if project_update.body is not None: project.body = project_update.body
+    if project_update.underbody is not None: project.underbody = project_update.underbody
 
     if project_update.tasks is not None:
         old_tasks = project.tasks or []
         new_tasks = project_update.tasks
         titles = [task.get('title', '').strip().lower() for task in new_tasks if task.get('title')]
         if len(titles) != len(set(titles)):
-            raise HTTPException(status_code=400, detail="Task titles must be unique within a project")
+            raise HTTPException(400, "Task titles must be unique")
         for i, new_task in enumerate(new_tasks):
             old_task = old_tasks[i] if i < len(old_tasks) else None
             if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
                 required_files = new_task.get("required_files", [])
-                if required_files:
-                    for req in required_files:
-                        req_id = req.get("id")
-                        if not req_id:
-                            continue
-                        attached = db.query(ProjectFile).filter(
-                            ProjectFile.project_id == project_id,
-                            ProjectFile.task_id == i,
-                            ProjectFile.required_file_id == req_id,
-                            ProjectFile.is_deleted == False
-                        ).first()
-                        if not attached:
-                            raise HTTPException(
-                                401,
-                                f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}"
-                            )
+                for req in required_files:
+                    req_id = req.get("id")
+                    if not req_id: continue
+                    attached = db.query(ProjectFile).filter(
+                        ProjectFile.project_id == project_id, ProjectFile.task_id == i,
+                        ProjectFile.required_file_id == req_id, ProjectFile.is_deleted == False
+                    ).first()
+                    if not attached:
+                        raise HTTPException(401, f"Нужен файл: {req.get('name')}")
             if "attachments" not in new_task and old_task and "attachments" in old_task:
                 new_task["attachments"] = old_task["attachments"]
         project.tasks = new_tasks
         flag_modified(project, "tasks")
 
-    if project_update.links is not None:
-        project.links = project_update.links
-        flag_modified(project, "links")
-
-    if project_update.comments is not None:
-        project.comments = [c.model_dump(mode='json') for c in project_update.comments]
-        flag_modified(project, "comments")
-
+    if project_update.links is not None: project.links = project_update.links; flag_modified(project, "links")
+    if project_update.comments is not None: project.comments = [c.model_dump(mode='json') for c in project_update.comments]; flag_modified(project, "comments")
     if project_update.participants is not None:
         new_ids = [p.user_id for p in project_update.participants]
         users = db.query(User).filter(User.id.in_(new_ids)).all()
-        if len(users) != len(new_ids):
-            raise HTTPException(404, "One or more users not found")
+        if len(users) != len(new_ids): raise HTTPException(404, "Users not found")
         project.participants = [p.model_dump(mode='json') for p in project_update.participants]
         flag_modified(project, "participants")
 
+    db.commit(); db.refresh(project)
+    new_snapshot = create_project_snapshot(project)
+    await record_change(db, project_id, "project_full_update", 5,
+                       compute_project_diff(old_snapshot, new_snapshot),
+                       current_user.id, f"Project updated by {current_user.nickname}")
     db.commit()
-    db.refresh(project)
     return project
 
 @app.patch("/projects/{project_id}/tasks", response_model=ProjectResponse, tags=["Projects"])
@@ -1680,6 +2333,8 @@ async def update_project_tasks(
     if len(titles) != len(set(titles)):
         raise HTTPException(400, "Task titles must be unique within a project")
     
+    old_snapshot = create_project_snapshot(project)
+    
     old_tasks = project.tasks or []
     for i, new_task in enumerate(tasks):
         old_task = old_tasks[i] if i < len(old_tasks) else None
@@ -1704,6 +2359,12 @@ async def update_project_tasks(
     flag_modified(project, "tasks")
     db.commit()
     db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "tasks_bulk_update", 3, diff, current_user.id,
+                       f"Tasks updated by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.patch("/projects/{project_id}/subtasks/move", response_model=ProjectResponse, tags=["Projects"])
@@ -1737,6 +2398,8 @@ async def move_subtask(
     if any(x is None for x in [from_task_idx, from_subtask_idx, to_task_idx, to_subtask_idx]):
         raise HTTPException(400, "Missing required fields")
     
+    old_snapshot = create_project_snapshot(project)
+    
     tasks = project.tasks or []
     
     if from_task_idx < 0 or from_task_idx >= len(tasks):
@@ -1754,7 +2417,6 @@ async def move_subtask(
         raise HTTPException(400, "Invalid from_subtask_index")
     
     moved_subtask = from_subtasks.pop(from_subtask_idx)
-    
     insert_idx = min(to_subtask_idx, len(to_subtasks))
     to_subtasks.insert(insert_idx, moved_subtask)
     
@@ -1766,6 +2428,11 @@ async def move_subtask(
     db.commit()
     db.refresh(project)
     
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "subtask_move", 1, diff, current_user.id,
+                       f"Subtask moved by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.delete("/files/{file_id}", tags=["Projects"])
@@ -1827,15 +2494,25 @@ async def add_comment(
         raise HTTPException(status_code=404, detail="Project not found")
     if not (current_user.is_admin or is_curator(current_user) or any(p.get("user_id") == current_user.id for p in (project.participants or []))):
         raise HTTPException(status_code=403, detail="Only project participants, curator or admin can comment")
+    
+    old_snapshot = create_project_snapshot(project)
+    
     if project.comments is None:
         project.comments = []
     comment.authorId = current_user.id
     comment.authorRole = get_author_role(current_user, project)
     project.comments.append(comment.model_dump(mode='json'))
     flag_modified(project, "comments")
+    
     try:
         db.commit()
         db.refresh(project)
+        
+        new_snapshot = create_project_snapshot(project)
+        diff = compute_project_diff(old_snapshot, new_snapshot)
+        await record_change(db, project_id, "comment_add", 1, diff, current_user.id,
+                           f"Comment added by {current_user.nickname}")
+        db.commit()
         return project
     except Exception as e:
         print("Ошибка при сохранении комментария:", e)
@@ -1861,6 +2538,7 @@ async def delete_project(
         project.hidden_by_users = []
     
     if current_user.is_admin or is_curator(current_user):
+        old_snapshot = create_project_snapshot(project)
         try:
             invitations = db.query(Invitation).filter(Invitation.project_id == project_id).all()
             for invitation in invitations:
@@ -1878,6 +2556,9 @@ async def delete_project(
             
             db.delete(project)
             db.commit()
+            
+            await record_change(db, project_id, "admin_delete_project", 10, old_snapshot,
+                               current_user.id, f"Admin permanently deleted project '{old_snapshot.get('title')}'")
             return {"message": f"Project {project_id} permanently deleted successfully"}
         except Exception as e:
             db.rollback()
@@ -1887,6 +2568,8 @@ async def delete_project(
     if not participant or participant.get("role") != ProjectRole.CUSTOMER.value:
         raise HTTPException(status_code=403, detail="Only customer, curator or admin can delete/hide the project")
     
+    old_snapshot = create_project_snapshot(project)
+    
     if current_user.id not in project.hidden_by_users:
         project.hidden_by_users.append(current_user.id)
     if not project.is_hidden:
@@ -1895,6 +2578,12 @@ async def delete_project(
     flag_modified(project, "hidden_by_users")
     db.commit()
     db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "project_hide_toggle", 5, diff,
+                       current_user.id, f"Project hidden by {current_user.nickname}")
+    db.commit()
     return {"message": f"Project {project_id} hidden successfully"}
 
 @app.post("/projects/{project_id}/tasks/{task_index}/comments", response_model=ProjectResponse, tags=["Projects"])
@@ -1912,6 +2601,9 @@ async def add_task_comment(
         raise HTTPException(status_code=403, detail="Only project participants, curator or admin can comment")
     if not project.tasks or task_index < 0 or task_index >= len(project.tasks):
         raise HTTPException(status_code=404, detail="Task not found")
+    
+    old_snapshot = create_project_snapshot(project)
+    
     task = project.tasks[task_index]
     if task.get("comments") is None:
         task["comments"] = []
@@ -1919,9 +2611,16 @@ async def add_task_comment(
     comment.authorRole = get_author_role(current_user, project)
     task["comments"].append(comment.model_dump(mode='json'))
     flag_modified(project, "tasks")
+    
     try:
         db.commit()
         db.refresh(project)
+        
+        new_snapshot = create_project_snapshot(project)
+        diff = compute_project_diff(old_snapshot, new_snapshot)
+        await record_change(db, project_id, "task_comment_add", 1, diff, current_user.id,
+                           f"Task comment added by {current_user.nickname}")
+        db.commit()
         return project
     except Exception as e:
         print("Ошибка при сохранении комментария к задаче:", e)
@@ -1944,6 +2643,9 @@ async def create_suggestion(
             raise HTTPException(status_code=403, detail="Only expert, supervisor, executor, curator or admin can create suggestions")
     if suggestion_data.target_type not in ["project", "task", "link"]:
         raise HTTPException(status_code=400, detail="target_type must be 'project', 'task', or 'link'")
+
+    old_snapshot = create_project_snapshot(project)
+
     new_suggestion = {
         "id": str(uuid.uuid4()),
         "author_id": current_user.id,
@@ -1960,6 +2662,12 @@ async def create_suggestion(
     flag_modified(project, "suggestions")
     db.commit()
     db.refresh(project)
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "suggestion_create", 3, diff,
+                       current_user.id, f"Suggestion created by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.put("/projects/{project_id}/suggestions/{suggestion_id}/accept", response_model=ProjectResponse, tags=["Projects"])
@@ -1982,10 +2690,11 @@ async def accept_suggestion(
         raise HTTPException(status_code=404, detail="Suggestion not found")
     
     user_role = get_participant_role(project, current_user.id)
-    
     if not (current_user.is_admin or is_curator(current_user)):
         if user_role != ProjectRole.CUSTOMER.value:
             raise HTTPException(status_code=403, detail="Only customer, curator or admin can accept suggestions")
+
+    old_snapshot = create_project_snapshot(project)
     
     suggestion["status"] = SuggestionStatus.ACCEPTED.value
     flag_modified(project, "suggestions")
@@ -1997,8 +2706,13 @@ async def accept_suggestion(
     
     db.commit()
     db.refresh(project)
-    return project
 
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "suggestion_accept", 3, diff,
+                       current_user.id, f"Suggestion accepted by {current_user.nickname}")
+    db.commit()
+    return project
 @app.put("/projects/{project_id}/suggestions/{suggestion_id}/reject", response_model=ProjectResponse, tags=["Projects"])
 async def reject_suggestion(
     project_id: int,
@@ -2020,10 +2734,19 @@ async def reject_suggestion(
         role = get_participant_role(project, current_user.id)
         if role != ProjectRole.CUSTOMER.value:
             raise HTTPException(status_code=403, detail="Only customer, curator or admin can reject suggestions")
+
+    old_snapshot = create_project_snapshot(project)
+    
     suggestion["status"] = SuggestionStatus.REJECTED.value
     flag_modified(project, "suggestions")
     db.commit()
     db.refresh(project)
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "suggestion_reject", 3, diff,
+                       current_user.id, f"Suggestion rejected by {current_user.nickname}")
+    db.commit()
     return project
 
 # ==================== СКРЫТИЕ КОММЕНТАРИЕВ ====================
@@ -2143,6 +2866,9 @@ async def upload_project_file(
         raise HTTPException(404, "Project not found")
     if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
         raise HTTPException(403, "Not enough permissions")
+    
+    old_snapshot = create_project_snapshot(project)
+    
     contents = await file.read()
     if not project.ignore_file_limits:
         limits = load_file_limits()
@@ -2155,18 +2881,12 @@ async def upload_project_file(
         allowed = set(load_file_limits().keys())
         if file.content_type not in allowed:
             raise HTTPException(400, f"File type {file.content_type} not allowed")
+    
     ext = os.path.splitext(file.filename)[1]
     unique_name = f"{uuid.uuid4().hex}{ext}"
 
-    compressible_gzip = [
-        "text/plain",
-        "application/msword",
-        "application/vnd.ms-powerpoint",
-    ]
-    image_compressible = [
-        "image/png",
-        "image/jpeg",
-    ]
+    compressible_gzip = ["text/plain", "application/msword", "application/vnd.ms-powerpoint"]
+    image_compressible = ["image/png", "image/jpeg"]
 
     compressed = False
     compressed_image = False
@@ -2179,7 +2899,6 @@ async def upload_project_file(
             final_content = compressed_content
             final_filename = unique_name + ".gz"
             compressed = True
-
     elif file.content_type in image_compressible:
         try:
             img = PILImage.open(io.BytesIO(contents))
@@ -2198,22 +2917,17 @@ async def upload_project_file(
                 final_filename = unique_name + ".jpg"
                 compressed_image = True
         except Exception as e:
-            print(f"Image compression failed, keeping original: {e}")
+            print(f"Image compression failed: {e}")
 
     file_path = os.path.join("uploads", final_filename)
     with open(file_path, "wb") as f:
         f.write(final_content)
 
     db_file = ProjectFile(
-        project_id=project_id,
-        task_id=task_id,
-        filename=final_filename,
-        required_file_id=required_file_id,
-        original_filename=file.filename,
-        file_size=len(contents),
-        mime_type=file.content_type,
-        uploaded_by=current_user.id,
-        compressed=compressed or compressed_image
+        project_id=project_id, task_id=task_id, filename=final_filename,
+        required_file_id=required_file_id, original_filename=file.filename,
+        file_size=len(contents), mime_type=file.content_type,
+        uploaded_by=current_user.id, compressed=compressed or compressed_image
     )
     db.add(db_file)
     db.commit()
@@ -2224,20 +2938,57 @@ async def upload_project_file(
         if "attachments" not in task:
             task["attachments"] = []
         attachment = {
-            "id": str(uuid.uuid4()),
-            "file_id": db_file.id,
-            "required_file_id": required_file_id,
-            "uploaded_at": datetime.utcnow().isoformat(),
-            "original_filename": file.filename,
-            "size": len(contents),
-            "mime_type": file.content_type
+            "id": str(uuid.uuid4()), "file_id": db_file.id,
+            "required_file_id": required_file_id, "uploaded_at": datetime.utcnow().isoformat(),
+            "original_filename": file.filename, "size": len(contents), "mime_type": file.content_type
         }
         task["attachments"].append(attachment)
         flag_modified(project, "tasks")
         db.commit()
-
+    
+    db.refresh(project)
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "file_upload", 3, diff, current_user.id,
+                       f"File '{file.filename}' uploaded by {current_user.nickname}")
+    db.commit()
     return db_file
 
+@app.delete("/files/{file_id}", tags=["Projects"])
+async def delete_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    file_record = db.query(ProjectFile).filter(ProjectFile.id == file_id).first()
+    if not file_record:
+        raise HTTPException(404, "File not found")
+    project = db.query(Project).filter(Project.id == file_record.project_id).first()
+    if not (current_user.id == file_record.uploaded_by or current_user.is_admin or 
+            is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(403, "Not enough permissions")
+    
+    old_snapshot = create_project_snapshot(project)
+    
+    if file_record.task_id is not None:
+        task = project.tasks[file_record.task_id]
+        if "attachments" in task:
+            task["attachments"] = [att for att in task["attachments"] if att.get("file_id") != file_id]
+            flag_modified(project, "tasks")
+    
+    file_path = os.path.join("uploads", file_record.filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    db.delete(file_record)
+    db.commit()
+    db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project.id, "file_delete", 3, diff, current_user.id,
+                       f"File '{file_record.original_filename}' deleted by {current_user.nickname}")
+    db.commit()
+    return {"message": "File deleted"}
 @app.get("/projects/{project_id}/files", response_model=List[ProjectFileResponse], tags=["Projects"])
 async def get_project_files(
     project_id: int,
@@ -2276,6 +3027,8 @@ async def admin_delete_all_project_files(
     if not project:
         raise HTTPException(404, "Project not found")
 
+    old_snapshot = create_project_snapshot(project)
+    
     files = db.query(ProjectFile).filter(
         ProjectFile.project_id == project_id,
         ProjectFile.is_deleted == False
@@ -2296,6 +3049,13 @@ async def admin_delete_all_project_files(
                 task["attachments"] = []
         flag_modified(project, "tasks")
 
+    db.commit()
+    db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "admin_delete_all_files", 10, diff,
+                       admin.id, f"Admin deleted all files ({len(files)} files)")
     db.commit()
     return {"message": f"Все файлы проекта {project_id} удалены ({len(files)} шт.)"}
 
@@ -2616,10 +3376,19 @@ async def delete_project_comment(
         role = get_participant_role(project, current_user.id)
         if role != ProjectRole.CUSTOMER.value:
             raise HTTPException(status_code=403, detail="Only comment author, customer, curator or admin can delete")
+    
+    old_snapshot = create_project_snapshot(project)
+    
     comment["hidden"] = True
     flag_modified(project, "comments")
     db.commit()
     db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "comment_delete", 1, diff, current_user.id,
+                       f"Comment hidden by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.delete("/projects/{project_id}/tasks/{task_index}/comments/{comment_id}", response_model=ProjectResponse, tags=["Projects"])
@@ -2647,10 +3416,19 @@ async def delete_task_comment(
         role = get_participant_role(project, current_user.id)
         if role != ProjectRole.CUSTOMER.value:
             raise HTTPException(status_code=403, detail="Only comment author, customer, curator or admin can delete")
+    
+    old_snapshot = create_project_snapshot(project)
+    
     comment["hidden"] = True
     flag_modified(project, "tasks")
     db.commit()
     db.refresh(project)
+    
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "task_comment_delete", 1, diff, current_user.id,
+                       f"Task comment hidden by {current_user.nickname}")
+    db.commit()
     return project
 
 # ==================== ОТМЕТКА ПРОЧИТАННЫХ КОММЕНТАРИЕВ ====================
@@ -3033,38 +3811,25 @@ async def request_project_approval(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Отправка заявки на публикацию проекта. Доступно заказчику, админу и куратору."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
     participant_role = get_participant_role(project, current_user.id)
-    
-    can_request = (
-        current_user.is_admin or 
-        is_curator(current_user) or 
-        participant_role == ProjectRole.CUSTOMER.value
-    )
-    
+    can_request = (current_user.is_admin or is_curator(current_user) or participant_role == ProjectRole.CUSTOMER.value)
     if not can_request:
-        raise HTTPException(
-            status_code=403, 
-            detail="Only project customer, curator or admin can request approval"
-        )
+        raise HTTPException(status_code=403, detail="Only project customer, curator or admin can request approval")
     
     if not hasattr(project, 'approval_status'):
         project.approval_status = "draft"
-    
     if project.approval_status == "pending":
         raise HTTPException(status_code=400, detail="Project already pending approval")
     if project.approval_status == "approved":
         raise HTTPException(status_code=400, detail="Project already approved")
-    
     if not project.title or not project.body:
-        raise HTTPException(
-            status_code=400, 
-            detail="Project must have title and body before requesting approval"
-        )
+        raise HTTPException(status_code=400, detail="Project must have title and body")
+
+    old_snapshot = create_project_snapshot(project)
     
     project.approval_status = "pending"
     project.is_approved = False
@@ -3076,7 +3841,12 @@ async def request_project_approval(
     
     db.commit()
     db.refresh(project)
-    
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "project_approval_request", 5, diff,
+                       current_user.id, f"Approval requested by {current_user.nickname}")
+    db.commit()
     return project
 
 @app.get("/projects/{project_id}/is-approved", tags=["Projects"])
@@ -3105,30 +3875,19 @@ async def cancel_project_approval(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Отмена заявки на публикацию проекта. Доступно заказчику, админу и куратору."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
     participant_role = get_participant_role(project, current_user.id)
-    
-    can_cancel = (
-        current_user.is_admin or 
-        is_curator(current_user) or 
-        participant_role == ProjectRole.CUSTOMER.value
-    )
-    
+    can_cancel = (current_user.is_admin or is_curator(current_user) or participant_role == ProjectRole.CUSTOMER.value)
     if not can_cancel:
-        raise HTTPException(
-            status_code=403, 
-            detail="Only the project customer, curator or admin can cancel approval request"
-        )
+        raise HTTPException(status_code=403, detail="Only customer, curator or admin can cancel")
     
     if not hasattr(project, 'approval_status') or project.approval_status != "pending":
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Cannot cancel approval request with status: {getattr(project, 'approval_status', 'draft')}"
-        )
+        raise HTTPException(status_code=400, detail=f"Cannot cancel with status: {getattr(project, 'approval_status', 'draft')}")
+
+    old_snapshot = create_project_snapshot(project)
     
     project.approval_status = "draft"
     project.is_approved = False
@@ -3137,7 +3896,12 @@ async def cancel_project_approval(
     
     db.commit()
     db.refresh(project)
-    
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "project_approval_cancel", 5, diff,
+                       current_user.id, f"Approval cancelled by {current_user.nickname}")
+    db.commit()
     return project
 
 
@@ -3247,7 +4011,6 @@ async def approve_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Принятие или отклонение заявки на публикацию."""
     if not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(status_code=403, detail="Only admins and curators can approve/reject projects")
     
@@ -3256,13 +4019,12 @@ async def approve_project(
         raise HTTPException(status_code=404, detail="Project not found")
     
     if not hasattr(project, 'approval_status') or project.approval_status != "pending":
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Cannot process project with status: {getattr(project, 'approval_status', 'draft')}"
-        )
+        raise HTTPException(status_code=400, detail=f"Cannot process with status: {getattr(project, 'approval_status', 'draft')}")
     
     if action.action not in ["approve", "reject"]:
         raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+
+    old_snapshot = create_project_snapshot(project)
     
     project.approval_handled_at = datetime.utcnow()
     project.approval_handled_by = current_user.id
@@ -3277,7 +4039,12 @@ async def approve_project(
     
     db.commit()
     db.refresh(project)
-    
+
+    new_snapshot = create_project_snapshot(project)
+    diff = compute_project_diff(old_snapshot, new_snapshot)
+    await record_change(db, project_id, "project_approval_decision", 5, diff,
+                       current_user.id, f"Project {action.action}d by {current_user.nickname}")
+    db.commit()
     return project
 
 
