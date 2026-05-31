@@ -9,6 +9,7 @@ class JoinRequest(BaseModel):
     user_id: int
     created_at: datetime
     status: str 
+
 # ---------- СХЕМА КОММЕНТОВ ----------
 class Comment(BaseModel):
     id: str
@@ -78,6 +79,7 @@ class StudentUpdate(BaseModel):
     avatar: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)
 
+# ---------- СТАТУСЫ ОДОБРЕНИЯ ----------
 class ApprovalStatus(str, Enum):
     DRAFT = "draft"          # черновик
     PENDING = "pending"      # на рассмотрении
@@ -98,12 +100,26 @@ class ApprovalAction(BaseModel):
     action: str = Field(..., description="approve или reject")
     comment: Optional[str] = Field(None, description="Комментарий к решению")
 
+class ApprovalRequest(BaseModel):
+    project_id: int
+    project_title: str
+    requested_by: int
+    requested_by_name: str
+    requested_at: datetime
+    status: ApprovalStatus
+    customer_name: Optional[str] = None
+    
+class ProjectApprovalList(BaseModel):
+    """Список проектов для модерации"""
+    pending: List[ApprovalRequest] = []
+    approved: List[ApprovalRequest] = []
+    rejected: List[ApprovalRequest] = []
+
 # ---------- учитель ----------
 class TeacherRole(str, Enum):
     CUSTOMER = "customer"      # Заказчик
     EXPERT = "expert"           # Эксперт
     SUPERVISOR = "supervisor"   # Научный руководитель
-    #куратор будет отдельно
 
 class TeacherInfo(BaseModel):
     roles: List[TeacherRole] = Field(default=[], description="Роли учителя: заказчик, эксперт, научный руководитель")
@@ -145,35 +161,30 @@ class UserResponse(BaseModel):
     is_teacher: bool
     class_: Optional[float] = Field(None, alias="class")
     teacher_info: Optional[TeacherInfo] = None
-    
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_admin: bool = False
-    
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
-    
     google_id: Optional[str] = None
     vk_id: Optional[str] = None
     oauth_providers: List[str] = []
-
 
 # ---------- Авторизация ----------
 class LoginRequest(BaseModel):
     nickname: str
     password: str
+
 # ---------- предложение ----------
 class SuggestionStatus(str, Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
 
-
-
-# Схема для создания предложения 
 class SuggestionCreate(BaseModel):
     target_type: str
     target_id: Optional[str] = None
     changes: Dict[str, Any]
+
 class Suggestion(BaseModel):
     id: str
     author_id: int
@@ -183,10 +194,11 @@ class Suggestion(BaseModel):
     status: SuggestionStatus = SuggestionStatus.PENDING
     created_at: datetime
     comments: List[Comment] = []
+
 # ---------- Проект ----------
 class ProjectFileResponse(BaseModel):
     id: int
-    filename: str               # оригинальное имя
+    filename: str
     original_filename: str
     file_size: int
     mime_type: str
@@ -195,7 +207,8 @@ class ProjectFileResponse(BaseModel):
     task_id: Optional[int] = None
     required_file_id: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
-    is_old_vision : bool = False
+    is_old_vision: bool = False
+
 class ProjectBase(BaseModel):
     ignore_file_limits: bool = False
     title: str = Field(..., min_length=1, json_schema_extra={"example": "Космическая программа"})
@@ -227,6 +240,7 @@ class ProjectBase(BaseModel):
         description="Целевое количество участников по ролям"
     )
     approval_info: Optional[ApprovalInfo] = None
+
 class ProjectCreate(ProjectBase):
     pass  
 
@@ -235,11 +249,15 @@ class ProjectResponse(ProjectBase):
     id: int
     is_hidden: bool = False
     hidden_by: Optional[int] = None
-    hidden_by_users : Optional[Dict] = None
+    hidden_by_users: Optional[Dict] = None
     join_requests: List[JoinRequest] = []
     hidden_by_users: List[int] = [] 
     model_config = ConfigDict(from_attributes=True)
     approval_info: Optional[ApprovalInfo] = None
+    # Поля для версионирования
+    current_version: Optional[int] = None
+    current_points: Optional[int] = None
+    points_to_next_checkpoint: Optional[int] = None
 
 class ProjectUpdate(BaseModel):
     title: Optional[str] = None
@@ -256,6 +274,7 @@ class ProjectUpdate(BaseModel):
         description="Целевое количество участников по ролям"
     )
     approval_info: Optional[ApprovalInfo] = None
+
 # ---------- Email верификация ----------
 class EmailVerificationCodeRequest(BaseModel):
     email: EmailStr
@@ -277,21 +296,6 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
 
-class ApprovalRequest(BaseModel):
-    project_id: int
-    project_title: str
-    requested_by: int
-    requested_by_name: str
-    requested_at: datetime
-    status: ApprovalStatus
-    customer_name: Optional[str] = None
-    
-class ProjectApprovalList(BaseModel):
-    """Список проектов для модерации"""
-    pending: List[ApprovalRequest] = []
-    approved: List[ApprovalRequest] = []
-    rejected: List[ApprovalRequest] = []
-
 # ---------- приглашение ----------
 class InvitationCreate(BaseModel):
     email: str
@@ -304,13 +308,7 @@ class InvitationInfo(BaseModel):
     role: ProjectRole
     invited_by: int
     expires_at: datetime
-    
-class JoinRequest(BaseModel):
-    id: str
-    user_id: int
-    created_at: datetime
-    status: str
-    requested_role: str  
+
 class InvitationCreate(BaseModel):
     project_id: int
     invited_user_id: int
@@ -327,8 +325,8 @@ class InvitationResponse(BaseModel):
     status: str
     created_at: datetime
     expires_at: Optional[datetime] = None
-
     model_config = ConfigDict(from_attributes=True)
+
 class RequiredFile(BaseModel):
     name: str
     description: Optional[str] = ""
@@ -340,3 +338,82 @@ class TaskTemplate(BaseModel):
     timeline: str = ""
     timelinend: str = ""
     required_files: List[RequiredFile] = []
+
+class ProjectCheckpointResponse(BaseModel):
+    """Схема для отображения чекпоинта"""
+    version: int
+    created_at: Optional[datetime] = None
+    created_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    message: str = ""
+    total_points: int = 0
+    changes_count: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectChangeResponse(BaseModel):
+    """Схема для отображения изменения"""
+    version: str  # Например "1.3"
+    checkpoint_version: int
+    change_version: int
+    change_type: str
+    points: int
+    description: str = ""
+    created_at: Optional[datetime] = None
+    created_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectVersionDetail(BaseModel):
+    """Детальная информация о версии (чекпоинт + его изменения)"""
+    version: str  # Например "1" или "1.3"
+    is_current: bool = False
+    created_at: Optional[datetime] = None
+    created_by: Optional[int] = None
+    message: str = ""
+    total_points: int = 0
+    points_to_next_checkpoint: Optional[int] = None  # Только для текущей версии
+    changes: List[ProjectChangeResponse] = []
+
+
+class ProjectVersionHistory(BaseModel):
+    """Полная история версий проекта"""
+    project_id: int
+    points_threshold: int = 50
+    checkpoints: List[ProjectVersionDetail] = []
+
+
+class ProjectVersionStats(BaseModel):
+    """Статистика версионирования проекта"""
+    project_id: int
+    total_checkpoints: int
+    total_changes: int
+    current_version: int
+    current_points: int
+    points_to_next_checkpoint: int
+    points_threshold: int
+    change_stats: Dict[str, int] = {}
+
+
+class CreateCheckpointRequest(BaseModel):
+    """Запрос на создание ручного чекпоинта"""
+    message: str = Field("Manual checkpoint", description="Описание чекпоинта")
+
+
+class CreateCheckpointResponse(BaseModel):
+    """Ответ на создание чекпоинта"""
+    message: str
+    version: int
+    total_points: int
+
+
+class RestoreVersionResponse(BaseModel):
+    """Ответ на восстановление версии"""
+    message: str
+    warning: str = "All changes after this version have been deleted"
+
+
+class DeleteVersionResponse(BaseModel):
+    """Ответ на удаление версии"""
+    message: str

@@ -87,3 +87,32 @@ class Invitation(Base):
     project = relationship("Project", back_populates="invitations")
     inviter = relationship("User", foreign_keys=[invited_by])
     invitee = relationship("User", foreign_keys=[invited_user_id])
+    
+# models.py - добавить в конец файла
+
+class ProjectCheckpoint(Base):
+    __tablename__ = "project_checkpoints"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    version = Column(Integer, nullable=False)  # 1, 2, 3...
+    snapshot = Column(JSON, nullable=False)  # Полный снимок проекта
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    message = Column(String, default="")  # Описание чекпоинта
+    total_points = Column(Integer, default=0)  # Сумма очков до этого чекпоинта
+
+
+class ProjectChange(Base):
+    __tablename__ = "project_changes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    checkpoint_version = Column(Integer, nullable=False)  # На каком чекпоинте основано
+    change_version = Column(Integer, nullable=False)  # Порядковый номер изменения (1, 2, 3...)
+    change_type = Column(String, nullable=False)  # Тип изменения
+    points = Column(Integer, nullable=False)  # 1, 3, 5, 10
+    diff = Column(JSON, nullable=False)  # Только изменённые поля
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    description = Column(String, default="")  # Автоматическое описание

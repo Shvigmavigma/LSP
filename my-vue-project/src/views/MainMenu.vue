@@ -70,14 +70,6 @@
             <span class="menu-item-text">{{ oldProjectsText }}</span>
           </button>
           <!-- Кнопка модерации в меню для админов -->
-          <button class="menu-item moderation-menu-item" @click="goTo('moderation')">
-            <div class="moderation-card-content">
-              <span class="menu-item-text moderation-text">
-                {{ $t('navigation.moderation') }}
-                <span v-if="pendingApprovalsCount > 0" class="menu-badge">{{ pendingApprovalsCount }}</span>
-              </span>
-            </div>
-          </button>
           <button class="menu-item admin-button" @click="goTo('admin')">
             <img class="menu-item-image" :src="adminPanelIcon" alt="Admin Panel" />
             <span class="menu-item-text"> {{ $t('navigation.admin_panel') }}</span>
