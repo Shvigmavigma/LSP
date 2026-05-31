@@ -9,7 +9,7 @@
       </div>
     </header>
 
-    <!-- Кнопка создания проекта для заказчиков и кураторов (над списком) -->
+    <!-- Кнопка создания проекта - показываем только если пользователь может создавать проекты -->
     <div v-if="canCreateProject" class="create-section">
       <button class="create-button-top" @click="createProject">
         + {{ $t('myProjects.createProjectButton') }}
@@ -31,8 +31,28 @@
         class="project-card"
         @click="goToProject(project.id)"
       >
+        <!-- Бейдж статуса одобрения -->
+        <div class="approval-badge" :class="getBadgeClass(project)">
+          {{ getStatusText(project) }}
+        </div>
+
         <h3 class="card-title">{{ project.title }}</h3>
-        <p class="card-description">{{ project.body.slice(0, 150) }}...</p>
+        <p class="card-description">{{ (project.body || '').slice(0, 150) }}...</p>
+        
+        <!-- Вакансии проекта (только для одобренных проектов) -->
+        <div v-if="isProjectApproved(project) && getProjectVacancies(project).length > 0" class="project-vacancies">
+          <div class="vacancies-title">{{ $t('allProjects.vacancies') }}:</div>
+          <div class="vacancies-list">
+            <span 
+              v-for="vacancy in getProjectVacancies(project)" 
+              :key="vacancy.role" 
+              class="vacancy-badge"
+            >
+              {{ getRoleDisplay(vacancy.role) }}: {{ vacancy.deficit }}
+            </span>
+          </div>
+        </div>
+        
         <div class="card-footer">
           <span class="participants-label">{{ $t('myProjects.participantsLabel') }}:</span>
           <div class="participants-list">
@@ -84,7 +104,6 @@ import type { Project, ProjectRole } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
 import api from '@/utils/api'
 
-
 const { t } = useI18n();
 const router = useRouter();
 const authStore = useAuthStore();
@@ -95,26 +114,114 @@ const loading = ref(true);
 const error = ref('');
 const avatarError = ref<Record<number, boolean>>({});
 const authChecked = ref(false);
+const projectStatuses = ref<Map<number, { status: string; text: string; badgeClass: string }>>(new Map());
 
 const currentUserId = computed(() => authStore.user?.id);
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-// Проверка, может ли пользователь создавать проекты (заказчик или куратор)
+// Проверка, может ли пользователь создавать проекты
+// Ученик НЕ может создавать проекты (только заказчик или куратор)
 const canCreateProject = computed(() => {
   const user = authStore.user;
   if (!user) return false;
 
+  // Администратор может создавать проекты
+  if (user.is_admin) return true;
+
+  // Если пользователь НЕ учитель (обычный ученик) - НЕ может создавать проекты
   if (!user.is_teacher) {
-    return true;
+    return false;
   }
+  
+  // Учитель может создавать проекты, если он заказчик или куратор
   if (user.is_teacher && user.teacher_info) {
     return user.teacher_info.roles?.includes('customer') || user.teacher_info.curator === true;
   }
   
   return false;
 });
+
+// Получение статуса проекта
+async function fetchProjectStatus(projectId: number): Promise<{ status: string; text: string; badgeClass: string } | null> {
+  if (projectStatuses.value.has(projectId)) {
+    return projectStatuses.value.get(projectId)!;
+  }
+  
+  try {
+    const response = await api.get(`/projects/${projectId}/is-approved`);
+    const isApproved = response.data.is_approved;
+    const status = response.data.status;
+    
+    let text = '';
+    let badgeClass = '';
+    
+    if (status === 'approved') {
+      text = t('allProjects.approved');
+      badgeClass = 'badge-approved';
+    } else if (status === 'pending') {
+      text = t('allProjects.pending');
+      badgeClass = 'badge-pending';
+    } else if (status === 'rejected') {
+      text = t('allProjects.rejected');
+      badgeClass = 'badge-rejected';
+    } else {
+      text = t('allProjects.draft');
+      badgeClass = 'badge-draft';
+    }
+    
+    const result = { status, text, badgeClass };
+    projectStatuses.value.set(projectId, result);
+    return result;
+  } catch (error) {
+    console.error(`Failed to fetch status for project ${projectId}:`, error);
+    const fallback = { status: 'unknown', text: t('allProjects.statusUnknown'), badgeClass: 'badge-unknown' };
+    projectStatuses.value.set(projectId, fallback);
+    return fallback;
+  }
+}
+
+async function loadAllProjectStatuses(projectsList: Project[]) {
+  const promises = projectsList.map(project => fetchProjectStatus(project.id));
+  await Promise.all(promises);
+}
+
+function isProjectApproved(project: Project): boolean {
+  const cached = projectStatuses.value.get(project.id);
+  return cached?.status === 'approved';
+}
+
+function getStatusText(project: Project): string {
+  const cached = projectStatuses.value.get(project.id);
+  return cached?.text || t('allProjects.loading');
+}
+
+function getBadgeClass(project: Project): string {
+  const cached = projectStatuses.value.get(project.id);
+  return cached?.badgeClass || 'badge-loading';
+}
+
+function getRoleDisplay(role: ProjectRole): string {
+  return t(`roles.${role}`);
+}
+
+function getProjectVacancies(project: Project): Array<{ role: ProjectRole; deficit: number }> {
+  if (!isProjectApproved(project)) return [];
+  
+  const required = project.required_roles || {};
+  const vacancies: Array<{ role: ProjectRole; deficit: number }> = [];
+  
+  for (const [role, target] of Object.entries(required)) {
+    const current = project.participants?.filter(p => p.role === role).length || 0;
+    const deficit = Math.max(0, (target as number) - current);
+    if (deficit > 0) {
+      vacancies.push({ role: role as ProjectRole, deficit });
+    }
+  }
+  
+  return vacancies;
+}
 
 onMounted(async () => {
   console.log('MyProjects mounted - checking auth...');
@@ -166,6 +273,9 @@ async function loadUserProjects() {
     projects.value = response.data;
     console.log('Projects loaded:', projects.value.length);
     avatarError.value = {};
+    
+    // Загружаем статусы для всех проектов
+    await loadAllProjectStatuses(projects.value);
   } catch (err: any) {
     console.error('Error loading projects:', err);
     
@@ -175,6 +285,7 @@ async function loadUserProjects() {
         try {
           const response = await api.get(`/projects/?participant_id=${currentUserId.value}`);
           projects.value = response.data;
+          await loadAllProjectStatuses(projects.value);
         } catch (retryErr) {
           error.value = t('myProjects.errorLoad');
         }
@@ -249,9 +360,13 @@ function goToUser(id: number) {
 }
 
 function createProject() {
+  // Дополнительная проверка перед созданием проекта
+  if (!canCreateProject.value) {
+    alert(t('myProjects.noCreatePermission'));
+    return;
+  }
   router.push('/project/edit/new');
 }
-
 </script>
 
 <style scoped>
@@ -282,8 +397,6 @@ function createProject() {
   gap: 10px;
   align-items: center;
 }
-
-
 
 .create-section {
   max-width: 1200px;
@@ -328,6 +441,7 @@ function createProject() {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
+  position: relative;
 }
 
 .project-card:hover {
@@ -335,6 +449,45 @@ function createProject() {
   outline-offset: 1px;
   border-color: var(--accent-color);
   box-shadow: var(--shadow-strong);
+}
+
+/* Бейдж статуса */
+.approval-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.badge-approved {
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid #4caf50;
+  color: #4caf50;
+}
+.badge-pending {
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid #ff9800;
+  color: #ff9800;
+}
+.badge-rejected {
+  background: rgba(244, 67, 54, 0.15);
+  border: 1px solid #f44336;
+  color: #f44336;
+}
+.badge-draft {
+  background: rgba(158, 158, 158, 0.15);
+  border: 1px solid #9e9e9e;
+  color: #9e9e9e;
+}
+.badge-unknown, .badge-loading {
+  background: rgba(128, 128, 128, 0.15);
+  border: 1px solid #808080;
+  color: #808080;
 }
 
 .card-title {
@@ -346,6 +499,7 @@ function createProject() {
   overflow-wrap: break-word;
   word-wrap: break-word;
   hyphens: auto;
+  padding-right: 100px;
 }
 
 .card-description {
@@ -356,6 +510,35 @@ function createProject() {
   overflow-wrap: break-word;
   word-wrap: break-word;
   hyphens: auto;
+}
+
+/* Стили для вакансий */
+.project-vacancies {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(66, 185, 131, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(66, 185, 131, 0.1);
+}
+.vacancies-title {
+  font-weight: 600;
+  color: var(--accent-color);
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+.vacancies-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vacancy-badge {
+  background: var(--accent-color);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .card-footer {
@@ -377,7 +560,6 @@ function createProject() {
   flex-shrink: 0;
 }
 
-/* Горизонтальный скролл для участников */
 .participants-list {
   display: flex;
   flex-wrap: nowrap;

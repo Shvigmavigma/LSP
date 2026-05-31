@@ -48,6 +48,13 @@ class Project(Base):
     is_old = Column(Boolean, default=False)
     required_roles = Column(JSON, default={})
     invitations = relationship("Invitation", back_populates="project", cascade="all, delete-orphan")
+    is_approved = Column(Boolean, default=False)  # одобрен ли проект
+    approval_status = Column(String, default="draft")  # draft, pending, approved, rejected
+    approval_requested_at = Column(DateTime, nullable=True)  # когда отправлена заявка
+    approval_requested_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # кто отправил заявку
+    approval_handled_at = Column(DateTime, nullable=True)  # когда обработана заявка
+    approval_handled_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # кто обработал заявку
+    approval_comment = Column(String, nullable=True)  # комментарий к решению
 class ProjectFile(Base):
     __tablename__ = "project_files"
 

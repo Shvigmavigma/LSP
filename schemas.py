@@ -78,6 +78,26 @@ class StudentUpdate(BaseModel):
     avatar: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)
 
+class ApprovalStatus(str, Enum):
+    DRAFT = "draft"          # черновик
+    PENDING = "pending"      # на рассмотрении
+    APPROVED = "approved"    # одобрен
+    REJECTED = "rejected"    # отклонен
+
+class ApprovalInfo(BaseModel):
+    is_approved: bool = False
+    approval_status: ApprovalStatus = ApprovalStatus.DRAFT
+    approval_requested_at: Optional[datetime] = None
+    approval_requested_by: Optional[int] = None
+    approval_handled_at: Optional[datetime] = None
+    approval_handled_by: Optional[int] = None
+    approval_comment: Optional[str] = None
+
+class ApprovalAction(BaseModel):
+    """Схема для принятия/отклонения заявки"""
+    action: str = Field(..., description="approve или reject")
+    comment: Optional[str] = Field(None, description="Комментарий к решению")
+
 # ---------- учитель ----------
 class TeacherRole(str, Enum):
     CUSTOMER = "customer"      # Заказчик
@@ -206,7 +226,7 @@ class ProjectBase(BaseModel):
         default={},
         description="Целевое количество участников по ролям"
     )
-
+    approval_info: Optional[ApprovalInfo] = None
 class ProjectCreate(ProjectBase):
     pass  
 
@@ -219,6 +239,7 @@ class ProjectResponse(ProjectBase):
     join_requests: List[JoinRequest] = []
     hidden_by_users: List[int] = [] 
     model_config = ConfigDict(from_attributes=True)
+    approval_info: Optional[ApprovalInfo] = None
 
 class ProjectUpdate(BaseModel):
     title: Optional[str] = None
@@ -234,7 +255,7 @@ class ProjectUpdate(BaseModel):
         default={},
         description="Целевое количество участников по ролям"
     )
-
+    approval_info: Optional[ApprovalInfo] = None
 # ---------- Email верификация ----------
 class EmailVerificationCodeRequest(BaseModel):
     email: EmailStr
@@ -256,7 +277,20 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
 
-
+class ApprovalRequest(BaseModel):
+    project_id: int
+    project_title: str
+    requested_by: int
+    requested_by_name: str
+    requested_at: datetime
+    status: ApprovalStatus
+    customer_name: Optional[str] = None
+    
+class ProjectApprovalList(BaseModel):
+    """Список проектов для модерации"""
+    pending: List[ApprovalRequest] = []
+    approved: List[ApprovalRequest] = []
+    rejected: List[ApprovalRequest] = []
 
 # ---------- приглашение ----------
 class InvitationCreate(BaseModel):

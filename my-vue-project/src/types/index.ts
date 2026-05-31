@@ -7,6 +7,29 @@ export interface TeacherInfo {
 
 export type ProjectRole = 'customer' | 'supervisor' | 'expert' | 'executor' | 'curator';
 
+// Типы для системы одобрения
+export type ApprovalStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
+export interface ApprovalInfo {
+  is_approved: boolean;
+  approval_status: ApprovalStatus;
+  approval_requested_at: string | null;
+  approval_requested_by: number | null;
+  approval_handled_at: string | null;
+  approval_handled_by: number | null;
+  approval_comment: string | null;
+}
+
+export interface ApprovalRequestItem {
+  project_id: number;
+  project_title: string;
+  requested_by: number | null;
+  requested_by_name: string | null;
+  requested_at: string | null;
+  status: ApprovalStatus;
+  customer_name: string | null;
+}
+
 export interface Participant {
   user_id: number;
   role: ProjectRole;
@@ -42,18 +65,16 @@ export interface SubTask {
   completed: boolean;
 }
 
-// Новый интерфейс для обязательного файла
 export interface RequiredFile {
-  id: string;          // уникальный идентификатор в рамках задачи
-  name: string;        // название требуемого файла
-  description?: string; // описание (необязательно)
+  id: string;
+  name: string;
+  description?: string;
 }
 
-// Новый интерфейс для вложения (связь файла с задачей и, возможно, с обязательным требованием)
 export interface TaskAttachment {
-  id: string;               // уникальный ID вложения
-  file_id: number;          // ID файла в таблице project_files
-  required_file_id?: string; // ID обязательного файла, к которому привязано вложение
+  id: string;
+  file_id: number;
+  required_file_id?: string;
   uploaded_at: string;
   original_filename: string;
   mime_type: string;
@@ -71,9 +92,9 @@ export interface Task {
   subtasks?: SubTask[];
   comments?: Comment[];
   assigned_to?: number;
-  requires_file?: boolean;       // устаревшее поле, оставлено для обратной совместимости
-  required_files?: RequiredFile[];   // новое поле: список обязательных файлов
-  attachments?: TaskAttachment[];    // новое поле: список прикреплённых файлов
+  requires_file?: boolean;
+  required_files?: RequiredFile[];
+  attachments?: TaskAttachment[];
 }
 
 export interface Comment {
@@ -88,14 +109,14 @@ export interface Comment {
 
 export interface ProjectFile {
   id: number;
-  filename: string;          // уникальное имя на диске
+  filename: string;
   original_filename: string;
   file_size: number;
   mime_type: string;
   uploaded_at: string;
   uploaded_by: number;
-  task_id?: number | null;   // если null – файл привязан к проекту, иначе к задаче
-  required_file_id?: string | null; // ID обязательного файла (если привязан к конкретному требованию)
+  task_id?: number | null;
+  required_file_id?: string | null;
 }
 
 export interface SuggestionComment {
@@ -110,7 +131,7 @@ export interface SuggestionComment {
 export interface Suggestion {
   id: string;
   author_id: number;
-  target_type: string;  // "project" | "task" | "link"
+  target_type: string;
   target_id?: string;
   changes: Record<string, any>;
   status: 'pending' | 'accepted' | 'rejected';
@@ -154,8 +175,12 @@ export interface Project {
   is_hidden?: boolean;
   is_old: boolean;
   hidden_by?: number;
+  hidden_by_users?: number[];
   ignore_file_limits: boolean;
-  required_roles?: Record<string, number>;  
+  required_roles?: Record<string, number>;
+  is_approved?: boolean;
+  approval_status?: string;
+  approval_info?: ApprovalInfo; // Новое поле
 }
 
 export interface ProjectLinks {
