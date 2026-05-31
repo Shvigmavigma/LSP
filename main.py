@@ -34,7 +34,12 @@ from schemas import (
     Suggestion, SuggestionCreate, SuggestionStatus,
     InvitationCreate, InvitationInfo,
     ProjectFileResponse, InvitationResponse,
-    RequiredFile, TaskTemplate
+    RequiredFile, TaskTemplate,
+    ApprovalStatus,
+    ApprovalInfo,
+    ApprovalAction,
+    ApprovalRequest,
+    ProjectApprovalList
 )
 
 from willow import Image
@@ -78,7 +83,6 @@ origins = [
     "http://127.0.0.1:5173",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
-
 ]
 
 app.add_middleware(
@@ -98,20 +102,40 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 AVATAR_DIR = "avatars"
 app.include_router(oauth_router)
 
-def ensure_required_roles_column():
+# ==================== MIGRATION ====================
+@app.on_event("startup")
+async def startup_event():
+    """Добавляет новые колонки при старте, если их нет"""
     try:
         with engine.connect() as conn:
             result = conn.execute(text("PRAGMA table_info(projects)"))
             columns = [row[1] for row in result]
+            
             if "required_roles" not in columns:
                 conn.execute(text("ALTER TABLE projects ADD COLUMN required_roles JSON DEFAULT '{}'"))
                 conn.commit()
                 print("Column 'required_roles' added to projects table")
+            
+            new_columns = {
+                "is_approved": "BOOLEAN DEFAULT FALSE",
+                "approval_status": "VARCHAR DEFAULT 'draft'",
+                "approval_requested_at": "TIMESTAMP",
+                "approval_requested_by": "INTEGER REFERENCES users(id)",
+                "approval_handled_at": "TIMESTAMP",
+                "approval_handled_by": "INTEGER REFERENCES users(id)",
+                "approval_comment": "VARCHAR"
+            }
+            
+            for col_name, col_type in new_columns.items():
+                if col_name not in columns:
+                    conn.execute(text(f"ALTER TABLE projects ADD COLUMN {col_name} {col_type}"))
+                    conn.commit()
+                    print(f"Added column {col_name} to projects table")
+                    
     except Exception as e:
-        print(f"Error adding required_roles column: {e}")
+        print(f"Error during migration: {e}")
 
 Base.metadata.create_all(bind=engine)
-ensure_required_roles_column()
 
 def get_db():
     db = session_local()
@@ -189,7 +213,6 @@ async def get_user_from_query_or_header(
     token: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ) -> User:
-    """Пытается получить пользователя из query-параметра ?token=, иначе из заголовка Authorization."""
     if token:
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -226,33 +249,46 @@ def count_participants_by_role(project: Project, role: str) -> int:
     return sum(1 for p in project.participants if p.get("role") == role)
 
 def user_can_act_as_role(user: User, role: str) -> bool:
-    """Проверяет, может ли пользователь выполнять данную роль в проекте."""
     if role == "executor":
         return True   
     if not user.is_teacher:
         return False
     if role == "curator":
         return user.teacher_info and user.teacher_info.get("curator", False)
-    # остальные роли: customer, supervisor, expert
     return role in user.teacher_info.get("roles", []) if user.teacher_info else False
 
 def has_full_edit_permission(project: Project, user: User) -> bool:
-    """
-    Определяет, имеет ли пользователь полные права на редактирование проекта
-    (может менять title, body, underbody, participants, required_roles и т.д.)
-    """
     if user.is_admin or is_curator(user):
         return True
     role = get_participant_role(project, user.id)
     if role == ProjectRole.CUSTOMER.value:
         return True
-    # Если в проекте нет заказчика и куратора, а пользователь — исполнитель, то он получает права заказчика
     if role == ProjectRole.EXECUTOR.value:
         has_customer = any(p.get("role") == ProjectRole.CUSTOMER.value for p in (project.participants or []))
         has_curator = any(p.get("role") == ProjectRole.CURATOR.value for p in (project.participants or []))
         if not has_customer and not has_curator:
             return True
     return False
+
+def is_project_participant(project: Project, user_id: int) -> bool:
+    return any(p.get("user_id") == user_id for p in (project.participants or []))
+
+def get_participant_role(project: Project, user_id: int) -> Optional[str]:
+    for p in (project.participants or []):
+        if p.get("user_id") == user_id:
+            return p.get("role")
+    return None
+
+def get_approval_info(project: Project) -> dict:
+    return {
+        "is_approved": project.is_approved if hasattr(project, 'is_approved') else False,
+        "approval_status": project.approval_status if hasattr(project, 'approval_status') else "draft",
+        "approval_requested_at": project.approval_requested_at.isoformat() if hasattr(project, 'approval_requested_at') and project.approval_requested_at else None,
+        "approval_requested_by": project.approval_requested_by if hasattr(project, 'approval_requested_by') else None,
+        "approval_handled_at": project.approval_handled_at.isoformat() if hasattr(project, 'approval_handled_at') and project.approval_handled_at else None,
+        "approval_handled_by": project.approval_handled_by if hasattr(project, 'approval_handled_by') else None,
+        "approval_comment": project.approval_comment if hasattr(project, 'approval_comment') else None
+    }
 
 # ==================== ЭНД ТОКЕНОВ ====================
 @app.post("/token", response_model=TokenResponse, tags=["Auth"])
@@ -438,10 +474,6 @@ async def delete_my_account(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Позволяет пользователю удалить свой собственный аккаунт.
-    Удаляет аватар, удаляет пользователя из всех проектов, затем удаляет сам аккаунт.
-    """
     user_id = current_user.id
     if current_user.avatar:
         filepath = os.path.join(AVATAR_DIR, current_user.avatar)
@@ -451,33 +483,25 @@ async def delete_my_account(
             except OSError as e:
                 print(f"Ошибка при удалении файла аватара {filepath}: {e}")
     
-    # Удаляем пользователя из всех проектов где он участвовал
     all_projects = db.query(Project).all()
     for project in all_projects:
         if project.participants:
-            # Удаляем пользователя из участников
             project.participants = [
                 p for p in project.participants 
                 if p.get("user_id") != user_id
             ]
             flag_modified(project, "participants")
-            
-        # Удаляем пользователя из hidden_by_users
         if project.hidden_by_users and user_id in project.hidden_by_users:
             project.hidden_by_users.remove(user_id)
             flag_modified(project, "hidden_by_users")
-            
-        # Если пользователь был тем кто скрыл проект - сбрасываем
         if project.hidden_by == user_id:
             project.hidden_by = None
     
-    # Удаляем приглашения пользователя
     db.query(Invitation).filter(
         (Invitation.invited_user_id == user_id) | 
         (Invitation.invited_by == user_id)
     ).delete()
     
-    # Удаляем файлы пользователя
     user_files = db.query(ProjectFile).filter(
         ProjectFile.uploaded_by == user_id
     ).all()
@@ -491,15 +515,12 @@ async def delete_my_account(
                 print(f"Ошибка при удалении файла {file_path}: {e}")
         db.delete(file_record)
     
-    # Удаляем refresh токены из Redis
-    # (все ключи начинающиеся с refresh:{user_id}:)
     try:
         for key in redis_client.scan_iter(f"refresh:{user_id}:*"):
             redis_client.delete(key)
     except Exception as e:
         print(f"Ошибка при удалении токенов из Redis: {e}")
     
-    # Удаляем пользователя
     db.delete(current_user)
     db.commit()
     
@@ -556,55 +577,6 @@ async def admin_update_project(
     db.refresh(project)
     return project
 
-@app.patch("/projects/{project_id}/tasks", response_model=ProjectResponse, tags=["Projects"])
-async def update_project_tasks(
-    project_id: int,
-    tasks: List[Dict[str, Any]] = Body(..., embed=True),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-    
-    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
-        raise HTTPException(403, "Старый проект нельзя редактировать")
-    
-    participant_role = get_participant_role(project, current_user.id)
-    allowed_roles = [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value, ProjectRole.CURATOR.value]
-    if not (current_user.is_admin or is_curator(current_user) or participant_role in allowed_roles):
-        raise HTTPException(403, "Недостаточно прав для изменения задач")
-    
-    titles = [task.get('title', '').strip().lower() for task in tasks if task.get('title')]
-    if len(titles) != len(set(titles)):
-        raise HTTPException(400, "Task titles must be unique within a project")
-    
-    old_tasks = project.tasks or []
-    for i, new_task in enumerate(tasks):
-        old_task = old_tasks[i] if i < len(old_tasks) else None
-        if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
-            required_files = new_task.get("required_files", [])
-            for req in required_files:
-                req_id = req.get("id")
-                if not req_id:
-                    continue
-                attached = db.query(ProjectFile).filter(
-                    ProjectFile.project_id == project_id,
-                    ProjectFile.task_id == i,
-                    ProjectFile.required_file_id == req_id,
-                    ProjectFile.is_deleted == False
-                ).first()
-                if not attached:
-                    raise HTTPException(401, f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}")
-        if "attachments" not in new_task and old_task and "attachments" in old_task:
-            new_task["attachments"] = old_task["attachments"]
-    
-    project.tasks = tasks
-    flag_modified(project, "tasks")
-    db.commit()
-    db.refresh(project)
-    return project
-
 @app.delete("/admin/projects/{project_id}", tags=["Admin"])
 async def admin_delete_project(
     project_id: int,
@@ -650,17 +622,7 @@ async def admin_set_curator(
     db.commit()
     return {"message": f"Curator status for user {user_id} set to {is_curator}"}
 
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ПРОЕКТОВ ====================
-def is_project_participant(project: Project, user_id: int) -> bool:
-    return any(p.get("user_id") == user_id for p in (project.participants or []))
-
-def get_participant_role(project: Project, user_id: int) -> Optional[str]:
-    for p in (project.participants or []):
-        if p.get("user_id") == user_id:
-            return p.get("role")
-    return None
-
-# ==================== ВЕРИФИКАЦИЯ EMAIL УЧИТЕЛЯ ====================
+# ==================== ВЕРИФИКАЦИЯ EMAIL ====================
 ACCEPTED_EMAILS_FILE = Path("accepted_emails.json")
 
 def load_accepted_emails():
@@ -689,7 +651,6 @@ def is_email_accepted(email: str) -> bool:
         return True
     return False
 
-# ==================== ВЕРИФИКАЦИЯ EMAIL УЧЕНИКА ====================
 ACCEPTED_STUDENT_EMAILS_FILE = Path("accepted_student_emails.json")
 
 def load_accepted_student_emails():
@@ -736,11 +697,11 @@ async def check_student_email(
             detail="Этот email не разрешён для регистрации ученика. Используйте email с доменом lit1533.ru или из списка разрешённых."
         )
 
-# ==================== УЧЕНИКИ ====================
 @app.get("/default-tasks", tags=["DefaultTasks"])
 async def get_default_tasks(current_user: User = Depends(get_current_user)):
     return load_default_tasks()
 
+# ==================== УЧЕНИКИ ====================
 @app.post("/students/", response_model=StudentResponse, tags=["Students"])
 async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     existing_nickname = db.query(User).filter(User.nickname == student.nickname.strip()).first()
@@ -1106,10 +1067,6 @@ async def create_join_request(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Создание запроса на вступление в проект с указанием роли.
-    Ожидает JSON: { "requested_role": "customer" | "supervisor" | "expert" | "executor" | "curator" }
-    """
     try:
         body = await request.json()
         requested_role = body.get("requested_role")
@@ -1200,12 +1157,6 @@ async def update_project_links(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Обновление ссылок проекта (GitHub, Google Drive).
-    Доступно всем участникам проекта (любая роль).
-    Ожидает JSON: {"github": "url"} или {"google_drive": "url"} или оба сразу.
-    Для удаления ссылки передайте null: {"github": null}
-    """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -1236,14 +1187,12 @@ async def update_project_links(
     db.refresh(project)
     return project
 
-
 @app.delete("/projects/{project_id}/links/github", response_model=ProjectResponse, tags=["Projects"])
 async def delete_github_link(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Удаление ссылки GitHub из проекта. Доступно всем участникам."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -1262,14 +1211,12 @@ async def delete_github_link(
     
     return project
 
-
 @app.delete("/projects/{project_id}/links/google-drive", response_model=ProjectResponse, tags=["Projects"])
 async def delete_google_drive_link(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Удаление ссылки Google Drive из проекта. Доступно всем участникам."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -1424,9 +1371,6 @@ async def leave_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Позволяет пользователю выйти из проекта (удалить себя из участников)
-    """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -1439,8 +1383,7 @@ async def leave_project(
     if len(project.participants or []) == 1:
         raise HTTPException(
             status_code=400, 
-            detail="Cannot leave the project because you are the only participant. "
-                   "Consider deleting the project instead."
+            detail="Cannot leave the project because you are the only participant. Consider deleting the project instead."
         )
     
     if project.participants:
@@ -1520,7 +1463,14 @@ async def create_project(
         hidden_by=None,
         hidden_by_users=[],
         is_old=False,
-        ignore_file_limits=False
+        ignore_file_limits=False,
+        is_approved=False,
+        approval_status="draft",
+        approval_requested_at=None,
+        approval_requested_by=None,
+        approval_handled_at=None,
+        approval_handled_by=None,
+        approval_comment=None
     )
     db.add(db_project)
     db.commit()
@@ -1577,12 +1527,9 @@ async def update_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    print(f"[DEBUG] user_id: {current_user.id}, role in project: {get_participant_role(project, current_user.id)}")
-    print(f"[DEBUG] project.is_old: {project.is_old}")
 
     if project.is_old and not (current_user.is_admin or is_curator(current_user)):
         raise HTTPException(status_code=403, detail="Старый проект нельзя редактировать. Только администратор может изменять его.")
@@ -1710,6 +1657,55 @@ async def update_project(
     db.refresh(project)
     return project
 
+@app.patch("/projects/{project_id}/tasks", response_model=ProjectResponse, tags=["Projects"])
+async def update_project_tasks(
+    project_id: int,
+    tasks: List[Dict[str, Any]] = Body(..., embed=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    
+    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(403, "Старый проект нельзя редактировать")
+    
+    participant_role = get_participant_role(project, current_user.id)
+    allowed_roles = [ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value, ProjectRole.CURATOR.value]
+    if not (current_user.is_admin or is_curator(current_user) or participant_role in allowed_roles):
+        raise HTTPException(403, "Недостаточно прав для изменения задач")
+    
+    titles = [task.get('title', '').strip().lower() for task in tasks if task.get('title')]
+    if len(titles) != len(set(titles)):
+        raise HTTPException(400, "Task titles must be unique within a project")
+    
+    old_tasks = project.tasks or []
+    for i, new_task in enumerate(tasks):
+        old_task = old_tasks[i] if i < len(old_tasks) else None
+        if old_task and old_task.get("status") != "выполнена" and new_task.get("status") == "выполнена":
+            required_files = new_task.get("required_files", [])
+            for req in required_files:
+                req_id = req.get("id")
+                if not req_id:
+                    continue
+                attached = db.query(ProjectFile).filter(
+                    ProjectFile.project_id == project_id,
+                    ProjectFile.task_id == i,
+                    ProjectFile.required_file_id == req_id,
+                    ProjectFile.is_deleted == False
+                ).first()
+                if not attached:
+                    raise HTTPException(401, f"Для завершения задачи '{new_task.get('title')}' необходимо прикрепить файл: {req.get('name')}")
+        if "attachments" not in new_task and old_task and "attachments" in old_task:
+            new_task["attachments"] = old_task["attachments"]
+    
+    project.tasks = tasks
+    flag_modified(project, "tasks")
+    db.commit()
+    db.refresh(project)
+    return project
+
 @app.patch("/projects/{project_id}/subtasks/move", response_model=ProjectResponse, tags=["Projects"])
 async def move_subtask(
     project_id: int,
@@ -1717,16 +1713,6 @@ async def move_subtask(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Перемещает подзадачу между задачами или внутри одной задачи.
-    Ожидает JSON:
-    {
-        "from_task_index": 0,
-        "from_subtask_index": 0,
-        "to_task_index": 1,
-        "to_subtask_index": 0
-    }
-    """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -1749,7 +1735,7 @@ async def move_subtask(
     to_subtask_idx = data.get("to_subtask_index")
     
     if any(x is None for x in [from_task_idx, from_subtask_idx, to_task_idx, to_subtask_idx]):
-        raise HTTPException(400, "Missing required fields: from_task_index, from_subtask_index, to_task_index, to_subtask_index")
+        raise HTTPException(400, "Missing required fields")
     
     tasks = project.tasks or []
     
@@ -1860,6 +1846,7 @@ async def search_projects(q: Optional[str] = Query(None), db: Session = Depends(
     if not q:
         return []
     return db.query(Project).filter(Project.title.ilike(f"%{q}%")).all()
+
 @app.delete("/projects/{project_id}", tags=["Projects"])
 async def delete_project(
     project_id: int,
@@ -1875,7 +1862,6 @@ async def delete_project(
     
     if current_user.is_admin or is_curator(current_user):
         try:
-            
             invitations = db.query(Invitation).filter(Invitation.project_id == project_id).all()
             for invitation in invitations:
                 db.delete(invitation)
@@ -1890,16 +1876,13 @@ async def delete_project(
                         print(f"Error deleting file {file_path}: {e}")
                 db.delete(f)
             
-            
             db.delete(project)
             db.commit()
             return {"message": f"Project {project_id} permanently deleted successfully"}
-            
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Error deleting project: {str(e)}")
     
-    # Non-admin logic remains the same (hide instead of delete)
     participant = next((p for p in project.participants if p.get("user_id") == current_user.id), None)
     if not participant or participant.get("role") != ProjectRole.CUSTOMER.value:
         raise HTTPException(status_code=403, detail="Only customer, curator or admin can delete/hide the project")
@@ -1913,6 +1896,7 @@ async def delete_project(
     db.commit()
     db.refresh(project)
     return {"message": f"Project {project_id} hidden successfully"}
+
 @app.post("/projects/{project_id}/tasks/{task_index}/comments", response_model=ProjectResponse, tags=["Projects"])
 async def add_task_comment(
     project_id: int,
@@ -2066,9 +2050,9 @@ async def hide_comment(
     db.refresh(project)
     return project
 
-# ==================== ПРИГЛАШЕНИЯ (по имейл) ====================
+# ==================== ПРИГЛАШЕНИЯ ====================
 @app.post("/projects/{project_id}/invite", response_model=Dict[str, str], tags=["Projects"])
-async def create_invitation(
+async def create_invitation_by_email(
     project_id: int,
     invite: InvitationCreate,
     db: Session = Depends(get_db),
@@ -2110,7 +2094,7 @@ async def get_invitation_info(token: str):
     )
 
 @app.post("/invite/{token}/accept", response_model=ProjectResponse, tags=["Invitations"])
-async def accept_invitation(
+async def accept_invitation_by_token(
     token: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -3040,6 +3024,289 @@ async def cancel_invitation(
     db.delete(invite)
     db.commit()
     return {"message": "Invitation cancelled"}
+
+# ==================== СИСТЕМА ЗАЯВОК НА ПУБЛИКАЦИЮ ПРОЕКТА ====================
+
+@app.post("/projects/{project_id}/request-approval", response_model=ProjectResponse, tags=["Projects"])
+async def request_project_approval(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Отправка заявки на публикацию проекта. Доступно заказчику, админу и куратору."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    participant_role = get_participant_role(project, current_user.id)
+    
+    can_request = (
+        current_user.is_admin or 
+        is_curator(current_user) or 
+        participant_role == ProjectRole.CUSTOMER.value
+    )
+    
+    if not can_request:
+        raise HTTPException(
+            status_code=403, 
+            detail="Only project customer, curator or admin can request approval"
+        )
+    
+    if not hasattr(project, 'approval_status'):
+        project.approval_status = "draft"
+    
+    if project.approval_status == "pending":
+        raise HTTPException(status_code=400, detail="Project already pending approval")
+    if project.approval_status == "approved":
+        raise HTTPException(status_code=400, detail="Project already approved")
+    
+    if not project.title or not project.body:
+        raise HTTPException(
+            status_code=400, 
+            detail="Project must have title and body before requesting approval"
+        )
+    
+    project.approval_status = "pending"
+    project.is_approved = False
+    project.approval_requested_at = datetime.utcnow()
+    project.approval_requested_by = current_user.id
+    project.approval_handled_at = None
+    project.approval_handled_by = None
+    project.approval_comment = None
+    
+    db.commit()
+    db.refresh(project)
+    
+    return project
+
+@app.get("/projects/{project_id}/is-approved", tags=["Projects"])
+async def check_project_approved(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Проверка, одобрен ли проект. Возвращает простой boolean."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Проверяем разные возможные поля
+    is_approved = False
+    if hasattr(project, 'is_approved') and project.is_approved:
+        is_approved = True
+    elif hasattr(project, 'approval_info') and project.approval_info and project.approval_info.get('is_approved'):
+        is_approved = True
+    
+    return {"is_approved": is_approved, "status": getattr(project, 'approval_status', 'draft')}
+
+@app.post("/projects/{project_id}/cancel-approval", response_model=ProjectResponse, tags=["Projects"])
+async def cancel_project_approval(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Отмена заявки на публикацию проекта. Доступно заказчику, админу и куратору."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    participant_role = get_participant_role(project, current_user.id)
+    
+    can_cancel = (
+        current_user.is_admin or 
+        is_curator(current_user) or 
+        participant_role == ProjectRole.CUSTOMER.value
+    )
+    
+    if not can_cancel:
+        raise HTTPException(
+            status_code=403, 
+            detail="Only the project customer, curator or admin can cancel approval request"
+        )
+    
+    if not hasattr(project, 'approval_status') or project.approval_status != "pending":
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot cancel approval request with status: {getattr(project, 'approval_status', 'draft')}"
+        )
+    
+    project.approval_status = "draft"
+    project.is_approved = False
+    project.approval_requested_at = None
+    project.approval_requested_by = None
+    
+    db.commit()
+    db.refresh(project)
+    
+    return project
+
+
+@app.post("/admin/projects/{project_id}/request-approval", response_model=ProjectResponse, tags=["Admin"])
+async def admin_request_approval(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Административный эндпоинт для отправки заявки на публикацию от имени любого проекта."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not hasattr(project, 'approval_status'):
+        project.approval_status = "draft"
+    
+    if project.approval_status == "pending":
+        raise HTTPException(status_code=400, detail="Project already pending approval")
+    if project.approval_status == "approved":
+        raise HTTPException(status_code=400, detail="Project already approved")
+    
+    if not project.title or not project.body:
+        raise HTTPException(
+            status_code=400, 
+            detail="Project must have title and body before requesting approval"
+        )
+    
+    project.approval_status = "pending"
+    project.is_approved = False
+    project.approval_requested_at = datetime.utcnow()
+    project.approval_requested_by = current_user.id
+    project.approval_handled_at = None
+    project.approval_handled_by = None
+    project.approval_comment = None
+    
+    db.commit()
+    db.refresh(project)
+    
+    return project
+
+
+@app.get("/admin/approval-requests", tags=["Admin"])
+async def get_approval_requests(
+    status_filter: Optional[str] = Query(None, description="Фильтр: pending, approved, rejected"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Получение списка заявок на публикацию."""
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Only admins and curators can view approval requests")
+    
+    query = db.query(Project)
+    
+    if status_filter:
+        query = query.filter(Project.approval_status == status_filter)
+    
+    projects = query.all()
+    
+    result = {
+        "pending": [],
+        "approved": [],
+        "rejected": []
+    }
+    
+    for project in projects:
+        customer = None
+        for p in (project.participants or []):
+            if p.get("role") == ProjectRole.CUSTOMER.value:
+                user = db.query(User).filter(User.id == p.get("user_id")).first()
+                if user:
+                    customer = user
+                break
+        
+        requester = db.query(User).filter(User.id == project.approval_requested_by).first() if hasattr(project, 'approval_requested_by') and project.approval_requested_by else None
+        
+        requester_role = "Unknown"
+        if requester:
+            if requester.is_admin:
+                requester_role = "Admin"
+            elif is_curator(requester):
+                requester_role = "Curator"
+            else:
+                requester_role = "Customer"
+        
+        approval_data = {
+            "project_id": project.id,
+            "project_title": project.title,
+            "requested_by": getattr(project, 'approval_requested_by', None),
+            "requested_by_name": requester.fullname if requester else "Unknown",
+            "requested_by_role": requester_role,
+            "requested_at": project.approval_requested_at.isoformat() if hasattr(project, 'approval_requested_at') and project.approval_requested_at else None,
+            "status": getattr(project, 'approval_status', 'draft'),
+            "customer_name": customer.fullname if customer else "No customer assigned"
+        }
+        
+        status = approval_data["status"] if approval_data["status"] in result else "pending"
+        result[status].append(approval_data)
+    
+    return result
+
+
+@app.post("/projects/{project_id}/approve", response_model=ProjectResponse, tags=["Projects"])
+async def approve_project(
+    project_id: int,
+    action: ApprovalAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Принятие или отклонение заявки на публикацию."""
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Only admins and curators can approve/reject projects")
+    
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not hasattr(project, 'approval_status') or project.approval_status != "pending":
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot process project with status: {getattr(project, 'approval_status', 'draft')}"
+        )
+    
+    if action.action not in ["approve", "reject"]:
+        raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+    
+    project.approval_handled_at = datetime.utcnow()
+    project.approval_handled_by = current_user.id
+    project.approval_comment = action.comment
+    
+    if action.action == "approve":
+        project.approval_status = "approved"
+        project.is_approved = True
+    else:
+        project.approval_status = "rejected"
+        project.is_approved = False
+    
+    db.commit()
+    db.refresh(project)
+    
+    return project
+
+
+@app.get("/projects/{project_id}/approval-status", tags=["Projects"])
+async def get_approval_status(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Получение статуса заявки проекта."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not (current_user.is_admin or 
+            is_curator(current_user) or 
+            is_project_participant(project, current_user.id)):
+        raise HTTPException(status_code=403, detail="Only project participants can view approval status")
+    
+    requester = db.query(User).filter(User.id == project.approval_requested_by).first() if hasattr(project, 'approval_requested_by') and project.approval_requested_by else None
+    handler = db.query(User).filter(User.id == project.approval_handled_by).first() if hasattr(project, 'approval_handled_by') and project.approval_handled_by else None
+    
+    return {
+        "approval_info": get_approval_info(project),
+        "requester_name": requester.fullname if requester else None,
+        "handler_name": handler.fullname if handler else None,
+        "status": getattr(project, 'approval_status', 'draft')
+    }
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

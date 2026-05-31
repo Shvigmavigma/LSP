@@ -57,6 +57,30 @@
         "statusRejected": "Отклонено",
         "statusCancelled": "Отменено"
     },
+    "moderation": {
+        "title": "Модерация проектов",
+        "pendingTab": "На проверке",
+        "approvedTab": "Одобренные",
+        "rejectedTab": "Отклонённые",
+        "noPending": "Нет проектов на проверке",
+        "noApproved": "Нет одобренных проектов",
+        "noRejected": "Нет отклонённых проектов",
+        "pendingStatus": "На проверке",
+        "approvedStatus": "Одобрен",
+        "rejectedStatus": "Отклонён",
+        "requestedBy": "Запросил",
+        "customer": "Заказчик",
+        "view": "Просмотр",
+        "approve": "Одобрить",
+        "reject": "Отклонить",
+        "rejectTitle": "Отклонение проекта",
+        "rejectPlaceholder": "Укажите причину отклонения",
+        "approveSuccess": "Проект одобрен",
+        "rejectSuccess": "Проект отклонён",
+        "approveError": "Ошибка при одобрении проекта",
+        "rejectError": "Ошибка при отклонении проекта",
+        "loadError": "Ошибка загрузки проектов"
+        },
 
     "navigation": {
         "main_menu": "Главное меню",
@@ -68,7 +92,8 @@
         "admin_panel": "Админ-панель",
         "profile": "Профиль",
         "logout": "Выйти",
-        "old_projects_hover": "Проект Прошлых Лет"
+        "old_projects_hover": "Проект Прошлых Лет",
+        "moderation": "Модерация"
     },
     "project": {
         "title": "Название проекта",
@@ -286,7 +311,7 @@
             "error": "Ошибка при удалении"
         },
         "deleteAllProjects": {
-            "title": "Удалить все ",
+            "title": "Удалить все проекты",
             "desc": "Необратимое удаление всех проектов",
             "confirmTitle": "Удаление всех проектов",
             "confirmMessage": "Вы уверены, что хотите удалить ВСЕ проекты? Это действие необратимо.",
@@ -434,7 +459,12 @@
         "filterTaken": "Занятые",
         "participantsLabel": "Участники",
         "vacancies": "Вакансии",
-        "loading": "Загрузка проектов..."
+        "loading": "Загрузка проектов...",
+        "approved": "✓ Одобрен",
+        "pending": "На проверке",
+        "rejected": "✗ Отклонён",
+        "draft": "Черновик",
+        "statusUnknown": "Статус неизвестен"
     },
     "allUsers": {
         "title": "Пользователи",
@@ -550,7 +580,7 @@
         "saveError": "Ошибка при сохранении данных"
     },
     "projectDetails": {
-        "markAsOld": "📦 Пометить как старый",
+        "markAsOld": "Пометить как старый",
         "requiredRoles": "Необходимые роли",
         "targetCount": "Требуется",
         "currentCount": "Текущее",
@@ -565,7 +595,7 @@
         "leaveError": "Ошибка при выходе из проекта",
         "cannotLeaveLastParticipant": "Вы не можете покинуть проект, так как вы единственный участник",
         "notParticipant": "Вы не являетесь участником этого проекта",
-        "unmarkAsOld": "🔄 Снять пометку",
+        "unmarkAsOld": "Снять пометку",
         "oldProject": "Старый проект",
         "oldProjectReadOnly": "Этот проект помечен как старый и доступен только для просмотра. Редактирование запрещено.",
         "markedAsOld": "Проект помечен как старый",
@@ -630,7 +660,15 @@
             "inProgress": "В работе",
             "waiting": "Ожидает",
             "completed": "Выполнена"
-        }
+        },
+        "notApproved": "Проект не одобрен",
+        "approvalPending": "Ожидает одобрения",
+        "approvalRejected": "Одобрение отклонено",
+        "requestApproval": "Запросить одобрение",
+        "cancelApproval": "Отменить запрос",
+        "resubmitApproval": "Отправить повторно",
+        "tasksUnavailable": "Задачи станут доступны после одобрения проекта",
+        "notApprovedPublic": "Проект ожидает одобрения"
     },
     "projectTree": {
         "title": "Структура проекта",
@@ -814,7 +852,7 @@
         "applyExtraProgress": "Применить дополнительный прогресс",
         "onlyEditorsCanChangeProgress": "Только заказчик, исполнитель или куратор могут изменять прогресс",
         "completeTask": "✓ Завершить задачу",
-        "renew": "🔄 Возобновить",
+        "renew": "Возобновить",
         "taskCompleted": "Задача выполнена",
         "impossibleDeadline": "Невозможный дедлайн",
         "overdue": "Просрочено",
@@ -983,5 +1021,4 @@
         "saveSuccess": "Сохранено",
         "saveError": "Ошибка сохранения"
     }
-
 }

@@ -52,8 +52,13 @@
         class="project-card"
         @click="goToProject(project.id)"
       >
+        <!-- Бейдж статуса одобрения -->
+        <div class="approval-badge" :class="getBadgeClass(project)">
+          {{ getStatusText(project) }}
+        </div>
+
         <h3 class="card-title">{{ project.title }}</h3>
-        <p class="card-description">{{ project.body.slice(0, 150) }}...</p>
+        <p class="card-description">{{ project.body?.slice(0, 150) || '' }}...</p>
         
         <!-- Вакансии проекта -->
         <div v-if="getProjectVacancies(project).length > 0" class="project-vacancies">
@@ -126,7 +131,68 @@ const loading = ref(true);
 const avatarError = ref<Record<number, boolean>>({});
 const filterType = ref<'all' | 'free' | 'taken'>('all');
 
+// Кэш статусов проектов
+const projectStatuses = ref<Map<number, { status: string; text: string; badgeClass: string }>>(new Map());
+
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+// Функция для получения статуса проекта через эндпоинт
+async function fetchProjectStatus(projectId: number): Promise<{ status: string; text: string; badgeClass: string } | null> {
+  // Проверяем кэш
+  if (projectStatuses.value.has(projectId)) {
+    return projectStatuses.value.get(projectId)!;
+  }
+  
+  try {
+    const response = await api.get(`/projects/${projectId}/is-approved`);
+    const isApproved = response.data.is_approved;
+    const status = response.data.status;
+    
+    let text = '';
+    let badgeClass = '';
+    
+    if (status === 'approved') {
+      text = t('allProjects.approved');
+      badgeClass = 'badge-approved';
+    } else if (status === 'pending') {
+      text = t('allProjects.pending');
+      badgeClass = 'badge-pending';
+    } else if (status === 'rejected') {
+      text = t('allProjects.rejected');
+      badgeClass = 'badge-rejected';
+    } else {
+      text = t('allProjects.draft');
+      badgeClass = 'badge-draft';
+    }
+    
+    const result = { status, text, badgeClass };
+    projectStatuses.value.set(projectId, result);
+    return result;
+  } catch (error) {
+    console.error(`Failed to fetch status for project ${projectId}:`, error);
+    const fallback = { status: 'unknown', text: t('allProjects.statusUnknown'), badgeClass: 'badge-unknown' };
+    projectStatuses.value.set(projectId, fallback);
+    return fallback;
+  }
+}
+
+// Функция для загрузки статусов всех проектов
+async function loadAllProjectStatuses(projectsList: Project[]) {
+  const promises = projectsList.map(project => fetchProjectStatus(project.id));
+  await Promise.all(promises);
+}
+
+// Получение текста статуса для отображения (синхронная обертка)
+function getStatusText(project: Project): string {
+  const cached = projectStatuses.value.get(project.id);
+  return cached?.text || t('allProjects.loading');
+}
+
+// Получение класса бейджа
+function getBadgeClass(project: Project): string {
+  const cached = projectStatuses.value.get(project.id);
+  return cached?.badgeClass || 'badge-loading';
+}
 
 // Функция для получения вакансий проекта
 function getProjectVacancies(project: Project): Array<{ role: ProjectRole; deficit: number }> {
@@ -154,20 +220,13 @@ function hasVacancies(project: Project): boolean {
   return getProjectVacancies(project).length > 0;
 }
 
-// Проверка, есть ли в проекте исполнители
-function hasExecutors(project: Project): boolean {
-  return project.participants?.some(p => p.role === 'executor') || false;
-}
-
 const filteredProjects = computed(() => {
   let result = projects.value;
   
   // Применяем фильтр типа
   if (filterType.value === 'free') {
-    // Свободные - проекты с вакансиями (любые свободные роли)
     result = projects.value.filter(p => hasVacancies(p));
   } else if (filterType.value === 'taken') {
-    // Занятые - проекты без вакансий (все роли заполнены)
     result = projects.value.filter(p => !hasVacancies(p));
   }
   
@@ -187,6 +246,8 @@ async function fetchAll() {
     const res = await api.get<Project[]>(`${baseUrl}/projects/`);
     projects.value = res.data;
     avatarError.value = {};
+    // Загружаем статусы для всех проектов
+    await loadAllProjectStatuses(projects.value);
   } catch (error) {
     console.error('Error fetching projects:', error);
   } finally {
@@ -206,6 +267,8 @@ async function searchProjects() {
     });
     projects.value = res.data;
     avatarError.value = {};
+    // Загружаем статусы для найденных проектов
+    await loadAllProjectStatuses(projects.value);
   } catch (error) {
     console.error('Error searching projects:', error);
   } finally {
@@ -342,12 +405,53 @@ function goHome() {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
+  position: relative;
 }
 .project-card:hover {
   outline: 1px solid var(--accent-color);
   outline-offset: 1px;
   border-color: var(--accent-color);
 }
+
+/* Бейдж статуса одобрения */
+.approval-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.badge-approved {
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid #4caf50;
+  color: #4caf50;
+}
+.badge-pending {
+  background: rgba(255, 152, 0, 0.15);
+  border: 1px solid #ff9800;
+  color: #ff9800;
+}
+.badge-rejected {
+  background: rgba(244, 67, 54, 0.15);
+  border: 1px solid #f44336;
+  color: #f44336;
+}
+.badge-draft {
+  background: rgba(158, 158, 158, 0.15);
+  border: 1px solid #9e9e9e;
+  color: #9e9e9e;
+}
+.badge-unknown, .badge-loading {
+  background: rgba(128, 128, 128, 0.15);
+  border: 1px solid #808080;
+  color: #808080;
+}
+
 .card-title {
   color: var(--heading-color);
   margin-bottom: 12px;
@@ -356,6 +460,7 @@ function goHome() {
   padding-bottom: 8px;
   overflow-wrap: break-word;
   word-wrap: break-word;
+  padding-right: 100px;
 }
 .card-description {
   color: var(--text-primary);
@@ -409,7 +514,6 @@ function goHome() {
   margin-right: 4px;
   flex-shrink: 0;
 }
-/* Изменения: участники в одну строку с прокруткой */
 .participants-list {
   display: flex;
   flex-wrap: nowrap;

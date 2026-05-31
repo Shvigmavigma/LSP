@@ -5,6 +5,15 @@
       <div class="header-actions">
         <ThemeToggle />
         <LanguageSwitcher />
+        <!-- Кнопка модерации - только для кураторов и админов -->
+        <button 
+          v-if="isModerator" 
+          class="moderation-button" 
+          @click="goTo('moderation')"
+        >
+           {{ $t('navigation.moderation') }}
+          <span v-if="pendingApprovalsCount > 0" class="invitations-badge">{{ pendingApprovalsCount }}</span>
+        </button>
         <button class="invitations-button" @click="goTo('invitations')">
            {{ $t('navigation.invitations') }}
           <span v-if="invitationsCount > 0" class="invitations-badge">{{ invitationsCount }}</span>
@@ -39,6 +48,7 @@
             <img class="menu-item-image" :src="projectsIcon" alt="All Projects" />
             <span class="menu-item-text">{{ $t('navigation.all_projects') }}</span>
           </button>
+          <!-- Кнопка модерации в меню для кураторов (не админов) -->
         </template>
         <template v-else>
           <button class="menu-item" @click="goTo('users')">
@@ -59,6 +69,15 @@
             <img class="menu-item-image" :src="oldProjectsIcon" alt="Old Projects" />
             <span class="menu-item-text">{{ oldProjectsText }}</span>
           </button>
+          <!-- Кнопка модерации в меню для админов -->
+          <button class="menu-item moderation-menu-item" @click="goTo('moderation')">
+            <div class="moderation-card-content">
+              <span class="menu-item-text moderation-text">
+                {{ $t('navigation.moderation') }}
+                <span v-if="pendingApprovalsCount > 0" class="menu-badge">{{ pendingApprovalsCount }}</span>
+              </span>
+            </div>
+          </button>
           <button class="menu-item admin-button" @click="goTo('admin')">
             <img class="menu-item-image" :src="adminPanelIcon" alt="Admin Panel" />
             <span class="menu-item-text"> {{ $t('navigation.admin_panel') }}</span>
@@ -74,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import ThemeToggle from '@/components/ThemeToggle.vue';
@@ -90,13 +109,65 @@ import api from '@/utils/api'
 const authStore = useAuthStore();
 const router = useRouter();
 const invitationsCount = ref(0);
+const pendingApprovalsCount = ref(0);
 const oldProjectsText = ref('');
 
-// Инициализация текста при монтировании
+// Проверка: админ или куратор
+const isModerator = computed(() => {
+  const user = authStore.user;
+  if (!user) return false;
+  return user.is_admin || (user.is_teacher && user.teacher_info?.curator === true);
+});
+
+// Только куратор (не админ)
+const isCurator = computed(() => {
+  const user = authStore.user;
+  if (!user) return false;
+  return !user.is_admin && user.is_teacher && user.teacher_info?.curator === true;
+});
+
+// Загрузка счетчиков
+const loadCounts = async () => {
+  if (!authStore.isAuthenticated) return;
+  
+  try {
+    // Загружаем приглашения
+    const invitationsResponse = await api.get('/invitations');
+    invitationsCount.value = invitationsResponse.data.length;
+    
+    // Загружаем ожидающие заявки (только для модераторов)
+    if (isModerator.value) {
+      try {
+        const approvalsResponse = await api.get('/admin/approval-requests?status_filter=pending');
+        pendingApprovalsCount.value = approvalsResponse.data.pending?.length || 0;
+      } catch (error) {
+        console.error('Failed to load approvals count:', error);
+        pendingApprovalsCount.value = 0;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load counts:', error);
+  }
+};
+
+// Периодическое обновление счетчиков
+let countInterval: ReturnType<typeof setInterval>;
+
 onMounted(() => {
-  loadInvitationsCount();
-  // Устанавливаем начальный текст в зависимости от текущего языка
-  oldProjectsText.value = 'Старые проекты'; // или значение по умолчанию
+  loadCounts();
+  oldProjectsText.value = 'Старые проекты';
+  
+  countInterval = setInterval(() => {
+    if (authStore.isAuthenticated) {
+      loadCounts();
+    }
+  }, 30000); // Каждые 30 секунд
+});
+
+onUnmounted(() => {
+  if (countInterval) {
+    clearInterval(countInterval);
+  }
 });
 
 const greetingName = computed(() => {
@@ -117,16 +188,6 @@ const goTo = (route: string) => {
 const logout = () => {
   authStore.logout();
   router.push('/login');
-};
-
-const loadInvitationsCount = async () => {
-  if (!authStore.isAuthenticated) return;
-  try {
-    const response = await api.get('/invitations');
-    invitationsCount.value = response.data.length;
-  } catch (error) {
-    console.error('Failed to load invitations count:', error);
-  }
 };
 </script>
 
@@ -161,6 +222,37 @@ const loadInvitationsCount = async () => {
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+/* Кнопка модерации в хедере - такой же размер как у приглашений */
+.moderation-button {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: clamp(0.5rem, 1.5vw, 0.8rem) clamp(1rem, 2.5vw, 1.8rem);
+  font-size: clamp(0.9rem, 2vw, 1.1rem);
+  font-weight: 500;
+  color: var(--accent-color);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  white-space: nowrap;
+  margin-right: 20px; /* Отступ справа 20px от кнопки приглашений */
+}
+
+.moderation-button:hover {
+  background: var(--accent-color);
+  color: white;
+  box-shadow: var(--shadow-strong);
+  border-color: var(--accent-color);
+}
+
+.moderation-button:active {
+  transform: none;
 }
 
 .invitations-button,
@@ -213,6 +305,7 @@ const loadInvitationsCount = async () => {
 }
 
 @media (max-width: 768px) {
+  .moderation-button,
   .invitations-button,
   .profile-button {
     white-space: normal;
@@ -271,6 +364,66 @@ const loadInvitationsCount = async () => {
   position: relative;
   gap: 0.5rem;
   overflow: hidden;
+}
+
+/* Карточка модерации в меню */
+.moderation-menu-item {
+  background: var(--bg-card);
+  border: 2px solid var(--accent-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.moderation-menu-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, 
+    color-mix(in srgb, var(--accent-color) 8%, transparent),
+    color-mix(in srgb, var(--accent-color) 3%, transparent)
+  );
+  z-index: 0;
+  border-radius: 24px;
+}
+
+.moderation-card-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.moderation-icon {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.moderation-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+
+.menu-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f44336;
+  color: white;
+  border-radius: 50%;
+  min-width: 24px;
+  height: 24px;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 0 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .menu-item-image {

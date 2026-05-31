@@ -42,6 +42,30 @@ const routes: Array<RouteRecordRaw> = [
   { path: '/user/:id/projects', name: 'UserProjects', component: UserProjects },
   { path: '/invite/:token', name: 'InviteAccept', component: InviteAccept },
   
+  // Приглашения
+  {
+    path: '/invitations',
+    name: 'Invitations',
+    component: () => import('@/views/Invitations.vue'),
+    meta: { requiresAuth: true }
+  },
+  
+  // Старые проекты
+  {
+    path: '/old-projects',
+    name: 'OldProjects',
+    component: () => import('@/views/OldProjects.vue'),
+    meta: { requiresAuth: true }
+  },
+  
+  // Модерация проектов (доступно админам и кураторам)
+  {
+    path: '/moderation',
+    name: 'Moderation',
+    component: () => import('@/views/ModerationPage.vue'),
+    meta: { requiresAuth: true, requiresModerator: true }
+  },
+  
   // Админские маршруты
   {
     path: '/admin',
@@ -55,12 +79,6 @@ const routes: Array<RouteRecordRaw> = [
     component: AdminUsers,
     meta: { requiresAdmin: true }
   },
-  {
-  path: '/old-projects',
-  name: 'OldProjects',
-  component: () => import('@/views/OldProjects.vue'),
-  meta: { requiresAuth: true }
-},
   {
     path: '/admin/users/:id/edit',
     name: 'AdminUserEdit',
@@ -86,32 +104,27 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAdmin: true }
   },
   {
-  path: '/invitations',
-  name: 'Invitations',
-  component: () => import('@/views/Invitations.vue'),
-  meta: { requiresAuth: true }
-},
-{
-  path: '/admin/default-tasks',
-  name: 'AdminDefaultTasks',
-  component: () => import('@/views/AdminDefaultTasks.vue'),
-  meta: { requiresAdmin: true }
-},
-{
-  path: '/admin/file-limits',
-  name: 'AdminFileLimits',
-  component: () => import('@/views/AdminFileLimits.vue'),
-  meta: { requiresAdmin: true }
-},
-  ]
+    path: '/admin/default-tasks',
+    name: 'AdminDefaultTasks',
+    component: () => import('@/views/AdminDefaultTasks.vue'),
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/admin/file-limits',
+    name: 'AdminFileLimits',
+    component: () => import('@/views/AdminFileLimits.vue'),
+    meta: { requiresAdmin: true }
+  },
+]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
 
-// Guard для проверки прав администратора (обновлённый синтаксис без next())
+// Guard для проверки прав
 router.beforeEach(async (to, from) => {
+  // Проверка прав администратора
   if (to.meta.requiresAdmin) {
     const { useAuthStore } = await import('@/stores/auth')
     const authStore = useAuthStore()
@@ -119,10 +132,28 @@ router.beforeEach(async (to, from) => {
       await authStore.checkAuth()
     }
     if (!authStore.user?.is_admin) {
-      return '/main' // перенаправляем на главную
+      return '/main'
     }
   }
-  // Разрешаем переход
+  
+  // Проверка прав модератора (админ или куратор)
+  if (to.meta.requiresModerator) {
+    const { useAuthStore } = await import('@/stores/auth')
+    const authStore = useAuthStore()
+    if (!authStore.isAuthenticated) {
+      await authStore.checkAuth()
+    }
+    
+    const user = authStore.user
+    if (!user) return '/login'
+    
+    // Проверяем: админ или куратор
+    const isModerator = user.is_admin || (user.is_teacher && user.teacher_info?.curator === true)
+    if (!isModerator) {
+      return '/main'
+    }
+  }
+  
   return true
 })
 
