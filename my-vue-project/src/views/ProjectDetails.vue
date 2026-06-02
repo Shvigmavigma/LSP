@@ -6,6 +6,7 @@
         <ThemeToggle />
         <LanguageSwitcher />
         <HomeButton/>
+        <VersionControl v-if="isAdminOrCurator && project" :project-id="project.id" />
       </div>
     </header>
 
@@ -580,6 +581,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
+import VersionControl from '@/components/VersionControl.vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';

@@ -337,10 +337,6 @@ async def restore_to_version(
 ):
     """
     Восстанавливает проект до указанной версии.
-    checkpoint_version - номер чекпоинта
-    change_version - номер изменения (0 = весь чекпоинт)
-    
-    ВАЖНО: Все версии после указанной будут УДАЛЕНЫ!
     """
     # Находим чекпоинт
     checkpoint = db.query(ProjectCheckpoint).filter(
@@ -368,8 +364,19 @@ async def restore_to_version(
     # Применяем снимок к проекту
     for key, value in snapshot.items():
         if hasattr(project, key):
+            # Пропускаем поля, которых нет в модели
+            if key in ['approval_requested_at', 'approval_handled_at']:
+                # Преобразуем строку ISO в datetime, если значение есть
+                if value and isinstance(value, str):
+                    try:
+                        value = datetime.fromisoformat(value)
+                    except (ValueError, TypeError):
+                        value = None
+                elif value is not None and not isinstance(value, datetime):
+                    value = None
             setattr(project, key, value)
     
+    # Сохраняем изменения
     db.flush()
     
     # Удаляем все последующие изменения в этом чекпоинте
@@ -726,14 +733,7 @@ async def delete_version(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Удалить чекпоинт или конкретное изменение.
-    
-    - change_version=0: удаляет весь чекпоинт и все его изменения
-    - change_version>0: удаляет только одно изменение, остальные сдвигаются
-    
-    Доступно только админам и кураторам.
-    """
+    """Удалить чекпоинт или конкретное изменение."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -746,6 +746,15 @@ async def delete_version(
         total_checkpoints = db.query(ProjectCheckpoint).filter(
             ProjectCheckpoint.project_id == project_id
         ).count()
+        
+        # Проверяем, существует ли чекпоинт с таким номером
+        checkpoint = db.query(ProjectCheckpoint).filter(
+            ProjectCheckpoint.project_id == project_id,
+            ProjectCheckpoint.version == checkpoint_version
+        ).first()
+        
+        if not checkpoint:
+            raise HTTPException(status_code=404, detail="Checkpoint not found")
         
         if total_checkpoints <= 1:
             raise HTTPException(status_code=400, detail="Cannot delete the last checkpoint")
@@ -809,25 +818,20 @@ async def delete_version(
             message=f"Change {checkpoint_version}.{change_version} deleted. Subsequent changes renumbered."
         )
 
-
 @app.get("/projects/{project_id}/version-stats", tags=["Projects"])
 async def get_version_stats(
     project_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Получить статистику версионирования проекта:
-    - Количество чекпоинтов и изменений
-    - Текущая версия и количество очков
-    - Сколько осталось до авто-чекпоинта
-    """
+    """Получить статистику версионирования проекта."""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    if not is_project_participant(project, current_user.id):
-        raise HTTPException(status_code=403, detail="Only project participants can view stats")
+    # Разрешаем доступ: админам, кураторам И участникам проекта
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(status_code=403, detail="Only project participants, admins and curators can view stats")
     
     total_checkpoints = db.query(ProjectCheckpoint).filter(
         ProjectCheckpoint.project_id == project_id
@@ -839,6 +843,8 @@ async def get_version_stats(
     
     current_version = get_current_checkpoint_version(db, project_id)
     current_points = get_total_points_since_last_checkpoint(db, project_id)
+    
+    # Собираем статистику по типам изменений
     change_stats = {}
     for change_type in CHANGE_POINTS.keys():
         count = db.query(ProjectChange).filter(
@@ -848,6 +854,8 @@ async def get_version_stats(
         if count > 0:
             change_stats[change_type] = count
     
+    progress_percent = min(100, round(current_points / POINTS_THRESHOLD * 100)) if POINTS_THRESHOLD > 0 else 0
+    
     return {
         "project_id": project_id,
         "points_threshold": POINTS_THRESHOLD,
@@ -856,7 +864,7 @@ async def get_version_stats(
         "current_version": current_version,
         "current_points": current_points,
         "points_to_next_checkpoint": max(0, POINTS_THRESHOLD - current_points),
-        "progress_percent": min(100, round(current_points / POINTS_THRESHOLD * 100)),
+        "progress_percent": progress_percent,
         "change_stats": change_stats
     }
 
@@ -1999,7 +2007,7 @@ async def restore_task_comment(
     db.refresh(project)
     return project
 
-@app.p@app.put("/projects/{project_id}/join-requests/{request_id}/reject", response_model=ProjectResponse, tags=["Projects"])
+@app.put("/projects/{project_id}/join-requests/{request_id}/reject", response_model=ProjectResponse, tags=["Projects"])
 async def reject_join_request(
     project_id: int,
     request_id: str,
