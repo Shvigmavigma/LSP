@@ -70,6 +70,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 ADMIN_INIT_PASSWORD = os.getenv("ADMIN_INIT_PASSWORD", "SuperMegaSilvaAdmin")
 DEFAULT_TASKS_FILE = "default_tasks.json"
 FILE_SIZE_LIMITS_FILE = "file_size_limits.json"
+PROJECT_LIFECYCLE_FILE = "project_lifecycle.json"
 
 origins = [
     "http://localhost:5173",
@@ -456,6 +457,113 @@ def load_default_tasks() -> Dict[str, Any]:
 def save_default_tasks(data: Dict[str, Any]):
     with open(DEFAULT_TASKS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+def get_default_project_lifecycle() -> Dict[str, Any]:
+    return {
+        "version": 1,
+        "stages": [
+            {
+                "id": "draft",
+                "title": "Черновик",
+                "description": "Проект оформляется и готовится к работе.",
+                "closer_roles": [ProjectRole.CUSTOMER.value, ProjectRole.CURATOR.value]
+            },
+            {
+                "id": "in_progress",
+                "title": "В работе",
+                "description": "Команда выполняет проект и загружает материалы.",
+                "closer_roles": [
+                    ProjectRole.EXECUTOR.value,
+                    ProjectRole.CUSTOMER.value,
+                    ProjectRole.CURATOR.value
+                ]
+            },
+            {
+                "id": "review",
+                "title": "Проверка",
+                "description": "Результаты проекта проверяются ответственными ролями.",
+                "closer_roles": [
+                    ProjectRole.SUPERVISOR.value,
+                    ProjectRole.EXPERT.value,
+                    ProjectRole.CUSTOMER.value,
+                    ProjectRole.CURATOR.value
+                ]
+            },
+            {
+                "id": "completed",
+                "title": "Завершен",
+                "description": "Проект закрыт и готов к архивированию.",
+                "closer_roles": [ProjectRole.CUSTOMER.value, ProjectRole.CURATOR.value]
+            }
+        ]
+    }
+
+def normalize_project_lifecycle(data: Dict[str, Any]) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Lifecycle schema must be an object")
+
+    allowed_roles = {role.value for role in ProjectRole}
+    raw_stages = data.get("stages", [])
+    if not isinstance(raw_stages, list):
+        raise HTTPException(status_code=400, detail="Lifecycle stages must be a list")
+
+    stages = []
+    used_ids = set()
+    for index, raw_stage in enumerate(raw_stages, start=1):
+        if not isinstance(raw_stage, dict):
+            raise HTTPException(status_code=400, detail=f"Stage #{index} must be an object")
+
+        stage_id = str(raw_stage.get("id", "")).strip()
+        title = str(raw_stage.get("title", "")).strip()
+        description = str(raw_stage.get("description", "")).strip()
+        closer_roles = raw_stage.get("closer_roles", [])
+
+        if not stage_id:
+            raise HTTPException(status_code=400, detail=f"Stage #{index} id is required")
+        if any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-" for char in stage_id):
+            raise HTTPException(status_code=400, detail=f"Stage id '{stage_id}' can contain only letters, numbers, _ and -")
+        if stage_id in used_ids:
+            raise HTTPException(status_code=400, detail=f"Stage id '{stage_id}' is duplicated")
+        if not title:
+            raise HTTPException(status_code=400, detail=f"Stage #{index} title is required")
+        if not isinstance(closer_roles, list):
+            raise HTTPException(status_code=400, detail=f"Stage '{stage_id}' closer_roles must be a list")
+
+        normalized_roles = []
+        for role in closer_roles:
+            role_value = str(role).strip()
+            if role_value not in allowed_roles:
+                raise HTTPException(status_code=400, detail=f"Role '{role_value}' is not allowed")
+            if role_value not in normalized_roles:
+                normalized_roles.append(role_value)
+
+        used_ids.add(stage_id)
+        stages.append({
+            "id": stage_id,
+            "title": title,
+            "description": description,
+            "closer_roles": normalized_roles
+        })
+
+    return {
+        "version": int(data.get("version") or 1),
+        "stages": stages
+    }
+
+def load_project_lifecycle() -> Dict[str, Any]:
+    if not os.path.exists(PROJECT_LIFECYCLE_FILE):
+        initial = get_default_project_lifecycle()
+        save_project_lifecycle(initial)
+        return initial
+
+    with open(PROJECT_LIFECYCLE_FILE, "r", encoding="utf-8") as f:
+        return normalize_project_lifecycle(json.load(f))
+
+def save_project_lifecycle(data: Dict[str, Any]):
+    normalized = normalize_project_lifecycle(data)
+    with open(PROJECT_LIFECYCLE_FILE, "w", encoding="utf-8") as f:
+        json.dump(normalized, f, ensure_ascii=False, indent=2)
+    return normalized
 
 def load_file_limits():
     if not os.path.exists(FILE_SIZE_LIMITS_FILE):
@@ -928,6 +1036,18 @@ async def update_file_size_limits(
 ):
     save_file_limits(data)
     return {"message": "File size limits updated"}
+
+@app.get("/admin/project-lifecycle", tags=["Admin"])
+async def admin_get_project_lifecycle(admin: User = Depends(get_current_admin)):
+    return load_project_lifecycle()
+
+@app.put("/admin/project-lifecycle", tags=["Admin"])
+async def admin_update_project_lifecycle(
+    data: Dict[str, Any] = Body(...),
+    admin: User = Depends(get_current_admin)
+):
+    schema = save_project_lifecycle(data)
+    return {"message": "Project lifecycle updated", "schema": schema}
 
 @app.post("/admin/users", response_model=UserResponse, tags=["Admin"])
 async def admin_create_user(

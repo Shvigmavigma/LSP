@@ -316,6 +316,10 @@
             "confirmMessage": "Are you sure you want to delete ALL projects? This action cannot be undone.",
             "success": "All projects deleted",
             "error": "Error during deletion"
+        },
+        "projectLifecycle": {
+            "title": "Project Lifecycle",
+            "desc": "Configure project stages and roles that can close them"
         }
     },
     "adminProjectEdit": {
@@ -1018,5 +1022,43 @@
         "errorUpdateDirection": "Error updating direction",
         "saveSuccess": "Saved",
         "saveError": "Error saving"
+    },
+    "adminProjectLifecycle": {
+        "eyebrow": "Administration",
+        "title": "Project Lifecycle",
+        "subtitle": "Build project stages and choose which roles can close each stage.",
+        "stagesTitle": "Stages",
+        "stagesCount": "{count} in schema",
+        "addStage": "Add stage",
+        "loading": "Loading schema...",
+        "emptyTitle": "No stages yet",
+        "emptyText": "Add the first stage to build the project lifecycle.",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "stageId": "Stage ID",
+        "stageTitle": "Title",
+        "stageTitlePlaceholder": "Review",
+        "description": "Description",
+        "descriptionPlaceholder": "What happens at this stage",
+        "closerRoles": "Who can close this stage",
+        "removeStage": "Delete stage",
+        "schemaTitle": "Schema",
+        "schemaFile": "Will be saved to project_lifecycle.json",
+        "untitled": "Untitled",
+        "reset": "Reset",
+        "saveSchema": "Save schema",
+        "unsavedChanges": "There are unsaved changes",
+        "synced": "Schema is synchronized",
+        "loadError": "Failed to load lifecycle schema.",
+        "saveSuccess": "Schema saved.",
+        "saveError": "Failed to save schema.",
+        "newStage": "New stage",
+        "noRolesSelected": "No roles selected",
+        "errors": {
+            "stageIdRequired": "Stage #{number} has no ID.",
+            "stageIdInvalid": "ID \"{id}\" can contain only Latin letters, digits, _ and -.",
+            "stageTitleRequired": "Stage #{number} has no title.",
+            "stageIdDuplicate": "ID \"{id}\" is duplicated."
+        }
     }
 }

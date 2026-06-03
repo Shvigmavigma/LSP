@@ -31,6 +31,11 @@
           <span class="card-desc">{{ $t('adminPanel.defaultTasks.desc') }}</span>
         </router-link>
 
+        <router-link to="/admin/project-lifecycle" class="menu-card">
+          <span class="card-title">{{ $t('adminPanel.projectLifecycle.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.projectLifecycle.desc') }}</span>
+        </router-link>
+
         <!-- Новая карточка: Лимиты файлов -->
         <router-link to="/admin/file-limits" class="menu-card">
           <span class="card-title">{{ $t('adminPanel.fileLimits.title') }}</span>

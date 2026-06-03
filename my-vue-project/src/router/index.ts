@@ -110,6 +110,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAdmin: true }
   },
   {
+    path: '/admin/project-lifecycle',
+    name: 'AdminProjectLifecycle',
+    component: () => import('@/views/AdminProjectLifecycle.vue'),
+    meta: { requiresAdmin: true }
+  },
+  {
     path: '/admin/file-limits',
     name: 'AdminFileLimits',
     component: () => import('@/views/AdminFileLimits.vue'),

@@ -319,6 +319,10 @@
             "confirmMessage": "您确定要删除所有项目吗？此操作不可撤销。",
             "success": "所有项目已删除",
             "error": "删除时出错"
+        },
+        "projectLifecycle": {
+            "title": "项目生命周期",
+            "desc": "配置项目阶段以及可关闭阶段的角色"
         }
     },
     "adminProjectEdit": {
@@ -1021,5 +1025,43 @@
         "errorUpdateDirection": "更新方向时出错",
         "saveSuccess": "已保存",
         "saveError": "保存错误"
+    },
+    "adminProjectLifecycle": {
+        "eyebrow": "管理",
+        "title": "项目生命周期",
+        "subtitle": "构建项目阶段，并选择哪些角色可以关闭每个阶段。",
+        "stagesTitle": "阶段",
+        "stagesCount": "架构中有 {count} 个阶段",
+        "addStage": "添加阶段",
+        "loading": "正在加载架构...",
+        "emptyTitle": "还没有阶段",
+        "emptyText": "添加第一个阶段来构建项目生命周期。",
+        "moveUp": "上移",
+        "moveDown": "下移",
+        "stageId": "阶段 ID",
+        "stageTitle": "名称",
+        "stageTitlePlaceholder": "审核",
+        "description": "描述",
+        "descriptionPlaceholder": "这个阶段会发生什么",
+        "closerRoles": "谁可以关闭此阶段",
+        "removeStage": "删除阶段",
+        "schemaTitle": "架构",
+        "schemaFile": "将保存到 project_lifecycle.json",
+        "untitled": "未命名",
+        "reset": "重置",
+        "saveSchema": "保存架构",
+        "unsavedChanges": "有未保存的更改",
+        "synced": "架构已同步",
+        "loadError": "无法加载生命周期架构。",
+        "saveSuccess": "架构已保存。",
+        "saveError": "无法保存架构。",
+        "newStage": "新阶段",
+        "noRolesSelected": "未选择角色",
+        "errors": {
+            "stageIdRequired": "阶段 #{number} 未填写 ID。",
+            "stageIdInvalid": "ID \"{id}\" 只能包含拉丁字母、数字、_ 和 -。",
+            "stageTitleRequired": "阶段 #{number} 未填写名称。",
+            "stageIdDuplicate": "ID \"{id}\" 重复。"
+        }
     }
 }

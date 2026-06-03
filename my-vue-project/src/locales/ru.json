@@ -80,8 +80,7 @@
         "approveError": "Ошибка при одобрении проекта",
         "rejectError": "Ошибка при отклонении проекта",
         "loadError": "Ошибка загрузки проектов"
-        },
-
+    },
     "navigation": {
         "main_menu": "Главное меню",
         "invitations": "Приглашения",
@@ -317,6 +316,10 @@
             "confirmMessage": "Вы уверены, что хотите удалить ВСЕ проекты? Это действие необратимо.",
             "success": "Все проекты удалены",
             "error": "Ошибка при удалении"
+        },
+        "projectLifecycle": {
+            "title": "Жизненный цикл проектов",
+            "desc": "Конструктор этапов и ролей, которые могут закрывать этапы"
         }
     },
     "adminProjectEdit": {
@@ -410,7 +413,6 @@
         "unmarkOldError": "Ошибка при снятии пометки",
         "deleteError": "Ошибка при удалении"
     },
-
     "adminUserEdit": {
         "title": "Редактирование пользователя",
         "nickname": "Никнейм",
@@ -1020,5 +1022,43 @@
         "errorUpdateDirection": "Ошибка при обновлении направления",
         "saveSuccess": "Сохранено",
         "saveError": "Ошибка сохранения"
+    },
+    "adminProjectLifecycle": {
+        "eyebrow": "Администрирование",
+        "title": "Жизненный цикл проектов",
+        "subtitle": "Конструктор этапов проекта и ролей, которые могут закрывать каждый этап.",
+        "stagesTitle": "Этапы",
+        "stagesCount": "{count} в схеме",
+        "addStage": "Добавить этап",
+        "loading": "Загрузка схемы...",
+        "emptyTitle": "Этапов пока нет",
+        "emptyText": "Добавьте первый этап, чтобы собрать жизненный цикл проекта.",
+        "moveUp": "Выше",
+        "moveDown": "Ниже",
+        "stageId": "ID этапа",
+        "stageTitle": "Название",
+        "stageTitlePlaceholder": "Проверка",
+        "description": "Описание",
+        "descriptionPlaceholder": "Что происходит на этом этапе",
+        "closerRoles": "Кто может закрыть этап",
+        "removeStage": "Удалить этап",
+        "schemaTitle": "Схема",
+        "schemaFile": "Будет сохранена в project_lifecycle.json",
+        "untitled": "Без названия",
+        "reset": "Сбросить",
+        "saveSchema": "Сохранить схему",
+        "unsavedChanges": "Есть несохраненные изменения",
+        "synced": "Схема синхронизирована",
+        "loadError": "Не удалось загрузить схему жизненного цикла.",
+        "saveSuccess": "Схема сохранена.",
+        "saveError": "Не удалось сохранить схему.",
+        "newStage": "Новый этап",
+        "noRolesSelected": "Роли не выбраны",
+        "errors": {
+            "stageIdRequired": "У этапа #{number} не заполнен ID.",
+            "stageIdInvalid": "ID \"{id}\" может содержать только латиницу, цифры, _ и -.",
+            "stageTitleRequired": "У этапа #{number} не заполнено название.",
+            "stageIdDuplicate": "ID \"{id}\" повторяется."
+        }
     }
 }
