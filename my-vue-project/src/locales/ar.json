@@ -318,6 +318,10 @@
             "confirmMessage": "هل أنت متأكد أنك تريد حذف جميع المشاريع؟ هذا الإجراء لا يمكن التراجع عنه.",
             "success": "تم حذف جميع المشاريع",
             "error": "خطأ أثناء الحذف"
+        },
+        "projectLifecycle": {
+            "title": "دورة حياة المشاريع",
+            "desc": "إعداد مراحل المشروع والأدوار التي يمكنها إغلاق كل مرحلة"
         }
     },
     "adminProjectEdit": {
@@ -1020,5 +1024,43 @@
         "errorUpdateDirection": "خطأ في تحديث الاتجاه",
         "saveSuccess": "تم الحفظ",
         "saveError": "خطأ في الحفظ"
+    },
+    "adminProjectLifecycle": {
+        "eyebrow": "الإدارة",
+        "title": "دورة حياة المشاريع",
+        "subtitle": "أنشئ مراحل المشروع وحدد الأدوار التي يمكنها إغلاق كل مرحلة.",
+        "stagesTitle": "المراحل",
+        "stagesCount": "{count} في المخطط",
+        "addStage": "إضافة مرحلة",
+        "loading": "جار تحميل المخطط...",
+        "emptyTitle": "لا توجد مراحل بعد",
+        "emptyText": "أضف المرحلة الأولى لبناء دورة حياة المشروع.",
+        "moveUp": "إلى الأعلى",
+        "moveDown": "إلى الأسفل",
+        "stageId": "معرف المرحلة",
+        "stageTitle": "الاسم",
+        "stageTitlePlaceholder": "مراجعة",
+        "description": "الوصف",
+        "descriptionPlaceholder": "ما الذي يحدث في هذه المرحلة",
+        "closerRoles": "من يمكنه إغلاق المرحلة",
+        "removeStage": "حذف المرحلة",
+        "schemaTitle": "المخطط",
+        "schemaFile": "سيتم الحفظ في project_lifecycle.json",
+        "untitled": "بلا اسم",
+        "reset": "إعادة ضبط",
+        "saveSchema": "حفظ المخطط",
+        "unsavedChanges": "توجد تغييرات غير محفوظة",
+        "synced": "تمت مزامنة المخطط",
+        "loadError": "تعذر تحميل مخطط دورة الحياة.",
+        "saveSuccess": "تم حفظ المخطط.",
+        "saveError": "تعذر حفظ المخطط.",
+        "newStage": "مرحلة جديدة",
+        "noRolesSelected": "لم يتم اختيار أدوار",
+        "errors": {
+            "stageIdRequired": "المرحلة #{number} بلا معرف.",
+            "stageIdInvalid": "يمكن أن يحتوي المعرف \"{id}\" على أحرف لاتينية وأرقام و _ و - فقط.",
+            "stageTitleRequired": "المرحلة #{number} بلا اسم.",
+            "stageIdDuplicate": "المعرف \"{id}\" مكرر."
+        }
     }
 }

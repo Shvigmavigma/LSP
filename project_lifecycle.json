@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "stages": [
+    {
+      "id": "draft",
+      "title": "Черновик",
+      "description": "Проект оформляется и готовится к работе.",
+      "closer_roles": [
+        "customer",
+        "curator"
+      ]
+    },
+    {
+      "id": "in_progress",
+      "title": "В работе",
+      "description": "Команда выполняет проект и загружает материалы.",
+      "closer_roles": [
+        "executor",
+        "customer",
+        "curator"
+      ]
+    },
+    {
+      "id": "review",
+      "title": "Проверка",
+      "description": "Результаты проекта проверяются ответственными ролями.",
+      "closer_roles": [
+        "supervisor",
+        "expert",
+        "customer",
+        "curator"
+      ]
+    },
+    {
+      "id": "completed",
+      "title": "Завершен",
+      "description": "Проект закрыт и готов к архивированию.",
+      "closer_roles": [
+        "customer",
+        "curator"
+      ]
+    },
+    {
+      "id": "stage_5",
+      "title": "Новый этап",
+      "description": "",
+      "closer_roles": []
+    }
+  ]
+}

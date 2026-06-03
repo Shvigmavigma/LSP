@@ -317,6 +317,10 @@
             "confirmMessage": "Вы ўпэўнены, што жадаеце выдаліць УСЕ праекты? Гэта дзеянне незваротнае.",
             "success": "Усе праекты выдалены",
             "error": "Памылка пры выдаленні"
+        },
+        "projectLifecycle": {
+            "title": "Жыццёвы цыкл праектаў",
+            "desc": "Канструктар этапаў і роляў, якія могуць закрываць этапы"
         }
     },
     "adminProjectEdit": {
@@ -1019,5 +1023,43 @@
         "errorUpdateDirection": "Памылка пры абнаўленні напрамку",
         "saveSuccess": "Захавана",
         "saveError": "Памылка захавання"
+    },
+    "adminProjectLifecycle": {
+        "eyebrow": "Адміністраванне",
+        "title": "Жыццёвы цыкл праектаў",
+        "subtitle": "Канструктар этапаў праекта і роляў, якія могуць закрываць кожны этап.",
+        "stagesTitle": "Этапы",
+        "stagesCount": "{count} у схеме",
+        "addStage": "Дадаць этап",
+        "loading": "Загрузка схемы...",
+        "emptyTitle": "Этапаў пакуль няма",
+        "emptyText": "Дадайце першы этап, каб сабраць жыццёвы цыкл праекта.",
+        "moveUp": "Вышэй",
+        "moveDown": "Ніжэй",
+        "stageId": "ID этапу",
+        "stageTitle": "Назва",
+        "stageTitlePlaceholder": "Праверка",
+        "description": "Апісанне",
+        "descriptionPlaceholder": "Што адбываецца на гэтым этапе",
+        "closerRoles": "Хто можа закрыць этап",
+        "removeStage": "Выдаліць этап",
+        "schemaTitle": "Схема",
+        "schemaFile": "Будзе захавана ў project_lifecycle.json",
+        "untitled": "Без назвы",
+        "reset": "Скінуць",
+        "saveSchema": "Захаваць схему",
+        "unsavedChanges": "Ёсць незахаваныя змены",
+        "synced": "Схема сінхранізавана",
+        "loadError": "Не ўдалося загрузіць схему жыццёвага цыклу.",
+        "saveSuccess": "Схема захавана.",
+        "saveError": "Не ўдалося захаваць схему.",
+        "newStage": "Новы этап",
+        "noRolesSelected": "Ролі не выбраны",
+        "errors": {
+            "stageIdRequired": "У этапу #{number} не запоўнены ID.",
+            "stageIdInvalid": "ID \"{id}\" можа змяшчаць толькі лацінскія літары, лічбы, _ і -.",
+            "stageTitleRequired": "У этапу #{number} не запоўнена назва.",
+            "stageIdDuplicate": "ID \"{id}\" паўтараецца."
+        }
     }
 }
