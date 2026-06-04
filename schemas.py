@@ -116,6 +116,45 @@ class ProjectApprovalList(BaseModel):
     rejected: List[ApprovalRequest] = []
 
 # ---------- учитель ----------
+class LifecycleStageState(BaseModel):
+    id: str
+    status: str = "pending"
+    requested_by: Optional[int] = None
+    requested_at: Optional[datetime] = None
+    handled_by: Optional[int] = None
+    handled_at: Optional[datetime] = None
+    comment: Optional[str] = None
+
+
+class ProjectLifecycleState(BaseModel):
+    current_stage_id: Optional[str] = None
+    stages: List[LifecycleStageState] = []
+
+
+class LifecycleStageAction(BaseModel):
+    comment: Optional[str] = None
+
+
+class LifecycleStageDecision(BaseModel):
+    action: str = Field(..., description="approve or reject")
+    comment: Optional[str] = None
+
+
+class EditingPresenceRequest(BaseModel):
+    target_type: str = "task"
+    target_id: str
+
+
+class FileQuotaSettings(BaseModel):
+    project_limit: int = 1024 * 1024 * 1024
+    user_limit: int = 100 * 1024 * 1024
+
+
+class ProjectQuotaOverride(BaseModel):
+    project_limit: Optional[int] = None
+    user_limit: Optional[int] = None
+
+
 class TeacherRole(str, Enum):
     CUSTOMER = "customer"      # Заказчик
     EXPERT = "expert"           # Эксперт
@@ -212,6 +251,8 @@ class ProjectFileResponse(BaseModel):
 class ProjectBase(BaseModel):
     ignore_file_limits: bool = False
     title: str = Field(..., min_length=1, json_schema_extra={"example": "Космическая программа"})
+    class_key: Optional[str] = None
+    direction_key: Optional[str] = None
     body: str = Field(..., min_length=1, json_schema_extra={"example": "Подробное описание..."})
     underbody: str = Field("", json_schema_extra={"example": "Дополнительные материалы"})
     participants: List[Participant] = Field(
@@ -233,6 +274,8 @@ class ProjectBase(BaseModel):
         json_schema_extra={"example": {"github": "https://github.com/...", "google_drive": "https://drive.google.com/..."}}
     )
     comments: List[Comment] = Field(default=[], description="Комментарии к проекту")
+    lifecycle_state: Optional[ProjectLifecycleState] = None
+    file_quota_overrides: Dict[str, Any] = {}
     suggestions: List[Suggestion] = []
     is_old: bool = False
     required_roles: Optional[Dict[str, int]] = Field(
@@ -261,6 +304,8 @@ class ProjectResponse(ProjectBase):
 
 class ProjectUpdate(BaseModel):
     title: Optional[str] = None
+    class_key: Optional[str] = None
+    direction_key: Optional[str] = None
     body: Optional[str] = None
     underbody: Optional[str] = None
     tasks: Optional[List[Dict[str, Any]]] = None
@@ -268,6 +313,8 @@ class ProjectUpdate(BaseModel):
     is_old: Optional[bool] = None
     links: Optional[Dict[str, str]] = None
     comments: Optional[List[Comment]] = None
+    lifecycle_state: Optional[ProjectLifecycleState] = None
+    file_quota_overrides: Optional[Dict[str, Any]] = None
     ignore_file_limits: Optional[bool] = None
     required_roles: Optional[Dict[str, int]] = Field(
         default={},

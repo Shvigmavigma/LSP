@@ -106,3 +106,16 @@ async def send_password_reset_email(email: str, token: str):
         await fm.send_message(message)
     except Exception as e:
         print(f"Error sending password reset email: {e}")
+
+async def send_project_notification_email(email: str, subject: str, body: str):
+    try:
+        message = MessageSchema(
+            subject=subject,
+            recipients=[email],
+            body=f"<p>{body}</p>",
+            subtype="html"
+        )
+        fm = FastMail(conf)
+        await fm.send_message(message)
+    except Exception as e:
+        print(f"Error sending project notification email: {e}")

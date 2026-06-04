@@ -40,7 +40,9 @@ from schemas import (
     ProjectCheckpointResponse, ProjectChangeResponse,
     ProjectVersionDetail, ProjectVersionHistory, ProjectVersionStats,
     CreateCheckpointRequest, CreateCheckpointResponse,
-    RestoreVersionResponse, DeleteVersionResponse
+    RestoreVersionResponse, DeleteVersionResponse,
+    LifecycleStageAction, LifecycleStageDecision, EditingPresenceRequest,
+    FileQuotaSettings, ProjectQuotaOverride
 )
 
 from willow import Image
@@ -54,7 +56,7 @@ from auth import (
 )
 
 from fastapi.security import OAuth2PasswordRequestFormStrict
-from email_utils import generate_verification_code, send_verification_email, send_password_reset_email
+from email_utils import generate_verification_code, send_verification_email, send_password_reset_email, send_project_notification_email
 from core.memory_store import memory_store as redis_client
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -71,6 +73,33 @@ ADMIN_INIT_PASSWORD = os.getenv("ADMIN_INIT_PASSWORD", "SuperMegaSilvaAdmin")
 DEFAULT_TASKS_FILE = "default_tasks.json"
 FILE_SIZE_LIMITS_FILE = "file_size_limits.json"
 PROJECT_LIFECYCLE_FILE = "project_lifecycle.json"
+FILE_QUOTAS_FILE = "file_quotas.json"
+
+_json_file_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def read_json_cached(path: str, default_factory):
+    file_path = Path(path)
+    if not file_path.exists():
+        data = default_factory()
+        file_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        _json_file_cache[path] = {"mtime": file_path.stat().st_mtime, "data": data}
+        return data
+
+    mtime = file_path.stat().st_mtime
+    cached = _json_file_cache.get(path)
+    if cached and cached.get("mtime") == mtime:
+        return cached["data"]
+
+    data = json.loads(file_path.read_text(encoding="utf-8"))
+    _json_file_cache[path] = {"mtime": mtime, "data": data}
+    return data
+
+
+def write_json_cached(path: str, data: Any):
+    file_path = Path(path)
+    file_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    _json_file_cache[path] = {"mtime": file_path.stat().st_mtime, "data": data}
 
 origins = [
     "http://localhost:5173",
@@ -168,12 +197,16 @@ def create_project_snapshot(project: Project) -> dict:
     """Создаёт полный снимок текущего состояния проекта."""
     return {
         "title": project.title,
+        "class_key": project.class_key,
+        "direction_key": project.direction_key,
         "body": project.body,
         "underbody": project.underbody,
         "participants": project.participants,
         "tasks": project.tasks,
         "links": project.links,
         "comments": project.comments,
+        "lifecycle_state": project.lifecycle_state,
+        "file_quota_overrides": project.file_quota_overrides,
         "suggestions": project.suggestions,
         "join_requests": project.join_requests,
         "required_roles": project.required_roles,
@@ -413,6 +446,20 @@ async def restore_to_version(
 
 Base.metadata.create_all(bind=engine)
 
+def ensure_runtime_schema():
+    with engine.begin() as connection:
+        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(projects)").fetchall()}
+        if "class_key" not in columns:
+            connection.exec_driver_sql("ALTER TABLE projects ADD COLUMN class_key VARCHAR")
+        if "direction_key" not in columns:
+            connection.exec_driver_sql("ALTER TABLE projects ADD COLUMN direction_key VARCHAR")
+        if "lifecycle_state" not in columns:
+            connection.exec_driver_sql("ALTER TABLE projects ADD COLUMN lifecycle_state JSON DEFAULT '{}'")
+        if "file_quota_overrides" not in columns:
+            connection.exec_driver_sql("ALTER TABLE projects ADD COLUMN file_quota_overrides JSON DEFAULT '{}'")
+
+ensure_runtime_schema()
+
 def get_db():
     db = session_local()
     try:
@@ -591,6 +638,78 @@ def save_file_limits(data: dict):
     with open(FILE_SIZE_LIMITS_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
+# Cached overrides for file-backed configuration. They keep the old public
+# function names, so the rest of the app benefits without changing callers.
+def load_default_tasks() -> Dict[str, Any]:
+    return read_json_cached(DEFAULT_TASKS_FILE, lambda: {
+        "8": {"label": "8 класс", "tasks": []},
+        "10": {"label": "10 класс", "directions": {}},
+        "11": {"label": "11 класс", "directions": {}},
+    })
+
+def save_default_tasks(data: Dict[str, Any]):
+    write_json_cached(DEFAULT_TASKS_FILE, data)
+
+def load_project_lifecycle() -> Dict[str, Any]:
+    return normalize_project_lifecycle(read_json_cached(PROJECT_LIFECYCLE_FILE, get_default_project_lifecycle))
+
+def save_project_lifecycle(data: Dict[str, Any]):
+    normalized = normalize_project_lifecycle(data)
+    write_json_cached(PROJECT_LIFECYCLE_FILE, normalized)
+    return normalized
+
+def load_file_limits():
+    def default_limits():
+        return {
+            "text/plain": 5 * 1024 * 1024,
+            "application/pdf": 5 * 1024 * 1024,
+            "application/msword": 5 * 1024 * 1024,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": 5 * 1024 * 1024,
+            "application/vnd.ms-powerpoint": 30 * 1024 * 1024,
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation": 30 * 1024 * 1024,
+            "image/png": 10 * 1024 * 1024,
+            "image/jpeg": 10 * 1024 * 1024,
+            "image/x-icon": 1 * 1024 * 1024,
+            "image/vnd.microsoft.icon": 1 * 1024 * 1024,
+            "audio/mpeg": 10 * 1024 * 1024,
+            "video/mp4": 50 * 1024 * 1024,
+        }
+    return read_json_cached(FILE_SIZE_LIMITS_FILE, default_limits)
+
+def save_file_limits(data: dict):
+    write_json_cached(FILE_SIZE_LIMITS_FILE, data)
+
+def get_default_file_quotas() -> Dict[str, Any]:
+    return {
+        "project_limit": 1024 * 1024 * 1024,
+        "user_limit": 100 * 1024 * 1024,
+        "user_overrides": {},
+    }
+
+def load_file_quotas() -> Dict[str, Any]:
+    data = read_json_cached(FILE_QUOTAS_FILE, get_default_file_quotas)
+    defaults = get_default_file_quotas()
+    raw_overrides = data.get("user_overrides") if isinstance(data.get("user_overrides"), dict) else {}
+    return {
+        "project_limit": int(data.get("project_limit") or defaults["project_limit"]),
+        "user_limit": int(data.get("user_limit") or defaults["user_limit"]),
+        "user_overrides": {str(user_id): max(0, int(limit or 0)) for user_id, limit in raw_overrides.items()},
+    }
+
+def save_file_quotas(data: Dict[str, Any]) -> Dict[str, Any]:
+    defaults = get_default_file_quotas()
+    current = load_file_quotas()
+    raw_overrides = data.get("user_overrides", current.get("user_overrides", {}))
+    if not isinstance(raw_overrides, dict):
+        raw_overrides = {}
+    normalized = {
+        "project_limit": max(0, int(data.get("project_limit") or defaults["project_limit"])),
+        "user_limit": max(0, int(data.get("user_limit") or defaults["user_limit"])),
+        "user_overrides": {str(user_id): max(0, int(limit or 0)) for user_id, limit in raw_overrides.items()},
+    }
+    write_json_cached(FILE_QUOTAS_FILE, normalized)
+    return normalized
+
 async def get_user_from_query_or_header(
     request: Request,
     token: Optional[str] = Query(None),
@@ -671,6 +790,155 @@ def get_approval_info(project: Project) -> dict:
         "approval_handled_by": project.approval_handled_by if hasattr(project, 'approval_handled_by') else None,
         "approval_comment": project.approval_comment if hasattr(project, 'approval_comment') else None
     }
+
+def normalize_project_lifecycle_state(project: Project, schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    schema = schema or load_project_lifecycle()
+    stage_ids = [stage["id"] for stage in schema.get("stages", [])]
+    state = project.lifecycle_state if isinstance(project.lifecycle_state, dict) else {}
+    raw_states = state.get("stages", []) if isinstance(state.get("stages", []), list) else []
+    by_id = {item.get("id"): dict(item) for item in raw_states if isinstance(item, dict) and item.get("id")}
+    normalized_stages = []
+
+    for index, stage_id in enumerate(stage_ids):
+        item = by_id.get(stage_id, {})
+        status = item.get("status")
+        if status not in {"pending", "current", "approval_pending", "completed", "rejected"}:
+            status = "current" if index == 0 else "pending"
+        normalized_stages.append({
+            "id": stage_id,
+            "status": status,
+            "requested_by": item.get("requested_by"),
+            "requested_at": item.get("requested_at"),
+            "handled_by": item.get("handled_by"),
+            "handled_at": item.get("handled_at"),
+            "comment": item.get("comment"),
+        })
+
+    if normalized_stages and not any(stage["status"] in {"current", "approval_pending", "rejected"} for stage in normalized_stages):
+        next_stage = next((stage for stage in normalized_stages if stage["status"] != "completed"), None)
+        if next_stage:
+            next_stage["status"] = "current"
+
+    current = next((stage["id"] for stage in normalized_stages if stage["status"] in {"current", "approval_pending", "rejected"}), None)
+    if not current and normalized_stages:
+        current = normalized_stages[-1]["id"]
+
+    return {"current_stage_id": current, "stages": normalized_stages}
+
+def save_project_lifecycle_state(project: Project, state: Dict[str, Any]):
+    project.lifecycle_state = state
+    flag_modified(project, "lifecycle_state")
+
+def get_stage_config(stage_id: str) -> Dict[str, Any]:
+    schema = load_project_lifecycle()
+    stage = next((item for item in schema.get("stages", []) if item.get("id") == stage_id), None)
+    if not stage:
+        raise HTTPException(status_code=404, detail="Lifecycle stage not found")
+    return stage
+
+def user_can_close_stage(project: Project, user: User, stage: Dict[str, Any]) -> bool:
+    if user.is_admin:
+        return True
+    allowed_roles = stage.get("closer_roles") or []
+    if ProjectRole.CURATOR.value in allowed_roles and is_curator(user):
+        return True
+    participant_role = get_participant_role(project, user.id)
+    return bool(participant_role and participant_role in allowed_roles)
+
+def stage_accepts_curator_request(stage: Dict[str, Any]) -> bool:
+    return ProjectRole.CURATOR.value in (stage.get("closer_roles") or [])
+
+def stage_requires_curator_approval(stage: Dict[str, Any], user: User) -> bool:
+    return stage_accepts_curator_request(stage) and not (user.is_admin or is_curator(user))
+
+async def add_audit_entry(db: Session, project: Project, user: User, action: str, target_type: str = "project", target_id: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+    entry = {
+        "id": str(uuid.uuid4()),
+        "project_id": project.id,
+        "user_id": user.id,
+        "user_name": user.fullname or user.nickname,
+        "action": action,
+        "target_type": target_type,
+        "target_id": target_id,
+        "details": details or {},
+        "created_at": datetime.utcnow().isoformat(),
+    }
+    current = project.suggestions if isinstance(project.suggestions, list) else []
+    audit = project.lifecycle_state.get("audit_log", []) if isinstance(project.lifecycle_state, dict) else []
+    state = normalize_project_lifecycle_state(project)
+    state["audit_log"] = (audit + [entry])[-500:]
+    save_project_lifecycle_state(project, state)
+    flag_modified(project, "lifecycle_state")
+
+def get_project_audit(project: Project) -> List[Dict[str, Any]]:
+    return []
+
+def get_project_version_audit(db: Session, project_id: int) -> List[Dict[str, Any]]:
+    changes = db.query(ProjectChange).filter(
+        ProjectChange.project_id == project_id
+    ).order_by(ProjectChange.created_at.desc()).all()
+    users = {
+        user.id: user
+        for user in db.query(User).filter(User.id.in_([c.created_by for c in changes if c.created_by])).all()
+    } if changes else {}
+    return [
+        {
+            "id": change.id,
+            "project_id": project_id,
+            "user_id": change.created_by,
+            "user_name": (users.get(change.created_by).fullname or users.get(change.created_by).nickname) if users.get(change.created_by) else None,
+            "action": change.change_type,
+            "target_type": "version_change",
+            "target_id": f"{change.checkpoint_version}.{change.change_version}",
+            "details": {"description": change.description, "points": change.points, "diff": change.diff},
+            "created_at": change.created_at.isoformat() if change.created_at else None,
+        }
+        for change in changes
+    ]
+
+def get_effective_project_quotas(project: Project, user_id: Optional[int] = None) -> Dict[str, int]:
+    quotas = load_file_quotas()
+    overrides = project.file_quota_overrides if isinstance(project.file_quota_overrides, dict) else {}
+    user_overrides = quotas.get("user_overrides", {})
+    user_limit = overrides.get("user_limit") or quotas["user_limit"]
+    if user_id is not None:
+        user_limit = user_overrides.get(str(user_id), user_limit)
+    return {
+        "project_limit": int(overrides.get("project_limit") or quotas["project_limit"]),
+        "user_limit": int(user_limit),
+    }
+
+def get_project_storage_usage(db: Session, project_id: int, user_id: Optional[int] = None) -> int:
+    query = db.query(ProjectFile).filter(ProjectFile.project_id == project_id, ProjectFile.is_deleted == False)
+    if user_id is not None:
+        query = query.filter(ProjectFile.uploaded_by == user_id)
+    return sum(file.file_size or 0 for file in query.all())
+
+async def notify_project_teachers(db: Session, project: Project, actor: User, action: str):
+    teacher_ids = [p.get("user_id") for p in (project.participants or []) if p.get("role") in {
+        ProjectRole.CUSTOMER.value, ProjectRole.SUPERVISOR.value, ProjectRole.EXPERT.value, ProjectRole.CURATOR.value
+    }]
+    teachers = db.query(User).filter(User.id.in_(teacher_ids), User.is_teacher == True, User.is_verified == True).all() if teacher_ids else []
+    for teacher in teachers:
+        if teacher.id == actor.id:
+            continue
+        await send_project_notification_email(
+            teacher.email,
+            "LSP: project update",
+            f"Project '{project.title}': {actor.fullname or actor.nickname} {action} at {datetime.utcnow().isoformat()}."
+        )
+
+async def notify_completed_tasks(db: Session, project: Project, actor: User, old_tasks: List[Dict[str, Any]]):
+    old_by_title = {task.get("title"): task for task in (old_tasks or []) if isinstance(task, dict)}
+    for task in project.tasks or []:
+        if not isinstance(task, dict):
+            continue
+        old_task = old_by_title.get(task.get("title"))
+        old_status = old_task.get("status") if old_task else None
+        new_status = task.get("status")
+        if old_status != new_status and new_status in {"выполнена", "РІС‹РїРѕР»РЅРµРЅР°"}:
+            await add_audit_entry(db, project, actor, "task_completed", "task", task.get("title"), {"title": task.get("title")})
+            await notify_project_teachers(db, project, actor, f"completed task '{task.get('title')}'")
 
 # ==================== ЭНДПОИНТЫ ВЕРСИОНИРОВАНИЯ ====================
 
@@ -1037,6 +1305,41 @@ async def update_file_size_limits(
     save_file_limits(data)
     return {"message": "File size limits updated"}
 
+@app.get("/admin/file-quotas", tags=["Admin"])
+async def get_file_quotas(admin: User = Depends(get_current_admin)):
+    return load_file_quotas()
+
+@app.put("/admin/file-quotas", tags=["Admin"])
+async def update_file_quotas(
+    data: FileQuotaSettings,
+    admin: User = Depends(get_current_admin)
+):
+    return {"message": "File quotas updated", "quotas": save_file_quotas(data.model_dump())}
+
+@app.get("/admin/user-file-quotas", tags=["Admin"])
+async def get_user_file_quotas(admin: User = Depends(get_current_admin)):
+    return {"user_overrides": load_file_quotas().get("user_overrides", {})}
+
+@app.put("/admin/users/{user_id}/file-quota", tags=["Admin"])
+async def update_user_file_quota(
+    user_id: int,
+    data: ProjectQuotaOverride,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    quotas = load_file_quotas()
+    overrides = quotas.get("user_overrides", {})
+    if data.user_limit is None:
+        overrides.pop(str(user_id), None)
+    else:
+        overrides[str(user_id)] = max(0, int(data.user_limit))
+    quotas["user_overrides"] = overrides
+    saved = save_file_quotas(quotas)
+    return {"message": "User file quota updated", "user_overrides": saved.get("user_overrides", {})}
+
 @app.get("/admin/project-lifecycle", tags=["Admin"])
 async def admin_get_project_lifecycle(admin: User = Depends(get_current_admin)):
     return load_project_lifecycle()
@@ -1048,6 +1351,357 @@ async def admin_update_project_lifecycle(
 ):
     schema = save_project_lifecycle(data)
     return {"message": "Project lifecycle updated", "schema": schema}
+
+@app.get("/projects/{project_id}/lifecycle", tags=["Projects"])
+async def get_project_lifecycle_state(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(status_code=403, detail="Only project participants can view lifecycle")
+    schema = load_project_lifecycle()
+    state = normalize_project_lifecycle_state(project, schema)
+    if project.lifecycle_state != state:
+        existing_audit = project.lifecycle_state.get("audit_log", []) if isinstance(project.lifecycle_state, dict) else []
+        state["audit_log"] = existing_audit
+        save_project_lifecycle_state(project, state)
+        db.commit()
+    return {"schema": schema, "state": state}
+
+@app.post("/projects/{project_id}/lifecycle/{stage_id}/request", tags=["Projects"])
+async def request_lifecycle_stage_close(
+    project_id: int,
+    stage_id: str,
+    payload: LifecycleStageAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    stage_config = get_stage_config(stage_id)
+    can_request_curator_close = stage_accepts_curator_request(stage_config) and is_project_participant(project, current_user.id)
+    if not user_can_close_stage(project, current_user, stage_config) and not can_request_curator_close:
+        raise HTTPException(status_code=403, detail="This role cannot close this lifecycle stage")
+
+    state = normalize_project_lifecycle_state(project)
+    stage = next((item for item in state["stages"] if item["id"] == stage_id), None)
+    if not stage:
+        raise HTTPException(status_code=404, detail="Lifecycle stage not found")
+    if stage["status"] == "completed":
+        raise HTTPException(status_code=400, detail="Lifecycle stage already completed")
+    if stage["status"] == "approval_pending":
+        raise HTTPException(status_code=400, detail="Lifecycle stage already has a pending close request")
+    if stage["id"] != state.get("current_stage_id"):
+        raise HTTPException(status_code=400, detail="Only current lifecycle stage can be closed")
+
+    now = datetime.utcnow().isoformat()
+    if stage_requires_curator_approval(stage_config, current_user):
+        stage.update({
+            "status": "approval_pending",
+            "requested_by": current_user.id,
+            "requested_at": now,
+            "handled_by": None,
+            "handled_at": None,
+            "comment": payload.comment,
+        })
+        action = "lifecycle_stage_requested"
+    else:
+        stage.update({
+            "status": "completed",
+            "requested_by": current_user.id,
+            "requested_at": now,
+            "handled_by": current_user.id,
+            "handled_at": now,
+            "comment": payload.comment,
+        })
+        index = state["stages"].index(stage)
+        if index + 1 < len(state["stages"]):
+            state["stages"][index + 1]["status"] = "current"
+            state["current_stage_id"] = state["stages"][index + 1]["id"]
+        else:
+            state["current_stage_id"] = stage_id
+        if index == 0:
+            project.is_approved = True
+            project.approval_status = "approved"
+        action = "lifecycle_stage_completed"
+
+    save_project_lifecycle_state(project, state)
+    await add_audit_entry(db, project, current_user, action, "lifecycle_stage", stage_id, {"comment": payload.comment})
+    db.commit()
+    db.refresh(project)
+    return {"message": action, "state": project.lifecycle_state}
+
+@app.post("/admin/projects/{project_id}/lifecycle/{stage_id}/decision", tags=["Admin"])
+async def decide_lifecycle_stage(
+    project_id: int,
+    stage_id: str,
+    payload: LifecycleStageDecision,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Only admins and curators can decide lifecycle stages")
+    if payload.action not in {"approve", "reject"}:
+        raise HTTPException(status_code=400, detail="Action must be approve or reject")
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    state = normalize_project_lifecycle_state(project)
+    stage = next((item for item in state["stages"] if item["id"] == stage_id), None)
+    if not stage:
+        raise HTTPException(status_code=404, detail="Lifecycle stage not found")
+    if stage["status"] != "approval_pending":
+        raise HTTPException(status_code=400, detail="Lifecycle stage is not pending approval")
+
+    now = datetime.utcnow().isoformat()
+    stage["handled_by"] = current_user.id
+    stage["handled_at"] = now
+    stage["comment"] = payload.comment
+    if payload.action == "approve":
+        stage["status"] = "completed"
+        index = state["stages"].index(stage)
+        if index + 1 < len(state["stages"]):
+            state["stages"][index + 1]["status"] = "current"
+            state["current_stage_id"] = state["stages"][index + 1]["id"]
+        else:
+            state["current_stage_id"] = stage_id
+        if index == 0:
+            project.is_approved = True
+            project.approval_status = "approved"
+        audit_action = "lifecycle_stage_approved"
+    else:
+        stage["status"] = "rejected"
+        state["current_stage_id"] = stage_id
+        if state["stages"].index(stage) == 0:
+            project.is_approved = False
+            project.approval_status = "rejected"
+        audit_action = "lifecycle_stage_rejected"
+
+    save_project_lifecycle_state(project, state)
+    await add_audit_entry(db, project, current_user, audit_action, "lifecycle_stage", stage_id, {"comment": payload.comment})
+    db.commit()
+    db.refresh(project)
+    return {"message": audit_action, "state": project.lifecycle_state}
+
+@app.post("/projects/{project_id}/lifecycle/{stage_id}/reopen", tags=["Projects"])
+async def reopen_lifecycle_stage(
+    project_id: int,
+    stage_id: str,
+    payload: LifecycleStageAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Only admins and curators can reopen lifecycle stages")
+    state = normalize_project_lifecycle_state(project)
+    target_index = next((index for index, item in enumerate(state["stages"]) if item["id"] == stage_id), None)
+    if target_index is None:
+        raise HTTPException(status_code=404, detail="Lifecycle stage not found")
+    for index, stage in enumerate(state["stages"]):
+        if index < target_index:
+            stage["status"] = "completed"
+        elif index == target_index:
+            stage.update({
+                "status": "current",
+                "handled_by": None,
+                "handled_at": None,
+                "comment": payload.comment,
+            })
+        else:
+            stage.update({
+                "status": "pending",
+                "requested_by": None,
+                "requested_at": None,
+                "handled_by": None,
+                "handled_at": None,
+                "comment": None,
+            })
+    state["current_stage_id"] = stage_id
+    if target_index == 0:
+        project.is_approved = False
+        project.approval_status = "draft"
+    save_project_lifecycle_state(project, state)
+    await add_audit_entry(db, project, current_user, "lifecycle_stage_reopened", "lifecycle_stage", stage_id, {"comment": payload.comment})
+    db.commit()
+    db.refresh(project)
+    return {"message": "lifecycle_stage_reopened", "state": project.lifecycle_state}
+
+@app.get("/admin/lifecycle-projects", tags=["Admin"])
+async def get_lifecycle_projects(
+    q: Optional[str] = Query(None),
+    class_key: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Only admins and curators can view lifecycle dashboard")
+    schema = load_project_lifecycle()
+    project_query = db.query(Project)
+    if class_key:
+        project_query = project_query.filter(Project.class_key == class_key)
+    projects = project_query.all()
+    result = []
+    query = (q or "").strip().lower()
+    user_ids = set()
+    normalized_projects = []
+    for project in projects:
+        state = normalize_project_lifecycle_state(project, schema)
+        normalized_projects.append((project, state))
+        for stage in state.get("stages", []):
+            if stage.get("status") == "approval_pending" and stage.get("requested_by"):
+                user_ids.add(stage.get("requested_by"))
+
+    users_by_id = {
+        user.id: user
+        for user in db.query(User).filter(User.id.in_(user_ids)).all()
+    } if user_ids else {}
+    stages_by_id = {stage.get("id"): stage for stage in schema.get("stages", [])}
+
+    for project, state in normalized_projects:
+        participants = project.participants or []
+        haystack = " ".join([
+            str(project.id), project.title or "", project.body or "", project.underbody or "",
+            json.dumps(participants, ensure_ascii=False), json.dumps(project.tasks or [], ensure_ascii=False)
+        ]).lower()
+        if query and query not in haystack:
+            continue
+        pending_requests = []
+        for stage in state.get("stages", []):
+            if stage.get("status") != "approval_pending":
+                continue
+            requester = users_by_id.get(stage.get("requested_by"))
+            stage_config = stages_by_id.get(stage.get("id"), {})
+            pending_requests.append({
+                "stage_id": stage.get("id"),
+                "stage_title": stage_config.get("title") or stage.get("id"),
+                "requested_by": stage.get("requested_by"),
+                "requested_by_name": (requester.fullname or requester.nickname) if requester else None,
+                "requested_at": stage.get("requested_at"),
+                "comment": stage.get("comment"),
+            })
+        result.append({
+            "id": project.id,
+            "title": project.title,
+            "class_key": project.class_key,
+            "body": project.body,
+            "participants": participants,
+            "tasks_count": len(project.tasks or []),
+            "current_stage_id": state.get("current_stage_id"),
+            "lifecycle_state": state,
+            "pending_requests": pending_requests,
+            "is_old": project.is_old,
+            "is_hidden": project.is_hidden,
+        })
+    return {"schema": schema, "projects": result}
+
+@app.get("/projects/{project_id}/audit", tags=["Projects"])
+async def get_project_audit_log(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(status_code=403, detail="Only project participants can view audit")
+    return {"items": get_project_version_audit(db, project_id)}
+
+@app.get("/projects/{project_id}/file-quota", tags=["Projects"])
+async def get_project_file_quota(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(status_code=403, detail="Only project participants can view quota")
+    quotas = get_effective_project_quotas(project, current_user.id)
+    return {
+        "quotas": quotas,
+        "project_used": get_project_storage_usage(db, project_id),
+        "user_used": get_project_storage_usage(db, project_id, current_user.id),
+        "overrides": project.file_quota_overrides or {},
+    }
+
+@app.put("/admin/projects/{project_id}/file-quota", tags=["Admin"])
+async def update_project_file_quota(
+    project_id: int,
+    data: ProjectQuotaOverride,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(status_code=403, detail="Only admins and curators can update project quota")
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    overrides = {k: v for k, v in data.model_dump().items() if v is not None}
+    project.file_quota_overrides = overrides
+    flag_modified(project, "file_quota_overrides")
+    await add_audit_entry(db, project, current_user, "file_quota_updated", "project", str(project_id), overrides)
+    db.commit()
+    db.refresh(project)
+    return {"message": "Project file quota updated", "quotas": get_effective_project_quotas(project)}
+
+@app.post("/projects/{project_id}/editing-presence", tags=["Projects"])
+async def touch_editing_presence(
+    project_id: int,
+    payload: EditingPresenceRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(status_code=403, detail="Only project participants can edit")
+    data = {
+        "user_id": current_user.id,
+        "user_name": current_user.fullname or current_user.nickname,
+        "avatar": current_user.avatar,
+        "target_type": payload.target_type,
+        "target_id": payload.target_id,
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    redis_client.setex(f"presence:{project_id}:{payload.target_type}:{payload.target_id}:{current_user.id}", 60, json.dumps(data, ensure_ascii=False))
+    return data
+
+@app.get("/projects/{project_id}/editing-presence", tags=["Projects"])
+async def get_editing_presence(
+    project_id: int,
+    target_type: Optional[str] = Query(None),
+    target_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
+        raise HTTPException(status_code=403, detail="Only project participants can view presence")
+    pattern = f"presence:{project_id}:{target_type or '*'}:{target_id or '*'}:*"
+    items = []
+    for key in redis_client.scan_iter(pattern):
+        raw = redis_client.get(key)
+        if raw:
+            try:
+                item = json.loads(raw)
+                if item.get("user_id") != current_user.id:
+                    items.append(item)
+            except json.JSONDecodeError:
+                pass
+    return {"items": items}
 
 @app.post("/admin/users", response_model=UserResponse, tags=["Admin"])
 async def admin_create_user(
@@ -1820,6 +2474,11 @@ async def create_join_request(
     if any(p.get("user_id") == current_user.id for p in (project.participants or [])):
         raise HTTPException(status_code=400, detail="You are already a participant")
 
+    if project.class_key and not (current_user.is_admin or is_curator(current_user) or current_user.is_teacher):
+        user_class = str(int(current_user.class_)) if current_user.class_ is not None else ""
+        if user_class != str(project.class_key):
+            raise HTTPException(status_code=403, detail="Only students from this project parallel can request to join")
+
     if not user_can_act_as_role(current_user, requested_role):
         raise HTTPException(status_code=403, detail=f"You cannot act as {requested_role}")
 
@@ -2242,12 +2901,16 @@ async def create_project(
 
     db_project = Project(
         title=project.title,
+        class_key=project.class_key,
+        direction_key=project.direction_key,
         body=project.body,
         underbody=project.underbody,
         participants=[p.model_dump(mode='json') for p in project.participants],
         tasks=project.tasks,
         links=project.links,
         comments=[c.model_dump(mode='json') for c in project.comments] if project.comments else [],
+        lifecycle_state={"current_stage_id": None, "stages": [], "audit_log": []},
+        file_quota_overrides={},
         required_roles=project.required_roles,
         is_hidden=False,
         hidden_by=None,
@@ -2277,10 +2940,14 @@ async def create_project(
 async def get_projects(
     participant_id: Optional[int] = Query(None, description="ID участника для фильтрации проектов"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    class_key: Optional[str] = Query(None, description="Project class/parallel filter")
 ):
     if participant_id is not None:
-        all_projects = db.query(Project).all()
+        participant_query = db.query(Project)
+        if class_key:
+            participant_query = participant_query.filter(Project.class_key == class_key)
+        all_projects = participant_query.all()
         projects = [
             p for p in all_projects
             if any(part.get("user_id") == participant_id for part in (p.participants or []))
@@ -2296,6 +2963,8 @@ async def get_projects(
         return projects
     else:
         query = db.query(Project)
+        if class_key:
+            query = query.filter(Project.class_key == class_key)
         if not (current_user.is_admin or is_curator(current_user)):
             all_projects = query.filter(Project.is_hidden == False).all()
             filtered_projects = []
@@ -2374,6 +3043,7 @@ async def update_project(
             flag_modified(project, "links")
 
         db.commit(); db.refresh(project)
+        await notify_completed_tasks(db, project, current_user, old_tasks if 'old_tasks' in locals() else [])
         new_snapshot = create_project_snapshot(project)
         await record_change(db, project_id, "project_full_update", 5,
                            compute_project_diff(old_snapshot, new_snapshot),
@@ -2393,7 +3063,11 @@ async def update_project(
         project.required_roles = project_update.required_roles
         flag_modified(project, "required_roles")
 
+    provided_fields = project_update.model_fields_set
+
     if project_update.title is not None: project.title = project_update.title
+    if "class_key" in provided_fields: project.class_key = project_update.class_key
+    if "direction_key" in provided_fields: project.direction_key = project_update.direction_key
     if project_update.body is not None: project.body = project_update.body
     if project_update.underbody is not None: project.underbody = project_update.underbody
 
@@ -2430,7 +3104,9 @@ async def update_project(
         project.participants = [p.model_dump(mode='json') for p in project_update.participants]
         flag_modified(project, "participants")
 
+    changed_old_tasks = old_snapshot.get("tasks", [])
     db.commit(); db.refresh(project)
+    await notify_completed_tasks(db, project, current_user, changed_old_tasks)
     new_snapshot = create_project_snapshot(project)
     await record_change(db, project_id, "project_full_update", 5,
                        compute_project_diff(old_snapshot, new_snapshot),
@@ -2487,6 +3163,7 @@ async def update_project_tasks(
     flag_modified(project, "tasks")
     db.commit()
     db.refresh(project)
+    await notify_completed_tasks(db, project, current_user, old_tasks)
     
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
@@ -3009,6 +3686,14 @@ async def upload_project_file(
         allowed = set(load_file_limits().keys())
         if file.content_type not in allowed:
             raise HTTPException(400, f"File type {file.content_type} not allowed")
+
+    quotas = get_effective_project_quotas(project, current_user.id)
+    project_used = get_project_storage_usage(db, project_id)
+    user_used = get_project_storage_usage(db, project_id, current_user.id)
+    if project_used + len(contents) > quotas["project_limit"]:
+        raise HTTPException(400, "Project file quota exceeded")
+    if user_used + len(contents) > quotas["user_limit"]:
+        raise HTTPException(400, "User file quota exceeded")
     
     ext = os.path.splitext(file.filename)[1]
     unique_name = f"{uuid.uuid4().hex}{ext}"
@@ -3079,6 +3764,12 @@ async def upload_project_file(
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "file_upload", 3, diff, current_user.id,
                        f"File '{file.filename}' uploaded by {current_user.nickname}")
+    await add_audit_entry(db, project, current_user, "file_uploaded", "file", str(db_file.id), {
+        "filename": file.filename,
+        "size": len(contents),
+        "task_id": task_id,
+    })
+    await notify_project_teachers(db, project, current_user, f"uploaded file '{file.filename}'")
     db.commit()
     return db_file
 
@@ -3786,6 +4477,28 @@ async def update_direction_tasks(
     return {"message": "Tasks updated"}
 
 # ==================== ПРИГЛАШЕНИЯ (НОВАЯ ВЕРСИЯ) ====================
+@app.put("/admin/default-tasks/class/{class_key}/direction/{direction_key}/stage/{stage_id}/tasks", tags=["Admin"])
+async def update_stage_default_tasks(
+    class_key: str,
+    direction_key: str,
+    stage_id: str,
+    tasks: List[TaskTemplate] = Body(...),
+    admin: User = Depends(get_current_admin)
+):
+    data = load_default_tasks()
+    if class_key not in data or "directions" not in data[class_key]:
+        raise HTTPException(404, "Class or directions not found")
+    if direction_key not in data[class_key]["directions"]:
+        raise HTTPException(404, "Direction not found")
+    stage_ids = {stage["id"] for stage in load_project_lifecycle().get("stages", [])}
+    if stage_id not in stage_ids:
+        raise HTTPException(404, "Lifecycle stage not found")
+    direction = data[class_key]["directions"][direction_key]
+    direction.setdefault("stage_tasks", {})
+    direction["stage_tasks"][stage_id] = [t.dict() for t in tasks]
+    save_default_tasks(data)
+    return {"message": "Stage tasks updated"}
+
 @app.post("/invitations", response_model=InvitationResponse, tags=["Invitations"])
 async def create_invitation(
     invite: InvitationCreate,

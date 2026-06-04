@@ -70,10 +70,6 @@
   "10": {
     "label": "10 класс",
     "directions": {
-      "tech_design": {
-        "label": "Технический дизайн",
-        "tasks": []
-      },
       "programming": {
         "label": "Программирование",
         "tasks": []
@@ -88,6 +84,10 @@
       },
       "ekonom": {
         "label": "Эконом",
+        "tasks": []
+      },
+      "tekhnicheskiy_2": {
+        "label": "Технический 2",
         "tasks": []
       }
     }

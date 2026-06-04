@@ -3,6 +3,9 @@
     <header class="details-header" :class="{ 'author-header': userRole }">
       <h1 v-if="!userRole" class="page-title">{{ project?.title || $t('projectDetails.defaultTitle') }}</h1>
       <div class="header-buttons">
+        <button v-if="project && (userRole || isAdminOrCurator)" class="audit-header-btn" @click="openAuditLog">
+          {{ $t('projectDetails.lifecycle.audit') }}
+        </button>
         <ThemeToggle />
         <LanguageSwitcher />
         <HomeButton/>
@@ -15,7 +18,7 @@
     <div v-else-if="project">
       
       <!-- Баннер статуса одобрения - ПОКАЗЫВАЕТСЯ ТОЛЬКО ДЛЯ НЕ ОДОБРЕННЫХ ПРОЕКТОВ -->
-      <div v-if="(userRole || isAdminOrCurator) && !project.is_old && !isProjectApproved" class="approval-banner" :class="approvalBannerClass">
+      <div v-if="false && (userRole || isAdminOrCurator) && !project?.is_old && !isProjectApproved" class="approval-banner" :class="approvalBannerClass">
         <template v-if="approvalStatus === 'draft'">
           <span class="approval-icon">📝</span>
           <span>{{ $t('projectDetails.notApproved') }}</span>
@@ -33,8 +36,8 @@
         <template v-else-if="approvalStatus === 'rejected'">
           <span class="approval-icon">❌</span>
           <span>{{ $t('projectDetails.approvalRejected') }}</span>
-          <span v-if="project.approval_info?.approval_comment" class="rejection-reason">
-            "{{ project.approval_info.approval_comment }}"
+          <span v-if="project?.approval_info?.approval_comment" class="rejection-reason">
+            "{{ project?.approval_info?.approval_comment }}"
           </span>
           <button v-if="isCustomerOrAdmin" class="approval-action-btn" @click="requestApproval">
             {{ $t('projectDetails.resubmitApproval') }}
@@ -49,6 +52,51 @@
             {{ $t('projectDetails.oldProjectReadOnly') }}
           </div>
           <h1 class="project-title-center">{{ project.title }}</h1>
+          <section v-if="lifecycleSchema.stages.length" class="lifecycle-train-section">
+            <div class="lifecycle-train-header">
+              <h3>{{ $t('projectDetails.lifecycle.title') }}</h3>
+            </div>
+            <div class="lifecycle-train">
+              <div
+                v-for="(stage, index) in lifecycleSchema.stages"
+                :key="stage.id"
+                class="train-stage"
+                :class="stageStatus(stage.id)"
+              >
+                <div class="train-car">
+                  <span class="train-index">{{ index + 1 }}</span>
+                  <strong>{{ stage.title }}</strong>
+                  <small>{{ stage.description }}</small>
+                  <span class="stage-state">{{ stageStatusText(stage.id) }}</span>
+                  <button
+                    v-if="isAdminOrCurator && stageStatus(stage.id) === 'completed'"
+                    class="reopen-stage-btn"
+                    @click.stop="reopenLifecycleStage(stage.id)"
+                  >
+                    {{ $t('projectDetails.lifecycle.reopen') }}
+                  </button>
+                </div>
+                <div v-if="index < lifecycleSchema.stages.length - 1" class="train-connector"></div>
+              </div>
+            </div>
+            <div v-if="currentLifecycleStage" class="lifecycle-actions">
+              <span>{{ $t('projectDetails.lifecycle.current') }}: <strong>{{ currentLifecycleStage.title }}</strong></span>
+              <span v-if="currentLifecycleStageState?.status === 'approval_pending'" class="lifecycle-request-info">
+                {{ $t('projectDetails.lifecycle.requestedBy') }}:
+                <strong>{{ currentLifecycleRequesterName }}</strong>,
+                {{ $t('projectDetails.lifecycle.requestedStage') }}:
+                <strong>{{ currentLifecycleStage.title }}</strong>
+              </span>
+              <input v-model="lifecycleComment" class="lifecycle-comment" :placeholder="$t('projectDetails.lifecycle.comment')" />
+              <button v-if="canCloseCurrentStage" class="lifecycle-action-btn" @click="requestLifecycleClose">
+                {{ currentLifecycleRequiresApproval ? $t('projectDetails.lifecycle.requestClose') : $t('projectDetails.lifecycle.closeStage') }}
+              </button>
+              <template v-if="isAdminOrCurator && currentLifecycleStageState?.status === 'approval_pending'">
+                <button class="lifecycle-action-btn approve" @click="decideLifecycleStage('approve')">{{ $t('common.approve') }}</button>
+                <button class="lifecycle-action-btn reject" @click="decideLifecycleStage('reject')">{{ $t('common.reject') }}</button>
+              </template>
+            </div>
+          </section>
           
           <div class="two-columns">
             <!-- ЛЕВАЯ КОЛОНКА -->
@@ -354,10 +402,14 @@
           </div>
 
           <!-- Диаграмма Ганта - только для одобренных проектов -->
+          <div v-if="isProjectApproved" class="gantt-switcher">
+            <button :class="{ active: ganttMode === 'tasks' }" @click="ganttMode = 'tasks'">{{ $t('projectDetails.gantt.tasks') }}</button>
+            <button :class="{ active: ganttMode === 'lifecycle' }" @click="ganttMode = 'lifecycle'">{{ $t('projectDetails.gantt.lifecycle') }}</button>
+          </div>
           <GanttChart 
             v-if="isProjectApproved"
-            :tasks="activeTasks" 
-            :title="$t('projectDetails.timeline')" 
+            :tasks="ganttMode === 'tasks' ? activeTasks : lifecycleGanttTasks" 
+            :title="ganttMode === 'tasks' ? $t('projectDetails.timeline') : $t('projectDetails.lifecycle.title')" 
             :readonly="!canEditGantt" 
             @update-tasks="handleTaskUpdate" 
           />
@@ -576,6 +628,23 @@
     <button v-if="canLeaveProject" class="floating-leave-button" @click="leaveProject" :disabled="deleteInProgress">
       🚪 {{ $t('projectDetails.leaveProject') }}
     </button>
+
+    <div v-if="showAuditModal" class="audit-modal-overlay" @click.self="showAuditModal = false">
+      <div class="audit-modal">
+        <div class="audit-modal-header">
+          <h3>{{ $t('projectDetails.lifecycle.audit') }}</h3>
+          <button class="audit-close-btn" @click="showAuditModal = false">×</button>
+        </div>
+        <div v-if="auditItems.length" class="audit-list">
+          <div v-for="item in auditItems" :key="item.id" class="audit-row">
+            <span>{{ item.user_name || 'System' }}</span>
+            <strong>{{ item.details?.description || item.action }}</strong>
+            <small>{{ formatAuditDate(item.created_at) }}</small>
+          </div>
+        </div>
+        <div v-else class="audit-empty">{{ $t('projectDetails.lifecycle.auditEmpty') }}</div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -633,6 +702,12 @@ const showInviteModal = ref(false);
 const avatarError = ref<Record<number, boolean>>({});
 const isProjectApproved = ref<boolean>(false);
 const approvalStatus = ref<string>('draft');
+const lifecycleSchema = ref<{ stages: Array<{ id: string; title: string; description: string; closer_roles: ProjectRole[] }> }>({ stages: [] });
+const lifecycleState = ref<{ current_stage_id: string | null; stages: Array<any> }>({ current_stage_id: null, stages: [] });
+const lifecycleComment = ref('');
+const auditItems = ref<Array<any>>([]);
+const showAuditModal = ref(false);
+const ganttMode = ref<'tasks' | 'lifecycle'>('tasks');
 
 // ========== Computed: Роли и доступы ==========
 const userRole = computed<ProjectRole | null>(() => {
@@ -715,6 +790,24 @@ const canComment = computed(() => hasFullAccess.value);
 const hasActiveTasks = computed(() => inProgressTasks.value.length > 0 || waitingTasks.value.length > 0);
 const hasManagementRights = computed(() => isCustomerOrAdmin.value);
 const canEdit = computed(() => isCustomerOrAdmin.value);
+const currentLifecycleStage = computed(() => lifecycleSchema.value.stages.find(stage => stage.id === lifecycleState.value.current_stage_id) || null);
+const currentLifecycleStageState = computed(() => lifecycleState.value.stages.find(stage => stage.id === lifecycleState.value.current_stage_id) || null);
+const canCloseCurrentStage = computed(() => {
+  const stage = currentLifecycleStage.value;
+  if (!stage || currentLifecycleStageState.value?.status === 'approval_pending') return false;
+  if (isAdmin.value) return true;
+  if (stage.closer_roles.includes('curator') && isCurator.value) return true;
+  if (stage.closer_roles.includes('curator') && userRole.value) return true;
+  return !!userRole.value && stage.closer_roles.includes(userRole.value);
+});
+const currentLifecycleRequiresApproval = computed(() => {
+  const stage = currentLifecycleStage.value;
+  return !!stage && stage.closer_roles.includes('curator') && !isAdminOrCurator.value;
+});
+const currentLifecycleRequesterName = computed(() => {
+  const requesterId = currentLifecycleStageState.value?.requested_by;
+  return requesterId ? getUserNickname(requesterId) : t('common.notSelected');
+});
 
 // ========== Computed: Данные ==========
 const participantsCountByRole = computed(() => {
@@ -749,6 +842,14 @@ const activeTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.s
 const completedTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'выполнена') || []);
 const inProgressTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'в работе') || []);
 const waitingTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'ожидает') || []);
+
+const lifecycleGanttTasks = computed<Task[]>(() => lifecycleSchema.value.stages.map((stage, index) => ({
+  title: stage.title,
+  body: stage.description,
+  status: stageStatus(stage.id) === 'completed' ? 'выполнена' : stageStatus(stage.id) === 'current' ? 'в работе' : 'ожидает',
+  timeline: makeLifecycleDate(index),
+  timelinend: makeLifecycleDate(index + 1),
+})));
 
 const unreadProjectCommentsCount = computed(() => {
   const comments = project.value?.comments || [];
@@ -892,6 +993,82 @@ function isTaskRequiredFileAttached(task: Task, requiredFileId: string): boolean
 }
 
 // ========== Уведомления ==========
+function makeLifecycleDate(offset: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + offset * 7);
+  return `${date.getDate().toString().padStart(2, '0')}.${(date.getMonth() + 1).toString().padStart(2, '0')}.${date.getFullYear()}`;
+}
+
+function stageStatus(stageId: string): string {
+  return lifecycleState.value.stages.find(stage => stage.id === stageId)?.status || 'pending';
+}
+
+function stageStatusText(stageId: string): string {
+  return t(`projectDetails.lifecycle.status.${stageStatus(stageId)}`);
+}
+
+function formatAuditDate(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+async function loadLifecycle() {
+  if (!project.value) return;
+  const { data } = await api.get(`/projects/${project.value.id}/lifecycle`);
+  lifecycleSchema.value = data.schema;
+  lifecycleState.value = data.state;
+  isProjectApproved.value = lifecycleState.value.stages[0]?.status === 'completed' || isProjectApproved.value;
+}
+
+async function requestLifecycleClose() {
+  if (!project.value || !currentLifecycleStage.value) return;
+  try {
+    await api.post(`/projects/${project.value.id}/lifecycle/${currentLifecycleStage.value.id}/request`, { comment: lifecycleComment.value });
+    lifecycleComment.value = '';
+    showNotification(t('projectDetails.lifecycle.updated'), 'success');
+    await loadLifecycle();
+    await checkApprovalStatus(project.value.id);
+  } catch (err: any) {
+    showNotification(err.response?.data?.detail || t('projectDetails.lifecycle.error'), 'error');
+  }
+}
+
+async function decideLifecycleStage(action: 'approve' | 'reject') {
+  if (!project.value || !currentLifecycleStage.value) return;
+  try {
+    await api.post(`/admin/projects/${project.value.id}/lifecycle/${currentLifecycleStage.value.id}/decision`, { action, comment: lifecycleComment.value });
+    lifecycleComment.value = '';
+    showNotification(t('projectDetails.lifecycle.updated'), 'success');
+    await loadLifecycle();
+    await checkApprovalStatus(project.value.id);
+  } catch (err: any) {
+    showNotification(err.response?.data?.detail || t('projectDetails.lifecycle.error'), 'error');
+  }
+}
+
+async function reopenLifecycleStage(stageId: string) {
+  if (!project.value) return;
+  try {
+    await api.post(`/projects/${project.value.id}/lifecycle/${stageId}/reopen`, { comment: lifecycleComment.value });
+    lifecycleComment.value = '';
+    showNotification(t('projectDetails.lifecycle.updated'), 'success');
+    await loadLifecycle();
+    await checkApprovalStatus(project.value.id);
+  } catch (err: any) {
+    showNotification(err.response?.data?.detail || t('projectDetails.lifecycle.error'), 'error');
+  }
+}
+
+async function loadAuditLog() {
+  if (!project.value) return;
+  const { data } = await api.get(`/projects/${project.value.id}/audit`);
+  auditItems.value = data.items || [];
+}
+
+async function openAuditLog() {
+  await loadAuditLog();
+  showAuditModal.value = true;
+}
+
 const notification = ref({ show: false, message: '', type: 'error' as 'error' | 'info' | 'success' });
 let notificationTimeout: number | null = null;
 
@@ -914,6 +1091,7 @@ async function loadProject(force = false) {
     if (usersStore.users.length === 0) await usersStore.fetchAllUsers();
     // Проверяем статус одобрения через отдельный эндпоинт
     await checkApprovalStatus(id);
+    await loadLifecycle();
   } catch (err) {
     error.value = t('projectDetails.loadError');
     console.error(err);
@@ -1325,13 +1503,178 @@ watch(() => route.params.id, () => { loadProject(true); });
 .approval-action-btn { padding: 8px 16px; border: none; border-radius: 20px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-left: auto; background: white; color: inherit; }
 .approval-action-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .approval-action-btn.cancel { background: rgba(244,67,54,0.1); color: #f44336; }
+
+.lifecycle-train-section {
+  margin: 18px 0 24px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+}
+.lifecycle-train-header,
+.lifecycle-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.lifecycle-request-info {
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  background: var(--bg-page);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.lifecycle-train-header h3 { margin: 0; }
+.lifecycle-train {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  padding: 16px 0;
+}
+.train-stage {
+  display: flex;
+  align-items: center;
+  min-width: 190px;
+}
+.train-car {
+  width: 180px;
+  min-height: 110px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.train-stage.completed .train-car {
+  background: var(--completed-bg);
+  color: var(--text-primary);
+  border-color: var(--accent-color);
+}
+.train-stage.current .train-car,
+.train-stage.approval_pending .train-car {
+  border-color: var(--accent-color);
+  box-shadow: var(--shadow-strong);
+}
+.train-stage.rejected .train-car {
+  background: var(--danger-bg);
+  border-color: var(--danger-color);
+}
+.train-index {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  background: var(--accent-color);
+  color: var(--button-text);
+  font-size: 0.8rem;
+}
+.train-car small { line-height: 1.25; opacity: 0.8; }
+.stage-state { margin-top: auto; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; }
+.train-connector {
+  width: 34px;
+  height: 2px;
+  background: var(--border-color);
+  margin: 0 8px;
+}
+.lifecycle-comment {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+.lifecycle-action-btn,
+.audit-header-btn,
+.reopen-stage-btn,
+.gantt-switcher button {
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+.lifecycle-action-btn:hover,
+.audit-header-btn:hover,
+.reopen-stage-btn:hover,
+.gantt-switcher button:hover { border-color: var(--accent-color); box-shadow: var(--shadow); }
+.lifecycle-action-btn.approve,
+.gantt-switcher button.active { background: var(--accent-color); color: var(--button-text); }
+.lifecycle-action-btn.reject { color: var(--danger-color); border-color: var(--danger-color); }
+.reopen-stage-btn { margin-top: 4px; padding: 7px 10px; font-size: 0.78rem; }
+.audit-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 1000;
+}
+.audit-modal {
+  width: min(720px, 100%);
+  max-height: 80vh;
+  overflow: auto;
+  background: var(--modal-bg);
+  color: var(--modal-text);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: var(--shadow-strong);
+  padding: 20px;
+}
+.audit-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.audit-modal-header h3 { margin: 0; color: var(--heading-color); }
+.audit-close-btn {
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+.audit-list { display: flex; flex-direction: column; gap: 8px; }
+.audit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  padding: 10px;
+  font-size: 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+.audit-empty { color: var(--text-secondary); padding: 16px 0; }
+.gantt-switcher {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0 10px;
+}
 .rejection-reason { font-style: italic; opacity: 0.8; font-size: 0.9rem; }
 
 .project-details-page { min-height: 100vh; background: var(--bg-page); padding: 20px; box-sizing: border-box; }
-.details-header { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto 20px; flex-wrap: wrap; gap: 10px; }
+.details-header { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto 20px; gap: 10px; }
 .author-header { justify-content: flex-end; }
-.page-title { color: var(--heading-color); font-size: 2rem; margin: 0; }
-.header-buttons { display: flex; gap: 10px; align-items: center; }
+.page-title { color: var(--heading-color); font-size: 2rem; margin: 0; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.header-buttons { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex: 0 0 auto; margin-left: auto; }
 
 .author-layout { max-width: 1200px; margin: 0 auto; }
 .project-title-center { text-align: center; color: var(--heading-color); font-size: 2.5rem; margin-bottom: 30px; }

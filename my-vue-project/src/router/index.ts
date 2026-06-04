@@ -65,6 +65,12 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/views/ModerationPage.vue'),
     meta: { requiresAuth: true, requiresModerator: true }
   },
+  {
+    path: '/lifecycle-projects',
+    name: 'LifecycleProjects',
+    component: () => import('@/views/LifecycleProjects.vue'),
+    meta: { requiresAuth: true, requiresModerator: true }
+  },
   
   // Админские маршруты
   {
@@ -119,6 +125,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/admin/file-limits',
     name: 'AdminFileLimits',
     component: () => import('@/views/AdminFileLimits.vue'),
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/admin/quota-limits',
+    name: 'AdminQuotaLimits',
+    component: () => import('@/views/AdminQuotaLimits.vue'),
     meta: { requiresAdmin: true }
   },
 ]

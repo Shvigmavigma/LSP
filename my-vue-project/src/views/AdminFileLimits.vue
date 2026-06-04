@@ -11,6 +11,23 @@
 
     <div class="limits-container">
       <p class="hint">{{ $t('adminPanel.fileLimits.hint') }}</p>
+      <div class="quota-block">
+        <h3>{{ $t('adminPanel.fileLimits.quotasTitle') }}</h3>
+        <div class="limit-row">
+          <label class="limit-label">{{ $t('adminPanel.fileLimits.projectQuota') }}</label>
+          <div class="input-wrapper">
+            <input v-model.number="quotas.project_limit" type="number" min="1" step="1" class="size-input" />
+            <span class="unit">МБ</span>
+          </div>
+        </div>
+        <div class="limit-row">
+          <label class="limit-label">{{ $t('adminPanel.fileLimits.userQuota') }}</label>
+          <div class="input-wrapper">
+            <input v-model.number="quotas.user_limit" type="number" min="1" step="1" class="size-input" />
+            <span class="unit">МБ</span>
+          </div>
+        </div>
+      </div>
       <div v-for="(info, mime) in limits" :key="mime" class="limit-row">
         <label :for="'limit-' + mime" class="limit-label">
           {{ getTypeName(mime) }} ({{ mime }})
@@ -64,6 +81,7 @@ const typeNames: Record<string, string> = {
 };
 
 const limits = ref<Record<string, number>>({});
+const quotas = ref({ project_limit: 1024, user_limit: 100 });
 const saving = ref(false);
 const message = ref('');
 const isError = ref(false);
@@ -75,6 +93,11 @@ function getTypeName(mime: string): string {
 async function fetchLimits() {
   try {
     const { data } = await api.get('/admin/file-size-limits');
+    const quotasResponse = await api.get('/admin/file-quotas');
+    quotas.value = {
+      project_limit: Math.round(quotasResponse.data.project_limit / (1024 * 1024)),
+      user_limit: Math.round(quotasResponse.data.user_limit / (1024 * 1024)),
+    };
     // Преобразуем байты в мегабайты для отображения
     const mbValues: Record<string, number> = {};
     for (const [mime, bytes] of Object.entries(data)) {
@@ -98,6 +121,10 @@ async function saveLimits() {
       bytesPayload[mime] = Math.round(mb * 1024 * 1024);
     }
     await api.put('/admin/file-size-limits', bytesPayload);
+    await api.put('/admin/file-quotas', {
+      project_limit: Math.round(quotas.value.project_limit * 1024 * 1024),
+      user_limit: Math.round(quotas.value.user_limit * 1024 * 1024),
+    });
     showMessage(t('adminPanel.fileLimits.saveSuccess'), false);
   } catch (e) {
     console.error(e);
@@ -149,6 +176,15 @@ onMounted(fetchLimits);
 .hint {
   color: var(--text-secondary);
   margin-bottom: 20px;
+}
+.quota-block {
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--border-color);
+}
+.quota-block h3 {
+  margin: 0 0 10px;
+  color: var(--heading-color);
 }
 .limit-row {
   display: flex;

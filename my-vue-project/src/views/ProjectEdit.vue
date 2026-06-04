@@ -39,6 +39,22 @@
             <label for="title">{{ $t('projectEdit.projectTitle') }}</label>
             <input id="title" v-model="form.title" type="text" required />
           </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="class_key">{{ $t('projectEdit.classKey') }}</label>
+              <select id="class_key" v-model="form.class_key">
+                <option value="">{{ $t('common.notSelected') }}</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="direction_key">{{ $t('projectEdit.directionKey') }}</label>
+              <input id="direction_key" v-model="form.direction_key" type="text" :placeholder="$t('projectEdit.directionPlaceholder')" />
+            </div>
+          </div>
           <div class="form-group">
             <label for="body">{{ $t('projectEdit.description') }}</label>
             <textarea id="body" v-model="form.body" rows="4" required></textarea>
@@ -260,6 +276,10 @@
     <!-- Модальное окно выбора дефолтных задач -->
     <DefaultTasksModal
       :show="showDefaultTasksModal"
+      :class-key="form.class_key"
+      :direction-key="form.direction_key"
+      :stage-id="currentDefaultTasksStageId"
+      :stage-title="currentDefaultTasksStageTitle"
       @close="showDefaultTasksModal = false"
       @add="addSelectedTasks"
     />
@@ -312,6 +332,8 @@ const assigningCurator = ref(false);
 
 const saving = ref(false);
 const showDefaultTasksModal = ref(false);
+const currentDefaultTasksStageId = ref('');
+const currentDefaultTasksStageTitle = ref('');
 
 // Уведомления
 const notification = ref({
@@ -345,6 +367,8 @@ function closeNotification() {
 // Форма проекта
 const form = reactive({
   title: '',
+  class_key: '',
+  direction_key: '',
   body: '',
   underbody: '',
 });
@@ -624,6 +648,19 @@ function addSelectedTasks(newTasks: any[]) {
   showNotification(t('projectEdit.defaultTasksAdded', { count: tasksToAdd.length }), 'success');
 }
 
+async function loadCurrentLifecycleStage(project: Project) {
+  currentDefaultTasksStageId.value = project.lifecycle_state?.current_stage_id || '';
+  currentDefaultTasksStageTitle.value = '';
+  if (isNew || !project.id) return;
+  try {
+    const { data } = await api.get(`/projects/${project.id}/lifecycle`);
+    currentDefaultTasksStageId.value = data.state?.current_stage_id || currentDefaultTasksStageId.value;
+    currentDefaultTasksStageTitle.value = data.schema?.stages?.find((stage: any) => stage.id === currentDefaultTasksStageId.value)?.title || '';
+  } catch (error) {
+    console.error('Failed to load project lifecycle state', error);
+  }
+}
+
 function saveTask(index: number) {
   const task = tasks.value[index];
   if (!task) return;
@@ -678,11 +715,12 @@ onMounted(async () => {
       router.push('/main');
       return;
     }
-    const project = await projectsStore.fetchProjectById(projectId);
+    const project = await projectsStore.fetchProjectById(projectId, true);
     if (!project) {
       router.push('/main');
       return;
     }
+    await loadCurrentLifecycleStage(project);
 
     if (project.is_old && !isAdminOrCurator.value) {
       showNotification(t('projectEdit.oldProjectReadOnly'), 'info');
@@ -720,6 +758,8 @@ onMounted(async () => {
       }
 
       form.title = project.title;
+      form.class_key = project.class_key || '';
+      form.direction_key = project.direction_key || '';
       form.body = project.body;
       form.underbody = project.underbody || '';
       participants.value = project.participants || [];
@@ -749,6 +789,8 @@ onMounted(async () => {
 function applySuggestionChanges(suggestion: Suggestion) {
   const changes = suggestion.changes;
   if (changes.title) form.title = changes.title;
+  if (changes.class_key !== undefined) form.class_key = changes.class_key || '';
+  if (changes.direction_key !== undefined) form.direction_key = changes.direction_key || '';
   if (changes.body) form.body = changes.body;
   if (changes.underbody) form.underbody = changes.underbody;
   if (changes.participants) participants.value = changes.participants;
@@ -784,6 +826,8 @@ async function handleSubmit() {
 
   const projectData = {
     title: form.title,
+    class_key: form.class_key || null,
+    direction_key: form.direction_key || null,
     body: form.body,
     underbody: form.underbody || '',
     participants: participants.value,

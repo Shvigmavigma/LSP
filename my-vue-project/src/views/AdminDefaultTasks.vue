@@ -27,8 +27,17 @@
                 <div class="node-header">
                   <span class="node-title">{{ dir.label }}</span>
                   <button class="edit-direction-btn" @click="openEditDirectionDialog(String(classKey), String(dirKey))" :title="$t('adminDefaultTasks.editDirection')">✎</button>
-                  <button class="edit-btn-small" @click="editTasks(String(classKey), String(dirKey))">{{ $t('adminDefaultTasks.editTasks') }}</button>
                   <button class="delete-btn-small" @click="openConfirmDeleteDirection(String(classKey), String(dirKey))" :title="$t('common.delete')">🗑</button>
+                </div>
+                <div class="stage-task-buttons">
+                  <button
+                    v-for="stage in lifecycleStages"
+                    :key="stage.id"
+                    class="edit-btn-small stage"
+                    @click="editTasks(String(classKey), String(dirKey), stage.id)"
+                  >
+                    {{ stage.title }}
+                  </button>
                 </div>
               </div>
             </div>
@@ -153,7 +162,9 @@ const data = ref<any>({});
 const editingTasks = ref<any[] | null>(null);
 const currentClass = ref('');
 const currentDirection = ref('');
+const currentStage = ref('');
 const currentPath = ref('');
+const lifecycleStages = ref<Array<{ id: string; title: string }>>([]);
 
 // Состояния для модального окна ввода
 const showInputModal = ref(false);
@@ -190,6 +201,11 @@ function generateKey(label: string): string {
 const loadData = async () => {
   const res = await api.get('/default-tasks');
   data.value = res.data;
+};
+
+const loadLifecycle = async () => {
+  const res = await api.get('/admin/project-lifecycle');
+  lifecycleStages.value = res.data.stages || [];
 };
 
 const goHome = () => router.push('/main');
@@ -353,13 +369,16 @@ const openEditDirectionDialog = (classKey: string, dirKey: string) => {
 };
 
 // --- Редактирование задач ---
-const editTasks = (classKey: string, directionKey?: string) => {
+const editTasks = (classKey: string, directionKey?: string, stageId?: string) => {
   currentClass.value = classKey;
   currentDirection.value = directionKey || '';
+  currentStage.value = stageId || '';
   if (directionKey) {
-    const tasks = data.value[classKey]?.directions?.[directionKey]?.tasks || [];
+    const direction = data.value[classKey]?.directions?.[directionKey] || {};
+    const tasks = stageId ? (direction.stage_tasks?.[stageId] || []) : (direction.tasks || []);
     editingTasks.value = JSON.parse(JSON.stringify(tasks));
-    currentPath.value = `${data.value[classKey].label} → ${data.value[classKey].directions[directionKey].label}`;
+    const stageTitle = lifecycleStages.value.find(stage => stage.id === stageId)?.title;
+    currentPath.value = `${data.value[classKey].label} → ${data.value[classKey].directions[directionKey].label}${stageTitle ? ' → ' + stageTitle : ''}`;
   } else {
     const tasks = data.value[classKey]?.tasks || [];
     editingTasks.value = JSON.parse(JSON.stringify(tasks));
@@ -401,10 +420,10 @@ const saveTasks = async () => {
   if (!editingTasks.value) return;
   try {
     if (currentDirection.value) {
-      await api.put(
-        `/admin/default-tasks/class/${currentClass.value}/direction/${currentDirection.value}/tasks`,
-        editingTasks.value
-      );
+      const url = currentStage.value
+        ? `/admin/default-tasks/class/${currentClass.value}/direction/${currentDirection.value}/stage/${currentStage.value}/tasks`
+        : `/admin/default-tasks/class/${currentClass.value}/direction/${currentDirection.value}/tasks`;
+      await api.put(url, editingTasks.value);
     } else {
       await api.put(`/admin/default-tasks/class/${currentClass.value}/tasks`, editingTasks.value);
     }
@@ -421,6 +440,7 @@ const cancelEdit = () => {
 };
 
 onMounted(loadData);
+onMounted(loadLifecycle);
 </script>
 
 <style scoped>
@@ -547,6 +567,22 @@ onMounted(loadData);
 }
 .add-btn-small:hover, .edit-btn-small:hover {
   background: var(--accent-hover);
+}
+.stage-task-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0 20px;
+}
+.edit-btn-small.stage {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  font-size: 0.78rem;
+}
+.edit-btn-small.stage:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 .add-class-btn {
   background: var(--accent-color);
