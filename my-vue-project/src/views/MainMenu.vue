@@ -14,6 +14,13 @@
            {{ $t('navigation.moderation') }}
           <span v-if="pendingApprovalsCount > 0" class="invitations-badge">{{ pendingApprovalsCount }}</span>
         </button>
+        <button 
+          v-if="isModerator" 
+          class="moderation-button" 
+          @click="goTo('lifecycle-projects')"
+        >
+          {{ $t('navigation.lifecycle_projects') }}
+        </button>
         <button class="invitations-button" @click="goTo('invitations')">
            {{ $t('navigation.invitations') }}
           <span v-if="invitationsCount > 0" class="invitations-badge">{{ invitationsCount }}</span>

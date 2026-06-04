@@ -42,6 +42,11 @@
           <span class="card-desc">{{ $t('adminPanel.fileLimits.desc') }}</span>
         </router-link>
 
+        <router-link to="/admin/quota-limits" class="menu-card">
+          <span class="card-title">{{ $t('adminPanel.quotaLimits.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.quotaLimits.desc') }}</span>
+        </router-link>
+
         <div class="menu-card danger" @click="confirmDeleteAllUsers">
           <span class="card-title">{{ $t('adminPanel.deleteAllUsers.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.deleteAllUsers.desc') }}</span>

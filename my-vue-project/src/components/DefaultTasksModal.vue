@@ -4,13 +4,14 @@
       <div class="modal-content">
         <h3>{{ $t('defaultTasksModal.title') }}</h3>
         
-        <div class="form-group">
-          <label>{{ $t('defaultTasksModal.selectClass') }}</label>
-          <select v-model="selectedClass">
-            <option v-for="(cls, key) in templates" :key="key" :value="key">
-              {{ cls.label }}
-            </option>
-          </select>
+        <div class="form-group readonly-field">
+          <label>{{ $t('defaultTasksModal.autoClass') }}</label>
+          <div class="readonly-value">{{ currentClassLabel }}</div>
+        </div>
+
+        <div class="form-group readonly-field">
+          <label>{{ $t('defaultTasksModal.autoStage') }}</label>
+          <div class="readonly-value">{{ stageLabel }}</div>
         </div>
 
         <div class="form-group" v-if="hasDirections">
@@ -26,7 +27,7 @@
           <h4>{{ $t('defaultTasksModal.preview') }}</h4>
           <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
           <div v-else-if="previewTasks.length === 0" class="no-tasks">
-            {{ $t('defaultTasksModal.noTasks') }}
+            {{ emptyMessage }}
           </div>
           <div v-else class="tasks-preview-list">
             <div v-for="(task, idx) in previewTasks" :key="idx" class="preview-task-item">
@@ -62,6 +63,10 @@ const { t } = useI18n();
 
 const props = defineProps<{
   show: boolean;
+  classKey?: string | null;
+  directionKey?: string | null;
+  stageId?: string | null;
+  stageTitle?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -71,13 +76,21 @@ const emit = defineEmits<{
 
 const templates = ref<any>({});
 const loading = ref(false);
-const selectedClass = ref<string>('8');
 const selectedDirection = ref<string>('');
 
+const selectedClass = computed(() => props.classKey || '');
+const stageId = computed(() => props.stageId || '');
+const stageLabel = computed(() => props.stageTitle || stageId.value || t('common.notSelected'));
 
 const hasDirections = computed(() => {
   const cls = templates.value[selectedClass.value];
   return cls && cls.directions && Object.keys(cls.directions).length > 0;
+});
+
+const currentClassLabel = computed(() => {
+  const cls = templates.value[selectedClass.value];
+  if (!selectedClass.value) return t('common.notSelected');
+  return cls?.label || selectedClass.value;
 });
 
 const currentDirections = computed(() => {
@@ -88,13 +101,22 @@ const currentDirections = computed(() => {
 const previewTasks = computed(() => {
   const cls = templates.value[selectedClass.value];
   if (!cls) return [];
+  if (!stageId.value) return [];
   if (hasDirections.value && selectedDirection.value) {
     const dir = cls.directions?.[selectedDirection.value];
-    return dir?.tasks || [];
-  } else if (cls.tasks) {
-    return cls.tasks;
+    return dir?.stage_tasks?.[stageId.value] || [];
+  } else if (cls.stage_tasks) {
+    return cls.stage_tasks?.[stageId.value] || [];
   }
   return [];
+});
+
+const emptyMessage = computed(() => {
+  if (!selectedClass.value) return t('defaultTasksModal.noClass');
+  if (!stageId.value) return t('defaultTasksModal.noStage');
+  if (!templates.value[selectedClass.value]) return t('defaultTasksModal.noClassTemplates');
+  if (hasDirections.value && !selectedDirection.value) return t('defaultTasksModal.noDirection');
+  return t('defaultTasksModal.noStageTasks');
 });
 
 const loadTemplates = async () => {
@@ -102,13 +124,7 @@ const loadTemplates = async () => {
   try {
     const response = await api.get('/default-tasks');
     templates.value = response.data;
-    const keys = Object.keys(templates.value);
-    if (keys.length) selectedClass.value = keys[0];
-    const firstClass = templates.value[selectedClass.value];
-    if (firstClass?.directions) {
-      const dirKeys = Object.keys(firstClass.directions);
-      if (dirKeys.length) selectedDirection.value = dirKeys[0];
-    }
+    syncDirection();
   } catch (error) {
     console.error('Failed to load default tasks templates', error);
   } finally {
@@ -122,15 +138,27 @@ watch(() => props.show, (val) => {
   }
 });
 
-watch(selectedClass, () => {
+watch(() => props.classKey, () => {
+  syncDirection();
+});
+
+watch(() => props.directionKey, () => {
+  syncDirection();
+});
+
+function syncDirection() {
   if (hasDirections.value) {
     const dirKeys = Object.keys(currentDirections.value);
-    if (dirKeys.length) selectedDirection.value = dirKeys[0];
-    else selectedDirection.value = '';
+    const preferredDirection = props.directionKey || selectedDirection.value;
+    if (preferredDirection && dirKeys.includes(preferredDirection)) {
+      selectedDirection.value = preferredDirection;
+    } else if (!dirKeys.includes(selectedDirection.value)) {
+      selectedDirection.value = dirKeys[0] || '';
+    }
   } else {
     selectedDirection.value = '';
   }
-});
+}
 
 function addTasks() {
   if (previewTasks.value.length === 0) return;
@@ -188,6 +216,16 @@ function close() {
   display: block;
   margin-bottom: 6px;
   color: var(--text-secondary);
+}
+.readonly-value {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 select {
   width: 100%;

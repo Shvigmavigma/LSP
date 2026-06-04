@@ -39,6 +39,13 @@
         :placeholder="$t('allProjects.searchPlaceholder')"
         @input="searchProjects"
       />
+      <select v-model="classFilter" class="class-filter" @change="fetchAll">
+        <option value="">{{ $t('allProjects.allClasses') }}</option>
+        <option value="8">8</option>
+        <option value="9">9</option>
+        <option value="10">10</option>
+        <option value="11">11</option>
+      </select>
     </div>
 
     <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
@@ -58,6 +65,7 @@
         </div>
 
         <h3 class="card-title">{{ project.title }}</h3>
+        <div v-if="project.class_key" class="class-badge">{{ $t('allProjects.classLabel') }}: {{ project.class_key }}</div>
         <p class="card-description">{{ project.body?.slice(0, 150) || '' }}...</p>
         
         <!-- Вакансии проекта -->
@@ -127,6 +135,7 @@ const usersStore = useUsersStore();
 const { t } = useI18n();
 const projects = ref<Project[]>([]);
 const search = ref('');
+const classFilter = ref('');
 const loading = ref(true);
 const avatarError = ref<Record<number, boolean>>({});
 const filterType = ref<'all' | 'free' | 'taken'>('all');
@@ -243,7 +252,9 @@ onMounted(async () => {
 async function fetchAll() {
   loading.value = true;
   try {
-    const res = await api.get<Project[]>(`${baseUrl}/projects/`);
+    const res = await api.get<Project[]>(`${baseUrl}/projects/`, {
+      params: { class_key: classFilter.value || undefined }
+    });
     projects.value = res.data;
     avatarError.value = {};
     // Загружаем статусы для всех проектов
@@ -265,7 +276,7 @@ async function searchProjects() {
     const res = await api.get<Project[]>(`${baseUrl}/search`, {
       params: { q: search.value }
     });
-    projects.value = res.data;
+    projects.value = classFilter.value ? res.data.filter(project => project.class_key === classFilter.value) : res.data;
     avatarError.value = {};
     // Загружаем статусы для найденных проектов
     await loadAllProjectStatuses(projects.value);
@@ -372,9 +383,11 @@ function goHome() {
 .search-container {
   max-width: 600px;
   margin: 0 auto 30px;
+  display: flex;
+  gap: 10px;
 }
 .search-container input {
-  width: 100%;
+  flex: 1;
   padding: 12px 20px;
   border: 1px solid var(--input-border);
   border-radius: 50px;
@@ -383,6 +396,25 @@ function goHome() {
   transition: border-color 0.2s, box-shadow 0.2s;
   background: var(--input-bg);
   color: var(--text-primary);
+}
+.class-filter {
+  min-width: 120px;
+  padding: 12px 14px;
+  border: 1px solid var(--input-border);
+  border-radius: 18px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+.class-badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--accent-color);
+  color: var(--button-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 8px;
 }
 .search-container input:focus {
   border-color: var(--accent-color);

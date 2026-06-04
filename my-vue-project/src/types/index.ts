@@ -30,6 +30,21 @@ export interface ApprovalRequestItem {
   customer_name: string | null;
 }
 
+export interface LifecycleStageState {
+  id: string;
+  status: 'pending' | 'current' | 'approval_pending' | 'completed' | 'rejected';
+  requested_by?: number | null;
+  requested_at?: string | null;
+  handled_by?: number | null;
+  handled_at?: string | null;
+  comment?: string | null;
+}
+
+export interface ProjectLifecycleState {
+  current_stage_id: string | null;
+  stages: LifecycleStageState[];
+}
+
 export interface Participant {
   user_id: number;
   role: ProjectRole;
@@ -164,12 +179,16 @@ export interface JoinRequest {
 export interface Project {
   id: number;
   title: string;
+  class_key?: string | null;
+  direction_key?: string | null;
   body: string;
   underbody: string;
   participants: Participant[];
   tasks: Task[];
   links?: ProjectLinks;
   comments?: Comment[];
+  lifecycle_state?: ProjectLifecycleState;
+  file_quota_overrides?: Record<string, number>;
   suggestions?: Suggestion[];
   join_requests?: JoinRequest[]; 
   is_hidden?: boolean;
@@ -188,10 +207,12 @@ export interface ProjectLinks {
   google_drive?: string;
 }
 
-export type ProjectCreate = Omit<Project, 'id'>;
+export type ProjectCreate = Omit<Project, 'id' | 'ignore_file_limits'> & Partial<Pick<Project, 'ignore_file_limits'>>;
 
 export interface ProjectUpdate {
   title?: string;
+  class_key?: string | null;
+  direction_key?: string | null;
   body?: string;
   underbody?: string;
   tasks?: Task[];
