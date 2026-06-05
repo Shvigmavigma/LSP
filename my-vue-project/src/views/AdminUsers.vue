@@ -3,6 +3,9 @@
     <header class="page-header">
       <h1>{{ $t('adminUsers.title') }}</h1>
       <div class="header-actions">
+        <button class="create-user-btn" @click="goToCreateUser" :title="$t('adminUsers.createUser')">
+          {{ $t('adminUsers.createUser') }}
+        </button>
         <ThemeToggle />
         <LanguageSwitcher />
         <HomeButton/>
@@ -92,6 +95,7 @@ import type { User } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import api from '@/utils/api'
+
 const { t } = useI18n();
 const router = useRouter();
 const users = ref<User[]>([]);
@@ -173,6 +177,10 @@ function editUser(id: number) {
   router.push(`/admin/users/${id}/edit`);
 }
 
+function goToCreateUser() {
+  router.push('/admin/create-users');
+}
+
 function confirmDelete(id: number) {
   userToDelete.value = id;
   showDeleteModal.value = true;
@@ -198,6 +206,7 @@ async function deleteUser() {
 function goHome() {
   router.push('/main');
 }
+
 function goBack() {
   router.push('/admin');
 }
@@ -220,6 +229,24 @@ function goBack() {
 .header-actions {
   display: flex;
   gap: 10px;
+  align-items: center;
+}
+.create-user-btn {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.create-user-btn:hover {
+  background: var(--accent-hover);
 }
 .back-button {
   background: none;
@@ -235,6 +262,9 @@ function goBack() {
   justify-content: center;
   transition: background 0.2s;
   color: var(--text-primary);
+}
+.back-button:hover {
+  background: var(--hover-bg);
 }
 .filters {
   display: flex;
@@ -311,6 +341,11 @@ input[type="checkbox"] {
 }
 .delete-btn:hover {
   background: rgba(244, 67, 54, 0.2);
+}
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
 }
 .modal-overlay {
   position: fixed;

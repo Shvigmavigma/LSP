@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query, Depends, File, UploadFile, Request, Body, Form
+from fastapi import FastAPI, HTTPException, Query, Depends, File, UploadFile, Request, Body, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -4927,7 +4927,369 @@ async def get_approval_status(
         "handler_name": handler.fullname if handler else None,
         "status": getattr(project, 'approval_status', 'draft')
     }
+# ==================== АДМИНСКОЕ СОЗДАНИЕ ПОЛЬЗОВАТЕЛЕЙ (БЕЗ ПОДТВЕРЖДЕНИЯ EMAIL) ====================
+
+@app.post("/admin/users/create-student", response_model=UserResponse, tags=["Admin"])
+async def admin_create_student(
+    student_data: dict = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """
+    Создание ученика админом без подтверждения email.
+    Поля: fullname, email, password, class_, speciality (опционально)
+    """
+    # Проверяем обязательные поля
+    required_fields = ["fullname", "email", "password"]
+    for field in required_fields:
+        if field not in student_data or not student_data[field]:
+            raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+    
+    email = student_data["email"].strip().lower()
+    
+    # Проверяем, не существует ли уже пользователь с таким email
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    # Хешируем пароль
+    hashed_password = get_password_hash(student_data["password"].strip())
+    
+    # Создаём пользователя
+    db_user = User(
+        fullname=student_data["fullname"].strip(),
+        class_=student_data.get("class_", 0),
+        speciality=student_data.get("speciality", ""),
+        email=email,
+        password=hashed_password,
+        avatar=None,
+        is_active=True,
+        is_verified=True,  # Автоматически подтверждён
+        is_teacher=False,
+        teacher_info=None
+    )
+    
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    
+    return db_user
 
 
+@app.post("/admin/users/create-teacher", response_model=UserResponse, tags=["Admin"])
+async def admin_create_teacher(
+    teacher_data: dict = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """
+    Создание учителя админом без подтверждения email.
+    Поля: fullname, email, password, speciality (опционально), teacher_info (опционально)
+    teacher_info может содержать: roles (list), curator (bool)
+    """
+    # Проверяем обязательные поля
+    required_fields = ["fullname", "email", "password"]
+    for field in required_fields:
+        if field not in teacher_data or not teacher_data[field]:
+            raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+    
+    email = teacher_data["email"].strip().lower()
+    
+    # Проверяем, не существует ли уже пользователь с таким email
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    # Хешируем пароль
+    hashed_password = get_password_hash(teacher_data["password"].strip())
+    
+    # Формируем teacher_info
+    teacher_info = teacher_data.get("teacher_info", {})
+    if isinstance(teacher_info, dict):
+        # Если передан список ролей, убеждаемся, что это правильный формат
+        if "roles" in teacher_info and not isinstance(teacher_info["roles"], list):
+            teacher_info["roles"] = []
+        teacher_info.setdefault("curator", False)
+    else:
+        teacher_info = {"roles": [], "curator": False}
+    
+    # Создаём пользователя
+    db_user = User(
+        fullname=teacher_data["fullname"].strip(),
+        class_=None,
+        speciality=teacher_data.get("speciality", ""),
+        email=email,
+        password=hashed_password,
+        avatar=None,
+        is_active=True,
+        is_verified=True,  # Автоматически подтверждён
+        is_teacher=True,
+        teacher_info=teacher_info
+    )
+    
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    
+    return db_user
+
+
+@app.post("/admin/users/create-bulk-students", tags=["Admin"])
+async def admin_create_bulk_students(
+    students_data: list = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """
+    Массовое создание учеников админом.
+    Ожидает список объектов с полями: fullname, email, password, class_, speciality (опционально)
+    """
+    results = []
+    errors = []
+    
+    for i, student_data in enumerate(students_data):
+        try:
+            # Проверяем обязательные поля
+            if not student_data.get("fullname") or not student_data.get("email") or not student_data.get("password"):
+                errors.append({"index": i, "error": "Missing required fields (fullname, email, password)"})
+                continue
+            
+            email = student_data["email"].strip().lower()
+            
+            # Проверяем на существование
+            existing_user = db.query(User).filter(User.email == email).first()
+            if existing_user:
+                errors.append({"index": i, "email": email, "error": "User already exists"})
+                continue
+            
+            # Хешируем пароль
+            hashed_password = get_password_hash(student_data["password"].strip())
+            
+            # Создаём пользователя
+            db_user = User(
+                fullname=student_data["fullname"].strip(),
+                class_=student_data.get("class_", 0),
+                speciality=student_data.get("speciality", ""),
+                email=email,
+                password=hashed_password,
+                avatar=None,
+                is_active=True,
+                is_verified=True,
+                is_teacher=False,
+                teacher_info=None
+            )
+            
+            db.add(db_user)
+            db.flush()  # Получаем ID без коммита
+            results.append({
+                "id": db_user.id,
+                "fullname": db_user.fullname,
+                "email": db_user.email,
+                "status": "created"
+            })
+            
+        except Exception as e:
+            errors.append({"index": i, "email": student_data.get("email", "unknown"), "error": str(e)})
+    
+    db.commit()
+    
+    return {
+        "created": results,
+        "errors": errors,
+        "total": len(students_data),
+        "success_count": len(results),
+        "error_count": len(errors)
+    }
+
+
+@app.post("/admin/users/create-bulk-teachers", tags=["Admin"])
+async def admin_create_bulk_teachers(
+    teachers_data: list = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """
+    Массовое создание учителей админом.
+    Ожидает список объектов с полями: fullname, email, password, speciality (опционально), teacher_info (опционально)
+    """
+    results = []
+    errors = []
+    
+    for i, teacher_data in enumerate(teachers_data):
+        try:
+            # Проверяем обязательные поля
+            if not teacher_data.get("fullname") or not teacher_data.get("email") or not teacher_data.get("password"):
+                errors.append({"index": i, "error": "Missing required fields (fullname, email, password)"})
+                continue
+            
+            email = teacher_data["email"].strip().lower()
+            
+            # Проверяем на существование
+            existing_user = db.query(User).filter(User.email == email).first()
+            if existing_user:
+                errors.append({"index": i, "email": email, "error": "User already exists"})
+                continue
+            
+            # Хешируем пароль
+            hashed_password = get_password_hash(teacher_data["password"].strip())
+            
+            # Формируем teacher_info
+            teacher_info = teacher_data.get("teacher_info", {})
+            if isinstance(teacher_info, dict):
+                if "roles" in teacher_info and not isinstance(teacher_info["roles"], list):
+                    teacher_info["roles"] = []
+                teacher_info.setdefault("curator", False)
+            else:
+                teacher_info = {"roles": [], "curator": False}
+            
+            # Создаём пользователя
+            db_user = User(
+                fullname=teacher_data["fullname"].strip(),
+                class_=None,
+                speciality=teacher_data.get("speciality", ""),
+                email=email,
+                password=hashed_password,
+                avatar=None,
+                is_active=True,
+                is_verified=True,
+                is_teacher=True,
+                teacher_info=teacher_info
+            )
+            
+            db.add(db_user)
+            db.flush()
+            results.append({
+                "id": db_user.id,
+                "fullname": db_user.fullname,
+                "email": db_user.email,
+                "status": "created"
+            })
+            
+        except Exception as e:
+            errors.append({"index": i, "email": teacher_data.get("email", "unknown"), "error": str(e)})
+    
+    db.commit()
+    
+    return {
+        "created": results,
+        "errors": errors,
+        "total": len(teachers_data),
+        "success_count": len(results),
+        "error_count": len(errors)
+    }
+
+
+@app.get("/admin/users/export", tags=["Admin"])
+async def admin_export_users(
+    user_type: Optional[str] = Query(None, description="student, teacher, or all"),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """
+    Экспорт пользователей в CSV формате.
+    """
+    import csv
+    from io import StringIO
+    
+    query = db.query(User)
+    
+    if user_type == "student":
+        query = query.filter(User.is_teacher == False)
+    elif user_type == "teacher":
+        query = query.filter(User.is_teacher == True)
+    
+    users = query.all()
+    
+    # Создаём CSV
+    output = StringIO()
+    writer = csv.writer(output)
+    
+    # Заголовки
+    writer.writerow([
+        "ID", "Full Name", "Email", "Type", "Class", "Speciality", 
+        "Verified", "Active", "Created At", "Roles (Teachers)"
+    ])
+    
+    for user in users:
+        writer.writerow([
+            user.id,
+            user.fullname,
+            user.email,
+            "Teacher" if user.is_teacher else "Student",
+            user.class_ if not user.is_teacher else "N/A",
+            user.speciality or "",
+            "Yes" if user.is_verified else "No",
+            "Yes" if user.is_active else "No",
+            user.created_at.isoformat() if user.created_at else "",
+            ", ".join(user.teacher_info.get("roles", [])) if user.is_teacher and user.teacher_info else ""
+        ])
+    
+    return Response(
+        content=output.getvalue().encode("utf-8-sig"),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=users_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"}
+    )
+@app.post("/admin/users/create-admin", response_model=UserResponse, tags=["Admin"])
+async def admin_create_admin(
+    admin_data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin)
+):
+    """
+    Создание администратора (учитель с правами админа) с проверкой мастер-пароля.
+    Требуется мастер-пароль ADMIN_INIT_PASSWORD из переменных окружения.
+    """
+    # Проверяем обязательные поля
+    required_fields = ["fullname", "email", "password"]
+    for field in required_fields:
+        if field not in admin_data or not admin_data[field]:
+            raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+    
+    # Проверяем мастер-пароль
+    master_password = admin_data.get("master_password")
+    if not master_password:
+        raise HTTPException(status_code=400, detail="Master password is required")
+    
+    if master_password != ADMIN_INIT_PASSWORD:
+        raise HTTPException(status_code=403, detail="Invalid master password")
+    
+    email = admin_data["email"].strip().lower()
+    
+    # Проверяем, не существует ли уже пользователь с таким email
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    # Хешируем пароль
+    hashed_password = get_password_hash(admin_data["password"].strip())
+    
+    # Формируем teacher_info для админа
+    teacher_info = admin_data.get("teacher_info", {})
+    if isinstance(teacher_info, dict):
+        teacher_info.setdefault("roles", ["customer", "expert", "supervisor"])
+        teacher_info.setdefault("curator", True)
+    else:
+        teacher_info = {"roles": ["customer", "expert", "supervisor"], "curator": True}
+    
+    # Создаём пользователя-администратора
+    db_user = User(
+        fullname=admin_data["fullname"].strip(),
+        class_=None,
+        speciality=admin_data.get("speciality", ""),
+        email=email,
+        password=hashed_password,
+        avatar=None,
+        is_active=True,
+        is_verified=True,
+        is_teacher=True,
+        is_admin=True,  # Важно: устанавливаем флаг администратора
+        teacher_info=teacher_info
+    )
+    
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    
+    return db_user
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

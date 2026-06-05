@@ -3,6 +3,9 @@
     <header class="page-header">
       <h1>{{ $t('adminProjects.title') }}</h1>
       <div class="header-actions">
+        <button class="create-project-btn" @click="goToCreateProject" :title="$t('adminProjects.createProject')">
+          {{ $t('adminProjects.createProject') }}
+        </button>
         <ThemeToggle />
         <LanguageSwitcher />
         <HomeButton/>
@@ -45,7 +48,7 @@
                 {{ project.title }}
               </router-link>
             </td>
-            <td>{{ project.body.slice(0, 50) }}...</td>
+            <td>{{ project.body?.slice(0, 50) || '' }}...</td>
             <td>{{ project.participants?.length || 0 }}</td>
             <td>{{ project.tasks?.length || 0 }}</td>
             <td class="status-cell">
@@ -99,7 +102,7 @@
             </td>
           </tr>
         </tbody>
-      </table>
+       </table>
     </div>
 
     <!-- Модальное подтверждение удаления проекта -->
@@ -197,6 +200,10 @@ const filteredProjects = computed(() => {
   }
   return filtered;
 });
+
+function goToCreateProject() {
+  router.push('/admin/create-project');
+}
 
 async function toggleHide(project: Project) {
   try {
@@ -325,6 +332,24 @@ function goBack() {
 .header-actions {
   display: flex;
   gap: 10px;
+  align-items: center;
+}
+.create-project-btn {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.create-project-btn:hover {
+  background: var(--accent-hover);
 }
 .back-button {
   background: none;
@@ -340,6 +365,9 @@ function goBack() {
   justify-content: center;
   transition: background 0.2s;
   color: var(--text-primary);
+}
+.back-button:hover {
+  background: var(--hover-bg);
 }
 .filters {
   display: flex;
