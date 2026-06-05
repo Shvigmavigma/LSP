@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="admin-projects-page">
     <header class="page-header">
       <h1>{{ $t('adminProjects.title') }}</h1>
