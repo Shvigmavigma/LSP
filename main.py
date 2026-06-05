@@ -458,6 +458,44 @@ def ensure_runtime_schema():
         if "file_quota_overrides" not in columns:
             connection.exec_driver_sql("ALTER TABLE projects ADD COLUMN file_quota_overrides JSON DEFAULT '{}'")
 
+        user_columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(users)").fetchall()}
+        if "nickname" in user_columns:
+            connection.exec_driver_sql("""
+                CREATE TABLE users_without_nickname (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    password VARCHAR NOT NULL,
+                    fullname VARCHAR NOT NULL,
+                    class_ FLOAT,
+                    speciality VARCHAR,
+                    email VARCHAR NOT NULL UNIQUE,
+                    avatar VARCHAR,
+                    is_active BOOLEAN,
+                    is_verified BOOLEAN,
+                    created_at DATETIME,
+                    updated_at DATETIME,
+                    is_teacher BOOLEAN NOT NULL,
+                    teacher_info JSON,
+                    is_admin BOOLEAN NOT NULL,
+                    google_id VARCHAR UNIQUE,
+                    vk_id VARCHAR UNIQUE,
+                    oauth_providers JSON
+                )
+            """)
+            preserved_columns = (
+                "id, password, fullname, class_, speciality, email, avatar, "
+                "is_active, is_verified, created_at, updated_at, is_teacher, "
+                "teacher_info, is_admin, google_id, vk_id, oauth_providers"
+            )
+            connection.exec_driver_sql(
+                f"INSERT INTO users_without_nickname ({preserved_columns}) "
+                f"SELECT {preserved_columns} FROM users"
+            )
+            connection.exec_driver_sql("DROP TABLE users")
+            connection.exec_driver_sql("ALTER TABLE users_without_nickname RENAME TO users")
+            connection.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_users_id ON users (id)")
+            connection.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_users_fullname ON users (fullname)")
+            connection.exec_driver_sql("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)")
+
 ensure_runtime_schema()
 
 def get_db():
@@ -466,6 +504,11 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def user_display_name(user: Optional[User]) -> str:
+    if not user:
+        return "Unknown"
+    return user.display_name
 
 def is_curator(user: User) -> bool:
     return user.is_teacher and user.teacher_info and user.teacher_info.get("curator", False)
@@ -856,7 +899,7 @@ async def add_audit_entry(db: Session, project: Project, user: User, action: str
         "id": str(uuid.uuid4()),
         "project_id": project.id,
         "user_id": user.id,
-        "user_name": user.fullname or user.nickname,
+        "user_name": user_display_name(user),
         "action": action,
         "target_type": target_type,
         "target_id": target_id,
@@ -886,7 +929,7 @@ def get_project_version_audit(db: Session, project_id: int) -> List[Dict[str, An
             "id": change.id,
             "project_id": project_id,
             "user_id": change.created_by,
-            "user_name": (users.get(change.created_by).fullname or users.get(change.created_by).nickname) if users.get(change.created_by) else None,
+            "user_name": user_display_name(users.get(change.created_by)) if users.get(change.created_by) else None,
             "action": change.change_type,
             "target_type": "version_change",
             "target_id": f"{change.checkpoint_version}.{change.change_version}",
@@ -925,7 +968,7 @@ async def notify_project_teachers(db: Session, project: Project, actor: User, ac
         await send_project_notification_email(
             teacher.email,
             "LSP: project update",
-            f"Project '{project.title}': {actor.fullname or actor.nickname} {action} at {datetime.utcnow().isoformat()}."
+            f"Project '{project.title}': {user_display_name(actor)} {action} at {datetime.utcnow().isoformat()}."
         )
 
 async def notify_completed_tasks(db: Session, project: Project, actor: User, old_tasks: List[Dict[str, Any]]):
@@ -1252,10 +1295,7 @@ async def token_login(
     form_data: OAuth2PasswordRequestFormStrict = Depends(),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(
-        (User.nickname == form_data.username.strip()) |
-        (User.email == form_data.username.strip())
-    ).first()
+    user = db.query(User).filter(User.email == form_data.username.strip().lower()).first()
     if not user:
         raise HTTPException(status_code=402, detail="Пользователь с таким логином не найден")
     if not verify_password(form_data.password.strip(), user.password):
@@ -1583,7 +1623,7 @@ async def get_lifecycle_projects(
                 "stage_id": stage.get("id"),
                 "stage_title": stage_config.get("title") or stage.get("id"),
                 "requested_by": stage.get("requested_by"),
-                "requested_by_name": (requester.fullname or requester.nickname) if requester else None,
+                "requested_by_name": user_display_name(requester) if requester else None,
                 "requested_at": stage.get("requested_at"),
                 "comment": stage.get("comment"),
             })
@@ -1668,7 +1708,7 @@ async def touch_editing_presence(
         raise HTTPException(status_code=403, detail="Only project participants can edit")
     data = {
         "user_id": current_user.id,
-        "user_name": current_user.fullname or current_user.nickname,
+        "user_name": user_display_name(current_user),
         "avatar": current_user.avatar,
         "target_type": payload.target_type,
         "target_id": payload.target_id,
@@ -1705,7 +1745,6 @@ async def get_editing_presence(
 
 @app.post("/admin/users", response_model=UserResponse, tags=["Admin"])
 async def admin_create_user(
-    username: str = Body(..., description="Никнейм нового администратора"),
     password: str = Body(..., description="Пароль нового администратора"),
     fullname: str = Body(..., description="Полное имя"),
     email: str = Body(..., description="Email"),
@@ -1714,17 +1753,13 @@ async def admin_create_user(
 ):
     if master_password != ADMIN_INIT_PASSWORD:
         raise HTTPException(status_code=403, detail="Invalid master password")
-    existing_nickname = db.query(User).filter(User.nickname == username.strip()).first()
-    if existing_nickname:
-        raise HTTPException(status_code=400, detail="Nickname already exists")
     existing_email = db.query(User).filter(User.email == email.strip()).first()
     if existing_email:
         raise HTTPException(status_code=400, detail="Email already exists")
     hashed = get_password_hash(password.strip())
     new_user = User(
-        nickname=username.strip(),
         fullname=fullname,
-        email=email.strip(),
+        email=email.strip().lower(),
         password=hashed,
         is_active=True,
         is_verified=True,
@@ -2060,7 +2095,7 @@ async def check_student_email(
     request: Request,
     body: dict
 ):
-    email = body.get("email")
+    email = (body.get("email") or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
     if is_student_email_accepted(email):
@@ -2078,19 +2113,15 @@ async def get_default_tasks(current_user: User = Depends(get_current_user)):
 # ==================== УЧЕНИКИ ====================
 @app.post("/students/", response_model=StudentResponse, tags=["Students"])
 async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
-    existing_nickname = db.query(User).filter(User.nickname == student.nickname.strip()).first()
-    if existing_nickname:
-        raise HTTPException(status_code=400, detail="Пользователь с таким никнеймом уже существует")
-    existing_email = db.query(User).filter(User.email == student.email.strip()).first()
+    existing_email = db.query(User).filter(User.email == student.email.strip().lower()).first()
     if existing_email:
         raise HTTPException(status_code=400, detail="Пользователь с таким email уже существует")
     hashed_password = get_password_hash(student.password.strip())
     db_user = User(
-        nickname=student.nickname.strip(),
         fullname=student.fullname,
         class_=student.class_,
         speciality=student.speciality,
-        email=student.email.strip(),
+        email=student.email.strip().lower(),
         password=hashed_password,
         avatar=None,
         is_active=True,
@@ -2107,7 +2138,7 @@ async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
 async def get_students(q: Optional[str] = Query(None), db: Session = Depends(get_db)):
     query = db.query(User).filter(User.is_teacher == False)
     if q:
-        query = query.filter(or_(User.nickname.ilike(f"%{q}%"), User.fullname.ilike(f"%{q}%"), User.email.ilike(f"%{q}%")))
+        query = query.filter(or_(User.fullname.ilike(f"%{q}%"), User.email.ilike(f"%{q}%")))
     return query.all()
 
 @app.get("/students/{student_id}", response_model=StudentResponse, tags=["Students"])
@@ -2164,7 +2195,7 @@ async def check_teacher_email(
     request: Request,
     body: dict
 ):
-    email = body.get("email")
+    email = (body.get("email") or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
     if is_email_accepted(email):
@@ -2176,20 +2207,16 @@ async def check_teacher_email(
 async def create_teacher(teacher: TeacherCreate, db: Session = Depends(get_db)):
     if not is_email_accepted(teacher.email):
         raise HTTPException(status_code=403, detail="Этот email не разрешен для регистрации учителя. Используйте email из списка разрешенных.")
-    existing_nickname = db.query(User).filter(User.nickname == teacher.nickname.strip()).first()
-    if existing_nickname:
-        raise HTTPException(status_code=400, detail="Пользователь с таким никнеймом уже существует")
-    existing_email = db.query(User).filter(User.email == teacher.email.strip()).first()
+    existing_email = db.query(User).filter(User.email == teacher.email.strip().lower()).first()
     if existing_email:
         raise HTTPException(status_code=400, detail="Пользователь с таким email уже существует")
     hashed_password = get_password_hash(teacher.password.strip())
     teacher_info_dict = teacher.teacher_info.model_dump() if teacher.teacher_info else {}
     db_user = User(
-        nickname=teacher.nickname.strip(),
         fullname=teacher.fullname,
         class_=None,
         speciality=teacher.speciality,
-        email=teacher.email.strip(),
+        email=teacher.email.strip().lower(),
         password=hashed_password,
         avatar=None,
         is_active=True,
@@ -2201,14 +2228,14 @@ async def create_teacher(teacher: TeacherCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     code = generate_verification_code()
-    redis_client.setex(f"verify:{teacher.email}", 600, code)
+    redis_client.setex(f"verify:{teacher.email.strip().lower()}", 600, code)
     await send_verification_email(teacher.email, code)
     return db_user
 
 @app.post("/teachers/verify-and-create", response_model=TeacherResponse, tags=["Teachers"])
 async def verify_and_create_teacher(request: Request, db: Session = Depends(get_db)):
     body = await request.json()
-    email = body.get("email")
+    email = (body.get("email") or "").strip().lower()
     code = body.get("code")
     teacher_data = body.get("teacher_data")
     if not email or not code or not teacher_data:
@@ -2219,15 +2246,11 @@ async def verify_and_create_teacher(request: Request, db: Session = Depends(get_
     redis_client.delete(f"verify:{email}")
     if not is_email_accepted(email):
         raise HTTPException(status_code=403, detail="Этот email не разрешен для регистрации учителя")
-    existing_user = db.query(User).filter(
-        (User.nickname == teacher_data.get('nickname')) |
-        (User.email == email)
-    ).first()
+    existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Nickname or email already registered")
+        raise HTTPException(status_code=400, detail="Email already registered")
     hashed_password = get_password_hash(teacher_data.get('password'))
     db_user = User(
-        nickname=teacher_data.get('nickname').strip(),
         fullname=teacher_data.get('fullname'),
         class_=None,
         speciality=teacher_data.get('speciality'),
@@ -2249,7 +2272,6 @@ async def get_teachers(q: Optional[str] = Query(None), db: Session = Depends(get
     query = db.query(User).filter(User.is_teacher == True)
     if q:
         text_condition = or_(
-            User.nickname.ilike(f"%{q}%"),
             User.fullname.ilike(f"%{q}%"),
             User.email.ilike(f"%{q}%"),
             User.speciality.ilike(f"%{q}%")
@@ -2331,7 +2353,6 @@ async def search_all_users(
         except ValueError:
             id_filter = None
         text_filters = [
-            User.nickname.ilike(f"%{q}%"),
             User.fullname.ilike(f"%{q}%"),
             User.email.ilike(f"%{q}%")
         ]
@@ -2422,7 +2443,7 @@ async def mark_project_old(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "project_mark_old", 5, diff,
-                       current_user.id, f"Project marked as old by {current_user.nickname}")
+                       current_user.id, f"Project marked as old by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -2446,7 +2467,7 @@ async def unmark_project_old(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "project_unmark_old", 5, diff,
-                       current_user.id, f"Project unmarked as old by {current_user.nickname}")
+                       current_user.id, f"Project unmarked as old by {user_display_name(current_user)}")
     db.commit()
     return project
 @app.post("/projects/{project_id}/join-requests", response_model=ProjectResponse, tags=["Projects"])
@@ -2518,7 +2539,7 @@ async def create_join_request(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "join_request_create", 3, diff,
-                       current_user.id, f"Join request created by {current_user.nickname}")
+                       current_user.id, f"Join request created by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -2558,7 +2579,7 @@ async def toggle_hide_project(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "project_hide_toggle", 5, diff,
-                       current_user.id, f"Project visibility toggled by {current_user.nickname}")
+                       current_user.id, f"Project visibility toggled by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -2603,7 +2624,7 @@ async def update_project_links(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "link_update", 1, diff, current_user.id,
-                       f"Links updated by {current_user.nickname}")
+                       f"Links updated by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -2634,7 +2655,7 @@ async def delete_github_link(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "link_delete", 1, diff, current_user.id,
-                       f"GitHub link deleted by {current_user.nickname}")
+                       f"GitHub link deleted by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -2665,7 +2686,7 @@ async def delete_google_drive_link(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "link_delete", 1, diff, current_user.id,
-                       f"Google Drive link deleted by {current_user.nickname}")
+                       f"Google Drive link deleted by {user_display_name(current_user)}")
     db.commit()
     return project
 @app.put("/projects/{project_id}/join-requests/{request_id}/accept", response_model=ProjectResponse, tags=["Projects"])
@@ -2723,7 +2744,7 @@ async def accept_join_request(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "join_request_accept", 3, diff,
-                       current_user.id, f"Join request accepted by {current_user.nickname}")
+                       current_user.id, f"Join request accepted by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -2755,7 +2776,7 @@ async def restore_comment(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "comment_restore", 1, diff, current_user.id,
-                       f"Comment restored by {current_user.nickname}")
+                       f"Comment restored by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -2821,7 +2842,7 @@ async def reject_join_request(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "join_request_reject", 3, diff,
-                       current_user.id, f"Join request rejected by {current_user.nickname}")
+                       current_user.id, f"Join request rejected by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -2857,7 +2878,7 @@ async def leave_project(
     new_snapshot = create_project_snapshot(project)
     await record_change(db, project_id, "participant_remove", 5,
                        compute_project_diff(old_snapshot, new_snapshot),
-                       current_user.id, f"User {current_user.nickname} left project")
+                       current_user.id, f"User {user_display_name(current_user)} left project")
     db.commit()
     return project
 
@@ -2932,7 +2953,7 @@ async def create_project(
     snapshot = create_project_snapshot(db_project)
     await create_checkpoint(db, db_project, current_user.id, "Project created", 10)
     await record_change(db, db_project.id, "project_create", 10, snapshot,
-                       current_user.id, f"Project created by {current_user.nickname}")
+                       current_user.id, f"Project created by {user_display_name(current_user)}")
     db.commit()
     return db_project
 
@@ -3047,7 +3068,7 @@ async def update_project(
         new_snapshot = create_project_snapshot(project)
         await record_change(db, project_id, "project_full_update", 5,
                            compute_project_diff(old_snapshot, new_snapshot),
-                           current_user.id, f"Project updated by {current_user.nickname}")
+                           current_user.id, f"Project updated by {user_display_name(current_user)}")
         db.commit()
         return project
 
@@ -3110,7 +3131,7 @@ async def update_project(
     new_snapshot = create_project_snapshot(project)
     await record_change(db, project_id, "project_full_update", 5,
                        compute_project_diff(old_snapshot, new_snapshot),
-                       current_user.id, f"Project updated by {current_user.nickname}")
+                       current_user.id, f"Project updated by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -3168,7 +3189,7 @@ async def update_project_tasks(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "tasks_bulk_update", 3, diff, current_user.id,
-                       f"Tasks updated by {current_user.nickname}")
+                       f"Tasks updated by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -3236,7 +3257,7 @@ async def move_subtask(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "subtask_move", 1, diff, current_user.id,
-                       f"Subtask moved by {current_user.nickname}")
+                       f"Subtask moved by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -3316,7 +3337,7 @@ async def add_comment(
         new_snapshot = create_project_snapshot(project)
         diff = compute_project_diff(old_snapshot, new_snapshot)
         await record_change(db, project_id, "comment_add", 1, diff, current_user.id,
-                           f"Comment added by {current_user.nickname}")
+                           f"Comment added by {user_display_name(current_user)}")
         db.commit()
         return project
     except Exception as e:
@@ -3387,7 +3408,7 @@ async def delete_project(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "project_hide_toggle", 5, diff,
-                       current_user.id, f"Project hidden by {current_user.nickname}")
+                       current_user.id, f"Project hidden by {user_display_name(current_user)}")
     db.commit()
     return {"message": f"Project {project_id} hidden successfully"}
 
@@ -3424,7 +3445,7 @@ async def add_task_comment(
         new_snapshot = create_project_snapshot(project)
         diff = compute_project_diff(old_snapshot, new_snapshot)
         await record_change(db, project_id, "task_comment_add", 1, diff, current_user.id,
-                           f"Task comment added by {current_user.nickname}")
+                           f"Task comment added by {user_display_name(current_user)}")
         db.commit()
         return project
     except Exception as e:
@@ -3471,7 +3492,7 @@ async def create_suggestion(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "suggestion_create", 3, diff,
-                       current_user.id, f"Suggestion created by {current_user.nickname}")
+                       current_user.id, f"Suggestion created by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -3515,7 +3536,7 @@ async def accept_suggestion(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "suggestion_accept", 3, diff,
-                       current_user.id, f"Suggestion accepted by {current_user.nickname}")
+                       current_user.id, f"Suggestion accepted by {user_display_name(current_user)}")
     db.commit()
     return project
 @app.put("/projects/{project_id}/suggestions/{suggestion_id}/reject", response_model=ProjectResponse, tags=["Projects"])
@@ -3550,7 +3571,7 @@ async def reject_suggestion(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "suggestion_reject", 3, diff,
-                       current_user.id, f"Suggestion rejected by {current_user.nickname}")
+                       current_user.id, f"Suggestion rejected by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -3763,7 +3784,7 @@ async def upload_project_file(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "file_upload", 3, diff, current_user.id,
-                       f"File '{file.filename}' uploaded by {current_user.nickname}")
+                       f"File '{file.filename}' uploaded by {user_display_name(current_user)}")
     await add_audit_entry(db, project, current_user, "file_uploaded", "file", str(db_file.id), {
         "filename": file.filename,
         "size": len(contents),
@@ -3805,7 +3826,7 @@ async def delete_file(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project.id, "file_delete", 3, diff, current_user.id,
-                       f"File '{file_record.original_filename}' deleted by {current_user.nickname}")
+                       f"File '{file_record.original_filename}' deleted by {user_display_name(current_user)}")
     db.commit()
     return {"message": "File deleted"}
 @app.get("/projects/{project_id}/files", response_model=List[ProjectFileResponse], tags=["Projects"])
@@ -4009,7 +4030,7 @@ async def request_verification_code(
     body: dict,
     db: Session = Depends(get_db)
 ):
-    email = body.get("email")
+    email = (body.get("email") or "").strip().lower()
     is_teacher = body.get("is_teacher", False)
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
@@ -4047,7 +4068,7 @@ async def verify_email(
     body: dict,
     db: Session = Depends(get_db)
 ):
-    email = body.get("email")
+    email = (body.get("email") or "").strip().lower()
     code = body.get("code")
     if not email or not code:
         raise HTTPException(status_code=400, detail="Email and code required")
@@ -4070,7 +4091,7 @@ async def register_with_verification(
     db: Session = Depends(get_db)
 ):
     body = await request.json()
-    email = body.get("email")
+    email = (body.get("email") or "").strip().lower()
     code = body.get("code")
     user_data = body.get("user_data")
     is_teacher = body.get("is_teacher", False)
@@ -4086,17 +4107,13 @@ async def register_with_verification(
     else:
         if not is_student_email_accepted(email):
             raise HTTPException(status_code=403, detail="Этот email не разрешён для регистрации ученика")
-    existing_user = db.query(User).filter(
-        (User.nickname == user_data.get('nickname')) |
-        (User.email == email)
-    ).first()
+    existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Nickname or email already registered")
+        raise HTTPException(status_code=400, detail="Email already registered")
     hashed_password = get_password_hash(user_data.get('password'))
     if is_teacher:
         teacher_info = user_data.get('teacher_info', {})
         db_user = User(
-            nickname=user_data.get('nickname').strip(),
             fullname=user_data.get('fullname'),
             class_=None,
             speciality=user_data.get('speciality'),
@@ -4110,7 +4127,6 @@ async def register_with_verification(
         )
     else:
         db_user = User(
-            nickname=user_data.get('nickname').strip(),
             fullname=user_data.get('fullname'),
             class_=user_data.get('class_', 0),
             speciality=user_data.get('speciality'),
@@ -4130,10 +4146,7 @@ async def register_with_verification(
 @app.post("/auth/login", response_model=TokenResponse, tags=["Auth"])
 @limiter.limit("5/minute")
 async def auth_login(request: Request, credentials: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(
-        (User.nickname == credentials.nickname.strip()) |
-        (User.email == credentials.nickname.strip())
-    ).first()
+    user = db.query(User).filter(User.email == credentials.email.strip().lower()).first()
     if not user:
         raise HTTPException(status_code=402, detail="Пользователь с таким логином не найден")
     if not verify_password(credentials.password.strip(), user.password):
@@ -4206,7 +4219,7 @@ async def delete_project_comment(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "comment_delete", 1, diff, current_user.id,
-                       f"Comment hidden by {current_user.nickname}")
+                       f"Comment hidden by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -4246,7 +4259,7 @@ async def delete_task_comment(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "task_comment_delete", 1, diff, current_user.id,
-                       f"Task comment hidden by {current_user.nickname}")
+                       f"Task comment hidden by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -4541,7 +4554,7 @@ async def create_invitation(
     db.commit()
     db.refresh(db_invite)
     db_invite.project_title = project.title
-    db_invite.invited_by_nickname = current_user.nickname
+    db_invite.invited_by_name = user_display_name(current_user)
     return db_invite
 
 @app.get("/invitations", response_model=List[InvitationResponse], tags=["Invitations"])
@@ -4557,7 +4570,7 @@ async def get_my_invitations(
         proj = db.query(Project).filter(Project.id == inv.project_id).first()
         inv.project_title = proj.title if proj else "Unknown"
         inviter = db.query(User).filter(User.id == inv.invited_by).first()
-        inv.invited_by_nickname = inviter.nickname if inviter else "Unknown"
+        inv.invited_by_name = user_display_name(inviter) if inviter else "Unknown"
     return invites
 
 @app.get("/invitations/sent", response_model=List[InvitationResponse], tags=["Invitations"])
@@ -4571,7 +4584,7 @@ async def get_sent_invitations(
     for inv in invites:
         proj = db.query(Project).filter(Project.id == inv.project_id).first()
         inv.project_title = proj.title if proj else "Unknown"
-        inv.invited_by_nickname = current_user.nickname
+        inv.invited_by_name = user_display_name(current_user)
     return invites
 
 @app.put("/invitations/{invitation_id}/accept", response_model=ProjectResponse, tags=["Invitations"])
@@ -4686,7 +4699,7 @@ async def request_project_approval(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "project_approval_request", 5, diff,
-                       current_user.id, f"Approval requested by {current_user.nickname}")
+                       current_user.id, f"Approval requested by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -4741,7 +4754,7 @@ async def cancel_project_approval(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "project_approval_cancel", 5, diff,
-                       current_user.id, f"Approval cancelled by {current_user.nickname}")
+                       current_user.id, f"Approval cancelled by {user_display_name(current_user)}")
     db.commit()
     return project
 
@@ -4884,7 +4897,7 @@ async def approve_project(
     new_snapshot = create_project_snapshot(project)
     diff = compute_project_diff(old_snapshot, new_snapshot)
     await record_change(db, project_id, "project_approval_decision", 5, diff,
-                       current_user.id, f"Project {action.action}d by {current_user.nickname}")
+                       current_user.id, f"Project {action.action}d by {user_display_name(current_user)}")
     db.commit()
     return project
 

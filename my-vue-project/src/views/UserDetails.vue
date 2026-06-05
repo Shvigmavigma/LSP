@@ -16,12 +16,12 @@
         <img
           v-if="user.avatar && !avatarError"
           :src="avatarUrl"
-          :alt="user.nickname"
+          :alt="displayUserName(user)"
           @error="avatarError = true"
         />
-        <span v-else>{{ user.nickname.charAt(0).toUpperCase() }}</span>
+        <span v-else>{{ displayUserInitial(user) }}</span>
       </div>
-      <h2 class="user-nickname">{{ user.nickname }}</h2>
+      <h2 class="user-display-name">{{ displayUserName(user) }}</h2>
       <p class="user-fullname">{{ user.fullname }}</p>
       <p class="user-email">{{ user.email }}</p>
       <p class="user-class">
@@ -86,13 +86,14 @@
     <AvatarModal
       :show="showAvatarModal"
       :src="avatarUrl"
-      :alt="user?.nickname"
+      :alt="displayUserName(user)"
       @close="showAvatarModal = false"
     />
   </div>
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -202,7 +203,7 @@ function getUserShortName(id: number): string {
   if (!u) return `ID: ${id}`;
   const fullname = u.fullname.trim();
   const parts = fullname.split(/\s+/);
-  if (parts.length === 0) return u.nickname || '?';
+  if (parts.length === 0) return displayUserName(u);
   const lastName = parts[0];
   const firstNameInitial = parts[1] ? parts[1].charAt(0).toUpperCase() + '.' : '';
   const patronymicInitial = parts[2] ? parts[2].charAt(0).toUpperCase() + '.' : '';
@@ -221,7 +222,7 @@ function getUserInitials(id: number): string {
   const u = usersStore.users.find(u => u.id === id);
   if (!u) return '?';
   const parts = u.fullname.trim().split(/\s+/);
-  if (parts.length === 0) return u.nickname?.charAt(0).toUpperCase() || '?';
+  if (parts.length === 0) return displayUserInitial(u);
   const lastName = parts[0];
   const firstName = parts[1] || '';
   const patronymic = parts[2] || '';
@@ -326,7 +327,7 @@ const goHome = () => {
   height: 100%;
   object-fit: cover;
 }
-.user-nickname {
+.user-display-name {
   color: var(--heading-color);
   margin-bottom: 8px;
   font-size: 1.8rem;

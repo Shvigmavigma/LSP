@@ -46,7 +46,7 @@
     "date": "Date",
     "status": "Status",
     "user": "User",
-    "searchUser": "Search user by nickname or email",
+    "searchUser": "Search user by full name or email",
     "selected": "Selected",
     "send": "Send Invitation",
     "sentSuccess": "Invitation sent successfully!",
@@ -170,7 +170,7 @@
     "availableRoles": "Available Roles",
     "noAvailableRoles": "No available roles for this user",
     "userSearchLabel": "Search User",
-    "userSearchPlaceholder": "Enter nickname or email",
+    "userSearchPlaceholder": "Enter full name or email",
     "selectedUser": "Selected User",
     "roleLabel": "Role",
     "sendButton": "Send Invitation",
@@ -350,8 +350,6 @@
     "additionalInfo": "Additional Information",
     "participants": "Project Participants",
     "currentParticipants": "Current Participants",
-    "addParticipantByNickname": "Add participant by nickname",
-    "nicknamePlaceholder": "Enter nickname...",
     "inviteByEmail": "Invite participant by email",
     "emailPlaceholder": "User email",
     "sendInvite": "Send Invitation",
@@ -389,7 +387,9 @@
     "finishEditing": "Complete editing all tasks before saving",
     "projectCreated": "Project created successfully",
     "projectSaved": "Changes saved",
-    "saveError": "Failed to save changes. Please try again later."
+    "saveError": "Failed to save changes. Please try again later.",
+    "addParticipant": "Add participant by full name or email",
+    "userPlaceholder": "Enter full name or email"
   },
   "adminProjects": {
     "title": "Project Management",
@@ -435,7 +435,6 @@
   },
   "adminUserEdit": {
     "title": "Edit User",
-    "nickname": "Nickname",
     "fullname": "Full Name",
     "email": "Email",
     "class": "Class",
@@ -449,20 +448,20 @@
   },
   "adminUsers": {
     "title": "User Management",
-    "searchPlaceholder": "Search by name or email",
+    "searchPlaceholder": "Search by full name or email",
     "filterAll": "All",
     "filterStudents": "Students",
     "filterTeachers": "Teachers",
     "filterAdmins": "Administrators",
     "table": {
       "id": "ID",
-      "nickname": "Nickname",
       "email": "Email",
       "type": "Type",
       "active": "Active",
       "admin": "Admin",
       "curator": "Curator",
-      "actions": "Actions"
+      "actions": "Actions",
+      "fullname": "Full name"
     },
     "userType": {
       "student": "Student",
@@ -520,8 +519,6 @@
   },
   "login": {
     "title": "Login",
-    "nicknameOrEmail": "Nickname or Email",
-    "nicknamePlaceholder": "Enter nickname or email",
     "password": "Password",
     "passwordPlaceholder": "Enter password",
     "loginButton": "Login",
@@ -535,7 +532,10 @@
     "errorPrefix": "Error",
     "networkError": "Network error. Check your internet connection",
     "unknownError": "Unknown error",
-    "oauthError": "Google authorization error"
+    "oauthError": "Google authorization error",
+    "email": "Email",
+    "emailPlaceholder": "Enter email",
+    "invalidEmail": "Enter a valid email address"
   },
   "myProjects": {
     "noProjects": "You have no projects yet",
@@ -555,7 +555,6 @@
     "confirmUnlink": "Are you sure you want to unlink your Google account?",
     "linkError": "Failed to link Google account",
     "unlinkError": "Failed to unlink Google account",
-    "nickname": "Nickname",
     "fullname": "Full Name",
     "email": "Email",
     "class": "Class",
@@ -752,8 +751,6 @@
     "additionalInfo": "Additional Information",
     "participants": "Project Participants",
     "currentParticipants": "Current Participants",
-    "addParticipantByNickname": "Add participant by nickname",
-    "nicknamePlaceholder": "Enter nickname...",
     "inviteByEmail": "Invite participant by email",
     "emailPlaceholder": "User email",
     "sendInvite": "Send Invitation",
@@ -827,8 +824,6 @@
     "student": "Student",
     "teacher": "Teacher / External Representative",
     "avatarOptional": "Avatar (optional)",
-    "nickname": "Nickname",
-    "nicknamePlaceholder": "Enter nickname",
     "fullname": "Full Name",
     "fullnamePlaceholder": "Enter full name",
     "email": "Email",
@@ -862,7 +857,8 @@
     "emailNotAllowed": "Email not allowed",
     "codeSendError": "Error sending code. Perhaps the email is already registered.",
     "networkError": "Network error. Check server connection.",
-    "genericError": "An error occurred during registration"
+    "genericError": "An error occurred during registration",
+    "invalidEmail": "Enter a valid email address"
   },
   "taskDetails": {
     "confirmDeleteFile": "Are you sure you want to delete this file?",
@@ -1010,7 +1006,7 @@
       "network": "Network error. Check server connection.",
       "invalidOrExpiredCode": "Invalid or expired verification code",
       "resendHint": "Try requesting the code again",
-      "alreadyRegistered": "A user with this nickname or email already exists",
+      "alreadyRegistered": "A user with this email already exists",
       "tryLogin": "Try to login or use different credentials",
       "registrationFailed": "Registration error",
       "emailNotAllowed": "Email not allowed for teacher registration",

@@ -12,19 +12,15 @@
           <img
             v-if="user?.avatar && !avatarError"
             :src="avatarUrl"
-            :alt="user.nickname"
+            :alt="displayUserName(user)"
             @error="avatarError = true"
           />
-          <span v-else>{{ user?.nickname?.charAt(0).toUpperCase() || '?' }}</span>
+          <span v-else>{{ displayUserInitial(user) }}</span>
         </div>
         <h2>{{ $t('profile.title') }}</h2>
       </div>
 
       <div v-if="user" class="profile-info">
-        <div class="info-row">
-          <span class="info-label">{{ $t('profile.nickname') }}</span>
-          <span class="info-value">{{ user.nickname }}</span>
-        </div>
         <div class="info-row">
           <span class="info-label">{{ $t('profile.fullname') }}</span>
           <span class="info-value">{{ user.fullname }}</span>
@@ -118,13 +114,14 @@
     <AvatarModal
       :show="showAvatarModal"
       :src="avatarUrl"
-      :alt="user?.nickname"
+      :alt="displayUserName(user)"
       @close="showAvatarModal = false"
     />
   </div>
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { computed, ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter, useRoute } from 'vue-router';

@@ -59,18 +59,6 @@
           </button>
         </div>
 
-        <div class="form-group">
-          <label for="nickname">{{ $t('register.nickname') }}</label>
-          <input
-            id="nickname"
-            v-model="form.nickname"
-            type="text"
-            :placeholder="$t('register.nicknamePlaceholder')"
-            required
-            @input="clearErrors"
-          />
-        </div>
-
         <!-- Новые поля: фамилия, имя, отчество -->
         <div class="form-group">
           <label for="lastName">{{ $t('register.lastName') }}</label>
@@ -278,7 +266,6 @@ import api from '@/utils/api'
 const { t } = useI18n();
 
 interface RegisterForm {
-  nickname: string;
   lastName: string;
   firstName: string;
   patronymic: string;  // опционально, но для удобства храним строку
@@ -300,7 +287,6 @@ const selectedRoles = ref<TeacherRole[]>([]);
 const showRoleError = ref(false);
 
 const form = reactive<RegisterForm>({
-  nickname: '',
   lastName: '',
   firstName: '',
   patronymic: '',
@@ -413,6 +399,11 @@ const handleRegister = async () => {
     emailError.value = t('register.emailRequired');
     return;
   }
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(form.email.trim())) {
+    emailError.value = t('register.invalidEmail');
+    return;
+  }
 
   // Для учителя проверяем, выбрана ли хотя бы одна роль
   if (accountType.value === 'teacher' && selectedRoles.value.length === 0) {
@@ -475,7 +466,6 @@ const requestVerification = async (isTeacher: boolean) => {
 
   // Подготовка данных пользователя
   const userData: any = {
-    nickname: form.nickname,
     fullname: fullname,
     email: form.email,
     speciality: form.speciality,

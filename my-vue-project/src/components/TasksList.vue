@@ -9,7 +9,7 @@
             :key="task.title || task.id"
             :task="task"
             :is-readonly="isReadonly"
-            :get-user-nickname="getUserNickname"
+            :get-user-display-name-by-id="getUserDisplayNameById"
             @click="$emit('goToTask', task)"
           />
         </div>
@@ -23,7 +23,7 @@
             :key="task.title || task.id"
             :task="task"
             :is-readonly="isReadonly"
-            :get-user-nickname="getUserNickname"
+            :get-user-display-name-by-id="getUserDisplayNameById"
             @click="$emit('goToTask', task)"
           />
         </div>
@@ -41,7 +41,7 @@ import TaskCard from './TaskCard.vue';
 const props = defineProps<{
   tasks: Task[];
   isReadonly?: boolean;
-  getUserNickname: (id: number) => string;
+  getUserDisplayNameById: (id: number) => string;
 }>();
 
 const emit = defineEmits<{

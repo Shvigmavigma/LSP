@@ -53,12 +53,12 @@
           <img
             v-if="user.avatar && !imageError[user.id]"
             :src="avatarUrl(user.avatar)"
-            :alt="user.nickname"
+            :alt="displayUserName(user)"
             @error="imageError[user.id] = true"
           />
-          <span v-else>{{ user.nickname.charAt(0).toUpperCase() }}</span>
+          <span v-else>{{ displayUserInitial(user) }}</span>
         </div>
-        <h3 class="user-nickname">{{ user.nickname }}</h3>
+        <h3 class="user-display-name">{{ displayUserName(user) }}</h3>
         <p class="user-fullname">{{ user.fullname }}</p>
         <p class="user-email">{{ user.email }}</p>
 
@@ -79,6 +79,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUsersStore } from '@/stores/users';
@@ -334,7 +335,7 @@ function getRolesText(user: User): string {
   height: 100%;
 }
 
-.user-nickname {
+.user-display-name {
   color: var(--heading-color);
   margin-bottom: 4px;
   font-size: 1.2rem;

@@ -8,7 +8,6 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    nickname = Column(String, unique=True, nullable=False, index=True)
     password = Column(String, nullable=False)        
     fullname = Column(String, nullable=False, index=True)
     class_ = Column(Float, default=0.0)
@@ -27,6 +26,15 @@ class User(Base):
     google_id = Column(String, nullable=True, unique=True)
     vk_id = Column(String, nullable=True, unique=True)
     oauth_providers = Column(JSON, default=list)  # ['google', 'vk']
+
+    @property
+    def display_name(self):
+        parts = (self.fullname or "").strip().split()
+        if not parts:
+            return self.email or f"ID: {self.id}"
+        surname = parts[0]
+        initials = " ".join(f"{part[0].upper()}." for part in parts[1:3] if part)
+        return f"{surname} {initials}".strip()
 
 class Project(Base):
     __tablename__ = "projects"

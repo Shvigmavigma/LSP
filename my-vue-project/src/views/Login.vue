@@ -20,12 +20,12 @@
       <!-- Форма логина (теперь первая) -->
       <form @submit.prevent="handleLogin">
         <div class="form-group">
-          <label for="nickname">{{ $t('login.nicknameOrEmail') }}</label>
+          <label for="email">{{ $t('login.email') }}</label>
           <input
-            id="nickname"
-            v-model="nickname"
-            type="text"
-            :placeholder="$t('login.nicknamePlaceholder')"
+            id="email"
+            v-model="email"
+            type="email"
+            :placeholder="$t('login.emailPlaceholder')"
             required
             :class="{ 'error-input': hasError }"
             @input="clearError"
@@ -95,7 +95,7 @@ import api from '@/utils/api'
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
-const nickname = ref('');
+const email = ref('');
 const password = ref('');
 const loading = ref(false);
 const oauthLoading = ref(false);
@@ -197,9 +197,18 @@ const loginWithGoogle = async () => {
 };
 
 const handleLogin = async () => {
-  if (!nickname.value || !password.value) {
+  if (!email.value || !password.value) {
     errorMessage.value = t('login.fillAllFields');
     showNotification(t('login.fillAllFields'), 'info');
+    return;
+  }
+
+  const normalizedEmail = email.value.trim().toLowerCase();
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailPattern.test(normalizedEmail)) {
+    errorMessage.value = t('login.invalidEmail');
+    hasError.value = true;
+    showNotification(t('login.invalidEmail'), 'info');
     return;
   }
 
@@ -209,7 +218,7 @@ const handleLogin = async () => {
 
   try {
     const response = await api.post('/auth/login', {
-      nickname: nickname.value,
+      email: normalizedEmail,
       password: password.value
     });
 

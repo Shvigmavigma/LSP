@@ -58,7 +58,7 @@
           <select v-model.number="selectedUserId" @change="applySelectedUser">
             <option :value="0">{{ $t('common.notSelected') }}</option>
             <option v-for="user in users" :key="user.id" :value="user.id">
-              {{ user.nickname }} · {{ user.fullname }}
+              {{ displayUserName(user) }} · {{ user.fullname }}
             </option>
           </select>
         </label>
@@ -75,6 +75,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import ThemeToggle from '@/components/ThemeToggle.vue';

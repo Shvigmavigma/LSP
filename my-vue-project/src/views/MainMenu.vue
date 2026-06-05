@@ -92,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName } from '@/utils/userDisplay';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
@@ -177,7 +178,7 @@ const greetingName = computed(() => {
     const patronymic = parts[2] || '';
     return patronymic ? `${firstName} ${patronymic}` : firstName;
   }
-  return authStore.user?.nickname || 'Гость';
+  return authStore.user ? displayUserName(authStore.user) : 'Гость';
 });
 
 const goTo = (route: string) => {

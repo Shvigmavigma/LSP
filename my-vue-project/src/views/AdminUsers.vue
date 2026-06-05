@@ -26,7 +26,7 @@
         <thead>
           <tr>
             <th>{{ $t('adminUsers.table.id') }}</th>
-            <th>{{ $t('adminUsers.table.nickname') }}</th>
+            <th>{{ $t('adminUsers.table.fullname') }}</th>
             <th>{{ $t('adminUsers.table.email') }}</th>
             <th>{{ $t('adminUsers.table.type') }}</th>
             <th>{{ $t('adminUsers.table.active') }}</th>
@@ -40,7 +40,7 @@
             <td>{{ user.id }}</td>
             <td>
               <router-link :to="`/user/${user.id}`" class="user-link">
-                {{ user.nickname }}
+                {{ displayUserName(user) }}
               </router-link>
             </td>
             <td>{{ user.email }}</td>
@@ -83,6 +83,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -120,7 +121,7 @@ const filteredUsers = computed(() => {
   let filtered = users.value;
   if (search.value) {
     const q = search.value.toLowerCase();
-    filtered = filtered.filter(u => u.nickname.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+    filtered = filtered.filter(u => (displayUserName(u).toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) || u.email.toLowerCase().includes(q));
   }
   if (roleFilter.value === 'student') {
     filtered = filtered.filter(u => !u.is_teacher);

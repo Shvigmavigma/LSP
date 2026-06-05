@@ -19,12 +19,12 @@ export const useAuthStore = defineStore('auth', {
   },
   
   actions: {
-    async login(nickname: string, password: string) {
+    async login(email: string, password: string) {
       try {
-        console.log('Attempting login for:', nickname);
+        console.log('Attempting login for:', email);
         
         const response = await axios.post('/auth/login', {
-          nickname,
+          email,
           password
         });
         

@@ -17,10 +17,10 @@
           <img
             v-if="previewAvatar || (authStore.user?.avatar && !avatarError)"
             :src="previewAvatar || `http://localhost:8000/avatars/${authStore.user?.avatar}`"
-            :alt="authStore.user?.nickname"
+            :alt="displayUserName(authStore.user)"
             @error="avatarError = true"
           />
-          <span v-else>{{ authStore.user?.nickname?.charAt(0).toUpperCase() || '?' }}</span>
+          <span v-else>{{ displayUserInitial(authStore.user) }}</span>
         </div>
         <label class="avatar-upload-label">
           <input
@@ -166,6 +166,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';

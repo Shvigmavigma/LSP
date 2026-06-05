@@ -179,7 +179,7 @@
                 <h3>{{ $t('projectDetails.participants') }}</h3>
                 <div v-if="project.participants?.length" class="participants-list">
                   <span v-for="participant in project.participants" :key="participant.user_id" class="participant-link" @click="goToUser(participant.user_id)">
-                    {{ getUserNickname(participant.user_id) }}
+                    {{ getUserDisplayNameById(participant.user_id) }}
                     <span class="role-badge">{{ getRoleDisplay(participant.role) }}</span>
                   </span>
                 </div>
@@ -315,10 +315,10 @@
                     <div class="request-info">
                       <div class="request-user">
                         <div class="user-avatar">
-                          <img v-if="getUserAvatar(request.user_id)" :src="getUserAvatar(request.user_id)" :alt="getUserNickname(request.user_id)" @error="handleAuthorImageError(request.user_id)" />
+                          <img v-if="getUserAvatar(request.user_id)" :src="getUserAvatar(request.user_id)" :alt="getUserDisplayNameById(request.user_id)" @error="handleAuthorImageError(request.user_id)" />
                           <span v-else>{{ getUserInitials(request.user_id) }}</span>
                         </div>
-                        <span class="user-name">{{ getUserNickname(request.user_id) }}</span>
+                        <span class="user-name">{{ getUserDisplayNameById(request.user_id) }}</span>
                       </div>
                       <div class="request-task">
                         {{ $t('projectDetails.requestMessage') }}
@@ -357,7 +357,7 @@
                         <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
                         <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
                         <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
-                        <span v-if="task.assigned_to" class="assigned-info">{{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}</span>
+                        <span v-if="task.assigned_to" class="assigned-info">{{ $t('projectDetails.assignee') }}: {{ getUserDisplayNameById(task.assigned_to) }}</span>
                       </div>
                     </div>
                   </div>
@@ -385,7 +385,7 @@
                         <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
                         <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
                         <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
-                        <span v-if="task.assigned_to" class="assigned-info">{{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}</span>
+                        <span v-if="task.assigned_to" class="assigned-info">{{ $t('projectDetails.assignee') }}: {{ getUserDisplayNameById(task.assigned_to) }}</span>
                       </div>
                     </div>
                   </div>
@@ -457,7 +457,7 @@
                 <h3>{{ $t('projectDetails.participants') }}</h3>
                 <div v-if="project.participants?.length" class="participants-list">
                   <span v-for="participant in project.participants" :key="participant.user_id" class="participant-link" @click="goToUser(participant.user_id)">
-                    {{ getUserNickname(participant.user_id) }}
+                    {{ getUserDisplayNameById(participant.user_id) }}
                     <span class="role-badge">{{ getRoleDisplay(participant.role) }}</span>
                   </span>
                 </div>
@@ -497,7 +497,7 @@
                       <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
                       <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
                       <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
-                      <span v-if="task.assigned_to" class="assigned-info">{{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}</span>
+                      <span v-if="task.assigned_to" class="assigned-info">{{ $t('projectDetails.assignee') }}: {{ getUserDisplayNameById(task.assigned_to) }}</span>
                     </div>
                   </div>
                 </div>
@@ -524,7 +524,7 @@
                       <span v-if="isTaskOverdue(task)" class="overdue-badge">{{ $t('projectDetails.overdue') }}</span>
                       <span v-if="isTaskInvalid(task)" class="invalid-badge">{{ $t('projectDetails.invalidDates') }}</span>
                       <span v-if="isTaskNotStarted(task)" class="not-started-badge">{{ $t('projectDetails.notStarted') }}</span>
-                      <span v-if="task.assigned_to" class="assigned-info">{{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}</span>
+                      <span v-if="task.assigned_to" class="assigned-info">{{ $t('projectDetails.assignee') }}: {{ getUserDisplayNameById(task.assigned_to) }}</span>
                     </div>
                   </div>
                 </div>
@@ -550,7 +550,7 @@
               <h3>{{ $t('projectDetails.participants') }}</h3>
               <div v-if="project.participants?.length" class="participants-list">
                 <span v-for="participant in project.participants" :key="participant.user_id" class="participant-link" @click="goToUser(participant.user_id)">
-                  {{ getUserNickname(participant.user_id) }}
+                  {{ getUserDisplayNameById(participant.user_id) }}
                   <span class="role-badge">{{ getRoleDisplay(participant.role) }}</span>
                 </span>
               </div>
@@ -607,7 +607,7 @@
               <h3>{{ $t('projectDetails.participants') }}</h3>
               <div v-if="project.participants?.length" class="participants-list">
                 <span v-for="participant in project.participants" :key="participant.user_id" class="participant-link" @click="goToUser(participant.user_id)">
-                  {{ getUserNickname(participant.user_id) }}
+                  {{ getUserDisplayNameById(participant.user_id) }}
                   <span class="role-badge">{{ getRoleDisplay(participant.role) }}</span>
                 </span>
               </div>
@@ -649,6 +649,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, onMounted, computed, watch } from 'vue';
 import VersionControl from '@/components/VersionControl.vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -806,7 +807,7 @@ const currentLifecycleRequiresApproval = computed(() => {
 });
 const currentLifecycleRequesterName = computed(() => {
   const requesterId = currentLifecycleStageState.value?.requested_by;
-  return requesterId ? getUserNickname(requesterId) : t('common.notSelected');
+  return requesterId ? getUserDisplayNameById(requesterId) : t('common.notSelected');
 });
 
 // ========== Computed: Данные ==========
@@ -909,9 +910,9 @@ function getRoleDescription(role: ProjectRole): string {
   return descriptions[role] || '';
 }
 
-function getUserNickname(id: number): string {
+function getUserDisplayNameById(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
-  return user ? user.nickname : `ID: ${id}`;
+  return user ? displayUserName(user) : `ID: ${id}`;
 }
 
 function getUserAvatar(id: number): string | undefined {
@@ -921,7 +922,7 @@ function getUserAvatar(id: number): string | undefined {
 
 function getUserInitials(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
-  return user?.nickname?.charAt(0).toUpperCase() || '?';
+  return displayUserInitial(user);
 }
 
 function getRoleDisplay(role: ProjectRole): string {

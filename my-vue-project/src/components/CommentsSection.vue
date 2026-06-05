@@ -42,13 +42,13 @@
               <img
                 v-if="getAuthorAvatar(comment.authorId)"
                 :src="getAuthorAvatar(comment.authorId)"
-                :alt="getAuthorNickname(comment.authorId)"
+                :alt="getAuthorDisplayName(comment.authorId)"
                 @error="handleAuthorImageError(comment.authorId)"
               />
               <span v-else>{{ getAuthorInitials(comment.authorId) }}</span>
             </div>
             <div class="author-info">
-              <span class="author-name">{{ getAuthorNickname(comment.authorId) }}</span>
+              <span class="author-name">{{ getAuthorDisplayName(comment.authorId) }}</span>
               <span v-if="comment.authorRole" class="author-role">{{ comment.authorRole }}</span>
             </div>
           </div>
@@ -159,6 +159,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Comment } from '@/types';
@@ -235,9 +236,9 @@ const formatDate = (dateStr: string) => {
   });
 };
 
-const getAuthorNickname = (id: number): string => {
+const getAuthorDisplayName = (id: number): string => {
   const user = usersStore.users.find(u => u.id === id);
-  return user ? user.nickname : `ID: ${id}`;
+  return user ? displayUserName(user) : `ID: ${id}`;
 };
 
 const getAuthorAvatar = (id: number): string | undefined => {
@@ -248,7 +249,7 @@ const getAuthorAvatar = (id: number): string | undefined => {
 
 const getAuthorInitials = (id: number): string => {
   const user = usersStore.users.find(u => u.id === id);
-  return user?.nickname?.charAt(0).toUpperCase() || '?';
+  return displayUserInitial(user);
 };
 
 const handleAuthorImageError = (id: number) => {

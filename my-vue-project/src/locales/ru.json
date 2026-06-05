@@ -46,7 +46,7 @@
     "date": "Дата",
     "status": "Статус",
     "user": "Пользователь",
-    "searchUser": "Поиск пользователя по никнейму или email",
+    "searchUser": "????? ???????????? ?? ??? ??? email",
     "selected": "Выбран",
     "send": "Отправить приглашение",
     "sentSuccess": "Приглашение успешно отправлено!",
@@ -170,7 +170,7 @@
     "availableRoles": "Доступные роли",
     "noAvailableRoles": "Для этого пользователя нет доступных ролей",
     "userSearchLabel": "Поиск пользователя",
-    "userSearchPlaceholder": "Введите никнейм или email",
+    "userSearchPlaceholder": "??????? ??? ??? email",
     "selectedUser": "Выбранный пользователь",
     "roleLabel": "Роль",
     "sendButton": "Отправить приглашение",
@@ -350,8 +350,6 @@
     "additionalInfo": "Дополнительная информация",
     "participants": "Участники проекта",
     "currentParticipants": "Текущие участники",
-    "addParticipantByNickname": "Добавить участника по никнейму",
-    "nicknamePlaceholder": "Введите никнейм...",
     "inviteByEmail": "Пригласить участника по email",
     "emailPlaceholder": "Email пользователя",
     "sendInvite": "Отправить приглашение",
@@ -389,7 +387,9 @@
     "finishEditing": "Завершите редактирование всех задач перед сохранением",
     "projectCreated": "Проект успешно создан",
     "projectSaved": "Изменения сохранены",
-    "saveError": "Не удалось сохранить изменения. Пожалуйста, попробуйте позже."
+    "saveError": "Не удалось сохранить изменения. Пожалуйста, попробуйте позже.",
+    "addParticipant": "???????? ????????? ?? ??? ??? email",
+    "userPlaceholder": "??????? ??? ??? email"
   },
   "adminProjects": {
     "title": "Управление проектами",
@@ -435,7 +435,6 @@
   },
   "adminUserEdit": {
     "title": "Редактирование пользователя",
-    "nickname": "Никнейм",
     "fullname": "Полное имя",
     "email": "Email",
     "class": "Класс",
@@ -449,20 +448,20 @@
   },
   "adminUsers": {
     "title": "Управление пользователями",
-    "searchPlaceholder": "Поиск по имени или email",
+    "searchPlaceholder": "????? ?? ??? ??? email",
     "filterAll": "Все",
     "filterStudents": "Ученики",
     "filterTeachers": "Учителя",
     "filterAdmins": "Администраторы",
     "table": {
       "id": "ID",
-      "nickname": "Никнейм",
       "email": "Email",
       "type": "Тип",
       "active": "Активен",
       "admin": "Админ",
       "curator": "Куратор",
-      "actions": "Действия"
+      "actions": "Действия",
+      "fullname": "???"
     },
     "userType": {
       "student": "Ученик",
@@ -520,8 +519,6 @@
   },
   "login": {
     "title": "Вход в аккаунт",
-    "nicknameOrEmail": "Никнейм или Email",
-    "nicknamePlaceholder": "Введите никнейм или email",
     "password": "Пароль",
     "passwordPlaceholder": "Введите пароль",
     "loginButton": "Войти",
@@ -535,7 +532,10 @@
     "errorPrefix": "Ошибка",
     "networkError": "Ошибка сети. Проверьте подключение к интернету",
     "unknownError": "Неизвестная ошибка",
-    "oauthError": "Ошибка авторизации через Google"
+    "oauthError": "Ошибка авторизации через Google",
+    "email": "Email",
+    "emailPlaceholder": "??????? email",
+    "invalidEmail": "??????? ?????????? email"
   },
   "myProjects": {
     "noProjects": "У вас пока нет проектов",
@@ -555,7 +555,6 @@
     "confirmUnlink": "Вы уверены, что хотите отвязать Google аккаунт?",
     "linkError": "Не удалось привязать Google аккаунт",
     "unlinkError": "Не удалось отвязать Google аккаунт",
-    "nickname": "Никнейм",
     "fullname": "Полное имя",
     "email": "Email",
     "class": "Класс",
@@ -752,8 +751,6 @@
     "additionalInfo": "Дополнительная информация",
     "participants": "Участники проекта",
     "currentParticipants": "Текущие участники",
-    "addParticipantByNickname": "Добавить участника по никнейму",
-    "nicknamePlaceholder": "Введите никнейм...",
     "inviteByEmail": "Пригласить участника по email",
     "emailPlaceholder": "Email пользователя",
     "sendInvite": "Отправить приглашение",
@@ -827,8 +824,6 @@
     "student": "Ученик",
     "teacher": "Учитель / Внешний представитель",
     "avatarOptional": "Аватар (необязательно)",
-    "nickname": "Никнейм",
-    "nicknamePlaceholder": "Введите никнейм",
     "fullname": "Полное имя",
     "fullnamePlaceholder": "Введите полное имя",
     "email": "Email",
@@ -862,7 +857,8 @@
     "emailNotAllowed": "Email не разрешён",
     "codeSendError": "Ошибка при отправке кода. Возможно, email уже зарегистрирован.",
     "networkError": "Ошибка сети. Проверьте подключение к серверу.",
-    "genericError": "Произошла ошибка при регистрации"
+    "genericError": "Произошла ошибка при регистрации",
+    "invalidEmail": "??????? ?????????? email"
   },
   "taskDetails": {
     "confirmDeleteFile": "Вы уверены, что хотите удалить этот файл?",
@@ -1010,7 +1006,7 @@
       "network": "Ошибка сети. Проверьте подключение к серверу.",
       "invalidOrExpiredCode": "Неверный или истекший код подтверждения",
       "resendHint": "Попробуйте запросить код повторно",
-      "alreadyRegistered": "Пользователь с таким никнеймом или email уже существует",
+      "alreadyRegistered": "???????????? ? ????? email ??? ??????????",
       "tryLogin": "Попробуйте войти или используйте другие данные",
       "registrationFailed": "Ошибка при регистрации",
       "emailNotAllowed": "Email не разрешен для регистрации учителя",

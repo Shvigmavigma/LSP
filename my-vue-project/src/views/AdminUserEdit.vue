@@ -15,11 +15,6 @@
     <div v-else class="edit-card">
       <form @submit.prevent="handleSubmit">
         <div class="form-group">
-          <label>{{ $t('adminUserEdit.nickname') }}</label>
-          <input v-model="form.nickname" type="text" required />
-        </div>
-
-        <div class="form-group">
           <label>{{ $t('adminUserEdit.fullname') }}</label>
           <input v-model="form.fullname" type="text" required />
         </div>
@@ -106,7 +101,6 @@ const error = ref('');
 const saving = ref(false);
 
 interface FormData {
-  nickname: string;
   fullname: string;
   email: string;
   class: number;
@@ -119,7 +113,6 @@ interface FormData {
 }
 
 const form = reactive<FormData>({
-  nickname: '',
   fullname: '',
   email: '',
   class: 0,
@@ -135,7 +128,6 @@ onMounted(async () => {
   try {
     const response = await api.get(`/admin/users/${userId}`);
     const user: User = response.data;
-    form.nickname = user.nickname;
     form.fullname = user.fullname;
     form.email = user.email;
     form.class = user.class ?? 0;
@@ -157,7 +149,6 @@ async function handleSubmit() {
   saving.value = true;
   try {
     const updateData: any = {
-      nickname: form.nickname,
       fullname: form.fullname,
       email: form.email,
       class_: form.class,

@@ -227,7 +227,7 @@ async def google_callback(
                 <div class="icon">🔒</div>
                 <h2>Google Account Not Linked</h2>
                 <p>Your Google account is not linked to any account on this platform.</p>
-                <p>Please sign in with your nickname/password first, then link Google in your profile settings.</p>
+                <p>Please sign in with your email and password first, then link Google in your profile settings.</p>
                 <p class="hint">Redirecting back to login in 5 seconds...</p>
             </div>
         </body>

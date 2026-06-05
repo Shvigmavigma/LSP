@@ -24,12 +24,12 @@
               <img
                 v-if="getAuthorAvatar(suggestion.author_id)"
                 :src="getAuthorAvatar(suggestion.author_id)"
-                :alt="getAuthorNickname(suggestion.author_id)"
+                :alt="getAuthorDisplayName(suggestion.author_id)"
                 @error="handleAuthorImageError(suggestion.author_id)"
               />
               <span v-else>{{ getAuthorInitials(suggestion.author_id) }}</span>
             </div>
-            <span class="author-name">{{ getAuthorNickname(suggestion.author_id) }}</span>
+            <span class="author-name">{{ getAuthorDisplayName(suggestion.author_id) }}</span>
           </div>
           <div class="suggestion-meta">
             <span class="suggestion-date">{{ formatDate(suggestion.created_at) }}</span>
@@ -77,7 +77,7 @@
             <div class="suggestion-info">
               <div class="info-row">
                 <span class="info-label">{{ $t('suggestions.author') }}:</span>
-                <span class="info-value">{{ getAuthorNickname(selectedSuggestion.author_id) }}</span>
+                <span class="info-value">{{ getAuthorDisplayName(selectedSuggestion.author_id) }}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">{{ $t('suggestions.date') }}:</span>
@@ -128,6 +128,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Suggestion } from '@/types';
@@ -171,9 +172,9 @@ const pendingSuggestions = computed(() => {
 
 const pendingCount = computed(() => pendingSuggestions.value.length);
 
-const getAuthorNickname = (id: number): string => {
+const getAuthorDisplayName = (id: number): string => {
   const user = usersStore.users.find(u => u.id === id);
-  return user ? user.nickname : `ID: ${id}`;
+  return user ? displayUserName(user) : `ID: ${id}`;
 };
 
 const getAuthorAvatar = (id: number): string | undefined => {
@@ -184,7 +185,7 @@ const getAuthorAvatar = (id: number): string | undefined => {
 
 const getAuthorInitials = (id: number): string => {
   const user = usersStore.users.find(u => u.id === id);
-  return user?.nickname?.charAt(0).toUpperCase() || '?';
+  return displayUserInitial(user);
 };
 
 const handleAuthorImageError = (id: number) => {

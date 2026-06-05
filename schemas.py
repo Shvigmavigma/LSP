@@ -37,7 +37,6 @@ class Participant(BaseModel):
 
 # ---------- общая база ----------
 class UserBase(BaseModel):
-    nickname: str
     fullname: str
     email: EmailStr
     avatar: Optional[str] = None
@@ -190,7 +189,7 @@ class TeacherUpdate(BaseModel):
 # ---------- Общий пользователь ----------
 class UserResponse(BaseModel):
     id: int
-    nickname: str
+    display_name: Optional[str] = None
     fullname: str
     email: EmailStr
     avatar: Optional[str] = None
@@ -210,7 +209,7 @@ class UserResponse(BaseModel):
 
 # ---------- Авторизация ----------
 class LoginRequest(BaseModel):
-    nickname: str
+    email: EmailStr
     password: str
 
 # ---------- предложение ----------
@@ -366,7 +365,7 @@ class InvitationResponse(BaseModel):
     project_id: int
     project_title: Optional[str] = None
     invited_by: int
-    invited_by_nickname: Optional[str] = None
+    invited_by_name: Optional[str] = None
     invited_user_id: int
     role: ProjectRole
     status: str
