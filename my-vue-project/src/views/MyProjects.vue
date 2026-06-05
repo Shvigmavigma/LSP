@@ -92,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
@@ -310,7 +311,7 @@ function getUserShortName(id: number): string {
   if (!user) return `ID: ${id}`;
   const fullname = user.fullname.trim();
   const parts = fullname.split(/\s+/);
-  if (parts.length === 0) return user.nickname || '?';
+  if (parts.length === 0) return displayUserName(user);
   const lastName = parts[0];
   const firstNameInitial = parts[1] ? parts[1].charAt(0).toUpperCase() + '.' : '';
   const patronymicInitial = parts[2] ? parts[2].charAt(0).toUpperCase() + '.' : '';
@@ -330,7 +331,7 @@ function getUserInitials(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
   if (!user) return '?';
   const parts = user.fullname.trim().split(/\s+/);
-  if (parts.length === 0) return user.nickname?.charAt(0).toUpperCase() || '?';
+  if (parts.length === 0) return displayUserInitial(user);
   const lastName = parts[0];
   const firstName = parts[1] || '';
   const patronymic = parts[2] || '';

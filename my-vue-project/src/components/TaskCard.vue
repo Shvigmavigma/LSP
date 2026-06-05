@@ -36,7 +36,7 @@
       
       <!-- Назначенный исполнитель -->
       <span v-if="task.assigned_to" class="assigned-info">
-        {{ $t('projectDetails.assignee') }}: {{ getUserNickname(task.assigned_to) }}
+        {{ $t('projectDetails.assignee') }}: {{ getUserDisplayNameById(task.assigned_to) }}
       </span>
     </div>
   </div>
@@ -52,7 +52,7 @@ const { t } = useI18n();
 const props = defineProps<{
   task: Task;
   isReadonly?: boolean;
-  getUserNickname: (id: number) => string;
+  getUserDisplayNameById: (id: number) => string;
 }>();
 
 defineEmits<{

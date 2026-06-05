@@ -25,7 +25,7 @@
           <div class="card-body">
             <div class="info-row">
               <span class="info-label">{{ $t('invitations.from') }}:</span>
-              <span class="info-value">{{ inv.invited_by_nickname }}</span>
+              <span class="info-value">{{ inv.invited_by_name }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">{{ $t('invitations.role') }}:</span>
@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';

@@ -61,7 +61,7 @@
               </button>
             </td>
             <td>
-              <span v-if="project.hidden_by">{{ getUserNickname(project.hidden_by) }}</span>
+              <span v-if="project.hidden_by">{{ getUserDisplayNameById(project.hidden_by) }}</span>
               <span v-else>—</span>
             </td>
             <td class="old-cell">
@@ -135,6 +135,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -176,9 +177,9 @@ async function loadProjects() {
   }
 }
 
-function getUserNickname(id: number): string {
+function getUserDisplayNameById(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
-  return user ? user.nickname : `ID: ${id}`;
+  return user ? displayUserName(user) : `ID: ${id}`;
 }
 
 const filteredProjects = computed(() => {

@@ -54,7 +54,7 @@ export interface Participant {
 
 export interface User {
   id: number;
-  nickname: string;
+  display_name?: string | null;
   fullname: string;
   class: number;
   speciality?: string;

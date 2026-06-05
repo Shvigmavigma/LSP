@@ -46,7 +46,7 @@
     "date": "日期",
     "status": "状态",
     "user": "用户",
-    "searchUser": "按昵称或邮箱搜索用户",
+    "searchUser": "??????????",
     "selected": "已选择",
     "send": "发送邀请",
     "sentSuccess": "邀请已成功发送！",
@@ -173,7 +173,7 @@
     "availableRoles": "可用角色",
     "noAvailableRoles": "此用户没有可用角色",
     "userSearchLabel": "搜索用户",
-    "userSearchPlaceholder": "输入昵称或邮箱",
+    "userSearchPlaceholder": "???????",
     "selectedUser": "已选择的用户",
     "roleLabel": "角色",
     "sendButton": "发送邀请",
@@ -353,8 +353,6 @@
     "additionalInfo": "附加信息",
     "participants": "项目参与者",
     "currentParticipants": "当前参与者",
-    "addParticipantByNickname": "按昵称添加参与者",
-    "nicknamePlaceholder": "输入昵称...",
     "inviteByEmail": "通过邮箱邀请参与者",
     "emailPlaceholder": "用户邮箱",
     "sendInvite": "发送邀请",
@@ -392,7 +390,9 @@
     "finishEditing": "保存前请完成所有任务的编辑",
     "projectCreated": "项目已成功创建",
     "projectSaved": "更改已保存",
-    "saveError": "保存更改失败。请稍后重试。"
+    "saveError": "保存更改失败。请稍后重试。",
+    "addParticipant": "??????????",
+    "userPlaceholder": "???????"
   },
   "adminProjects": {
     "title": "项目管理",
@@ -438,7 +438,6 @@
   },
   "adminUserEdit": {
     "title": "编辑用户",
-    "nickname": "昵称",
     "fullname": "全名",
     "email": "邮箱",
     "class": "班级",
@@ -452,20 +451,20 @@
   },
   "adminUsers": {
     "title": "用户管理",
-    "searchPlaceholder": "按姓名或邮箱搜索",
+    "searchPlaceholder": "????????",
     "filterAll": "全部",
     "filterStudents": "学生",
     "filterTeachers": "教师",
     "filterAdmins": "管理员",
     "table": {
       "id": "ID",
-      "nickname": "昵称",
       "email": "邮箱",
       "type": "类型",
       "active": "活跃",
       "admin": "管理员",
       "curator": "协调员",
-      "actions": "操作"
+      "actions": "操作",
+      "fullname": "??"
     },
     "userType": {
       "student": "学生",
@@ -523,8 +522,6 @@
   },
   "login": {
     "title": "登录",
-    "nicknameOrEmail": "昵称或邮箱",
-    "nicknamePlaceholder": "输入昵称或邮箱",
     "password": "密码",
     "passwordPlaceholder": "输入密码",
     "loginButton": "登录",
@@ -538,7 +535,10 @@
     "errorPrefix": "错误",
     "networkError": "网络错误。请检查网络连接",
     "unknownError": "未知错误",
-    "oauthError": "Google授权错误"
+    "oauthError": "Google授权错误",
+    "email": "??",
+    "emailPlaceholder": "????",
+    "invalidEmail": "???????"
   },
   "myProjects": {
     "noProjects": "您还没有项目",
@@ -558,7 +558,6 @@
     "confirmUnlink": "您确定要取消关联Google账户吗？",
     "linkError": "关联Google账户失败",
     "unlinkError": "取消关联Google账户失败",
-    "nickname": "昵称",
     "fullname": "全名",
     "email": "邮箱",
     "class": "班级",
@@ -755,8 +754,6 @@
     "additionalInfo": "附加信息",
     "participants": "项目参与者",
     "currentParticipants": "当前参与者",
-    "addParticipantByNickname": "按昵称添加参与者",
-    "nicknamePlaceholder": "输入昵称...",
     "inviteByEmail": "通过邮箱邀请参与者",
     "emailPlaceholder": "用户邮箱",
     "sendInvite": "发送邀请",
@@ -830,8 +827,6 @@
     "student": "学生",
     "teacher": "教师 / 外部代表",
     "avatarOptional": "头像（可选）",
-    "nickname": "昵称",
-    "nicknamePlaceholder": "输入昵称",
     "fullname": "全名",
     "fullnamePlaceholder": "输入全名",
     "email": "邮箱",
@@ -865,7 +860,8 @@
     "emailNotAllowed": "邮箱不允许",
     "codeSendError": "发送验证码时出错。可能邮箱已注册。",
     "networkError": "网络错误。请检查服务器连接。",
-    "genericError": "注册时发生错误"
+    "genericError": "注册时发生错误",
+    "invalidEmail": "???????"
   },
   "taskDetails": {
     "confirmDeleteFile": "您确定要删除此文件吗？",
@@ -1013,7 +1009,7 @@
       "network": "网络错误。请检查服务器连接。",
       "invalidOrExpiredCode": "验证码无效或已过期",
       "resendHint": "尝试重新请求验证码",
-      "alreadyRegistered": "此昵称或邮箱的用户已存在",
+      "alreadyRegistered": "??????",
       "tryLogin": "尝试登录或使用其他信息",
       "registrationFailed": "注册错误",
       "emailNotAllowed": "邮箱不允许用于教师注册",

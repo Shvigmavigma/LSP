@@ -46,7 +46,7 @@
     "date": "Дата",
     "status": "Статус",
     "user": "Карыстальнік",
-    "searchUser": "Пошук карыстальніка па ніку або email",
+    "searchUser": "????? ????????????? ?? ??? ??? email",
     "selected": "Выбраны",
     "send": "Даслаць запрашэнне",
     "sentSuccess": "Запрашэнне паспяхова даслана!",
@@ -171,7 +171,7 @@
     "availableRoles": "Даступныя ролі",
     "noAvailableRoles": "Для гэтага карыстальніка няма даступных роляў",
     "userSearchLabel": "Пошук карыстальніка",
-    "userSearchPlaceholder": "Увядзіце нік або email",
+    "userSearchPlaceholder": "???????? ??? ??? email",
     "selectedUser": "Выбраны карыстальнік",
     "roleLabel": "Роля",
     "sendButton": "Даслаць запрашэнне",
@@ -351,8 +351,6 @@
     "additionalInfo": "Дадатковая інфармацыя",
     "participants": "Удзельнікі праекта",
     "currentParticipants": "Бягучыя ўдзельнікі",
-    "addParticipantByNickname": "Дадаць удзельніка па ніку",
-    "nicknamePlaceholder": "Увядзіце нік...",
     "inviteByEmail": "Запрасіць удзельніка па email",
     "emailPlaceholder": "Email карыстальніка",
     "sendInvite": "Даслаць запрашэнне",
@@ -390,7 +388,9 @@
     "finishEditing": "Завяршыце рэдагаванне ўсіх задач перад захаваннем",
     "projectCreated": "Праект паспяхова створаны",
     "projectSaved": "Змены захаваны",
-    "saveError": "Не атрымалася захаваць змены. Калі ласка, паспрабуйце пазней."
+    "saveError": "Не атрымалася захаваць змены. Калі ласка, паспрабуйце пазней.",
+    "addParticipant": "?????? ?????????? ?? ??? ??? email",
+    "userPlaceholder": "???????? ??? ??? email"
   },
   "adminProjects": {
     "title": "Кіраванне праектамі",
@@ -436,7 +436,6 @@
   },
   "adminUserEdit": {
     "title": "Рэдагаванне карыстальніка",
-    "nickname": "Нікнэйм",
     "fullname": "Поўнае імя",
     "email": "Email",
     "class": "Клас",
@@ -450,20 +449,20 @@
   },
   "adminUsers": {
     "title": "Кіраванне карыстальнікамі",
-    "searchPlaceholder": "Пошук па імені або email",
+    "searchPlaceholder": "????? ?? ??? ??? email",
     "filterAll": "Усе",
     "filterStudents": "Вучні",
     "filterTeachers": "Настаўнікі",
     "filterAdmins": "Адміністратары",
     "table": {
       "id": "ID",
-      "nickname": "Нікнэйм",
       "email": "Email",
       "type": "Тып",
       "active": "Актыўны",
       "admin": "Адмін",
       "curator": "Куратар",
-      "actions": "Дзеянні"
+      "actions": "Дзеянні",
+      "fullname": "???"
     },
     "userType": {
       "student": "Вучань",
@@ -521,8 +520,6 @@
   },
   "login": {
     "title": "Уваход у акаунт",
-    "nicknameOrEmail": "Нікнэйм або Email",
-    "nicknamePlaceholder": "Увядзіце нікнэйм або email",
     "password": "Пароль",
     "passwordPlaceholder": "Увядзіце пароль",
     "loginButton": "Увайсці",
@@ -536,7 +533,10 @@
     "errorPrefix": "Памылка",
     "networkError": "Памылка сеткі. Праверце падключэнне да інтэрнэту",
     "unknownError": "Невядомая памылка",
-    "oauthError": "Памылка аўтарызацыі праз Google"
+    "oauthError": "Памылка аўтарызацыі праз Google",
+    "email": "Email",
+    "emailPlaceholder": "???????? email",
+    "invalidEmail": "???????? ???????? email"
   },
   "myProjects": {
     "noProjects": "У вас пакуль няма праектаў",
@@ -556,7 +556,6 @@
     "confirmUnlink": "Вы ўпэўнены, што жадаеце адвязаць Google акаунт?",
     "linkError": "Не атрымалася прывязаць Google акаунт",
     "unlinkError": "Не атрымалася адвязаць Google акаунт",
-    "nickname": "Нікнэйм",
     "fullname": "Поўнае імя",
     "email": "Email",
     "class": "Клас",
@@ -753,8 +752,6 @@
     "additionalInfo": "Дадатковая інфармацыя",
     "participants": "Удзельнікі праекта",
     "currentParticipants": "Бягучыя ўдзельнікі",
-    "addParticipantByNickname": "Дадаць удзельніка па ніку",
-    "nicknamePlaceholder": "Увядзіце нік...",
     "inviteByEmail": "Запрасіць удзельніка па email",
     "emailPlaceholder": "Email карыстальніка",
     "sendInvite": "Даслаць запрашэнне",
@@ -828,8 +825,6 @@
     "student": "Вучань",
     "teacher": "Настаўнік / Знешні прадстаўнік",
     "avatarOptional": "Аватар (неабавязкова)",
-    "nickname": "Нікнэйм",
-    "nicknamePlaceholder": "Увядзіце нікнэйм",
     "fullname": "Поўнае імя",
     "fullnamePlaceholder": "Увядзіце поўнае імя",
     "email": "Email",
@@ -863,7 +858,8 @@
     "emailNotAllowed": "Email не дазволены",
     "codeSendError": "Памылка пры дасылцы кода. Магчыма, email ужо зарэгістраваны.",
     "networkError": "Памылка сеткі. Праверце падключэнне да сервера.",
-    "genericError": "Адбылася памылка пры рэгістрацыі"
+    "genericError": "Адбылася памылка пры рэгістрацыі",
+    "invalidEmail": "???????? ???????? email"
   },
   "taskDetails": {
     "confirmDeleteFile": "Вы ўпэўнены, што жадаеце выдаліць гэты файл?",
@@ -1011,7 +1007,7 @@
       "network": "Памылка сеткі. Праверце падключэнне да сервера.",
       "invalidOrExpiredCode": "Няправільны або скончыўся тэрмін дзеяння кода пацверджання",
       "resendHint": "Паспрабуйце запытаць код паўторна",
-      "alreadyRegistered": "Карыстальнік з такім нікнэймам або email ужо існуе",
+      "alreadyRegistered": "???????????? ? ????? email ??? ?????",
       "tryLogin": "Паспрабуйце ўвайсці або выкарыстайце іншыя даныя",
       "registrationFailed": "Памылка пры рэгістрацыі",
       "emailNotAllowed": "Email не дазволены для рэгістрацыі настаўніка",

@@ -130,7 +130,7 @@
                   class="participant-tag"
                 >
                   <div class="participant-info">
-                    <span class="participant-name">{{ getUserNickname(p.user_id) }}</span>
+                    <span class="participant-name">{{ getUserDisplayNameById(p.user_id) }}</span>
                     <span class="participant-role">{{ getRoleDisplay(p.role) }}</span>
                   </div>
                   <button
@@ -295,6 +295,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -498,9 +499,9 @@ const submitButtonText = computed(() => {
 
 const cancelButtonText = computed(() => t('common.cancel'));
 
-function getUserNickname(id: number): string {
+function getUserDisplayNameById(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
-  return user ? user.nickname : `ID: ${id}`;
+  return user ? displayUserName(user) : `ID: ${id}`;
 }
 
 function getRoleDisplay(role: ProjectRole): string {

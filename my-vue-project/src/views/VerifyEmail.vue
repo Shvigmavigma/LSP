@@ -190,7 +190,7 @@ async function verifyCode() {
         if (err.response.data?.detail === 'Invalid or expired verification code') {
           error.value = t('verifyEmail.errors.invalidOrExpiredCode')
           errorDetails.value = t('verifyEmail.errors.resendHint')
-        } else if (err.response.data?.detail === 'Nickname or email already registered') {
+        } else if (err.response.data?.detail === 'Email already registered') {
           error.value = t('verifyEmail.errors.alreadyRegistered')
           errorDetails.value = t('verifyEmail.errors.tryLogin')
         } else {

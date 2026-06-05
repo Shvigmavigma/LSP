@@ -56,7 +56,7 @@
                   class="participant-tag"
                 >
                   <div class="participant-info">
-                    <span class="participant-name">{{ getUserNickname(p.user_id) }}</span>
+                    <span class="participant-name">{{ getUserDisplayNameById(p.user_id) }}</span>
                     <span class="participant-role">{{ getRoleDisplay(p.role) }}</span>
                   </div>
                   <button
@@ -70,12 +70,12 @@
             </div>
 
             <div class="participant-search">
-              <label>{{ $t('adminProjectEdit.addParticipantByNickname') }}</label>
+              <label>{{ $t('adminProjectEdit.addParticipant') }}</label>
               <div class="search-row">
                 <input
                   v-model="searchQuery"
                   type="text"
-                  :placeholder="$t('adminProjectEdit.nicknamePlaceholder')"
+                  :placeholder="$t('adminProjectEdit.userPlaceholder')"
                   @input="searchUsers"
                 />
                 <select v-model="selectedRole">
@@ -92,7 +92,7 @@
                   class="search-result-item"
                   @click="selectUser(user)"
                 >
-                  {{ user.nickname }} ({{ user.fullname }})
+                  {{ displayUserName(user) }} ({{ user.fullname }})
                   <span class="user-roles-hint">({{ getUserRolesHint(user) }})</span>
                 </div>
               </div>
@@ -233,6 +233,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -351,7 +352,7 @@ function searchUsers() {
   }
   const q = searchQuery.value.toLowerCase();
   const allUsers = usersStore.users.filter(u =>
-    u.nickname.toLowerCase().includes(q) &&
+    (displayUserName(u).toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) &&
     !participants.value.some(p => p.user_id === u.id)
   );
   searchResults.value = allUsers.map(user => ({
@@ -362,7 +363,7 @@ function searchUsers() {
 
 function selectUser(user: UserWithRoles) {
   selectedUser.value = user;
-  searchQuery.value = user.nickname;
+  searchQuery.value = displayUserName(user);
   searchResults.value = [];
   selectedRole.value = user.availableRoles[0];
 }
@@ -422,9 +423,9 @@ onMounted(async () => {
   }
 });
 
-function getUserNickname(id: number): string {
+function getUserDisplayNameById(id: number): string {
   const user = usersStore.users.find(u => u.id === id);
-  return user ? user.nickname : `ID: ${id}`;
+  return user ? displayUserName(user) : `ID: ${id}`;
 }
 
 function getRoleDisplay(role: ProjectRole): string {

@@ -23,7 +23,7 @@
                 @click="selectUser(user)"
               >
                 <div class="result-info">
-                  <div class="user-nickname">{{ user.nickname }}</div>
+                  <div class="user-display-name">{{ displayUserName(user) }}</div>
                   <div class="user-email">{{ user.email }}</div>
                   <div class="user-available-roles">
                     {{ getAvailableRolesHint(user) }}
@@ -36,7 +36,7 @@
           <!-- Выбранный пользователь -->
           <div v-if="selectedUser" class="selected-user">
             <span class="selected-label">{{ $t('inviteModal.selectedUser') }}:</span>
-            <span class="selected-value">{{ selectedUser.nickname }} ({{ selectedUser.email }})</span>
+            <span class="selected-value">{{ displayUserName(selectedUser) }} ({{ selectedUser.email }})</span>
             <button type="button" class="clear-selection" @click="clearSelection">✕</button>
           </div>
 
@@ -73,6 +73,7 @@
 </template>
 
 <script setup lang="ts">
+import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
 import { ref, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth';
@@ -319,7 +320,7 @@ function getRoleDisplay(role: ProjectRole): string {
 .result-info {
   flex: 1;
 }
-.user-nickname {
+.user-display-name {
   font-weight: 500;
   color: var(--heading-color);
 }

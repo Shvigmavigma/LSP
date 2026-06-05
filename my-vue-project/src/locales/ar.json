@@ -46,7 +46,7 @@
     "date": "التاريخ",
     "status": "الحالة",
     "user": "المستخدم",
-    "searchUser": "البحث عن مستخدم بالاسم أو البريد الإلكتروني",
+    "searchUser": "????? ?? ???????? ?????? ?????? ?? ?????? ??????????",
     "selected": "تم الاختيار",
     "send": "إرسال الدعوة",
     "sentSuccess": "تم إرسال الدعوة بنجاح!",
@@ -172,7 +172,7 @@
     "availableRoles": "الأدوار المتاحة",
     "noAvailableRoles": "لا توجد أدوار متاحة لهذا المستخدم",
     "userSearchLabel": "البحث عن مستخدم",
-    "userSearchPlaceholder": "أدخل الاسم أو البريد الإلكتروني",
+    "userSearchPlaceholder": "???? ????? ?????? ?? ?????? ??????????",
     "selectedUser": "المستخدم المختار",
     "roleLabel": "الدور",
     "sendButton": "إرسال الدعوة",
@@ -352,8 +352,6 @@
     "additionalInfo": "معلومات إضافية",
     "participants": "مشاركو المشروع",
     "currentParticipants": "المشاركون الحاليون",
-    "addParticipantByNickname": "إضافة مشارك بالاسم المستعار",
-    "nicknamePlaceholder": "أدخل الاسم المستعار...",
     "inviteByEmail": "دعوة مشارك عبر البريد الإلكتروني",
     "emailPlaceholder": "البريد الإلكتروني للمستخدم",
     "sendInvite": "إرسال الدعوة",
@@ -391,7 +389,9 @@
     "finishEditing": "أكمل تعديل جميع المهام قبل الحفظ",
     "projectCreated": "تم إنشاء المشروع بنجاح",
     "projectSaved": "تم حفظ التغييرات",
-    "saveError": "فشل في حفظ التغييرات. يرجى المحاولة مرة أخرى لاحقاً."
+    "saveError": "فشل في حفظ التغييرات. يرجى المحاولة مرة أخرى لاحقاً.",
+    "addParticipant": "????? ????? ?????? ?????? ?? ?????? ??????????",
+    "userPlaceholder": "???? ????? ?????? ?? ?????? ??????????"
   },
   "adminProjects": {
     "title": "إدارة المشاريع",
@@ -437,7 +437,6 @@
   },
   "adminUserEdit": {
     "title": "تعديل المستخدم",
-    "nickname": "الاسم المستعار",
     "fullname": "الاسم الكامل",
     "email": "البريد الإلكتروني",
     "class": "الفصل",
@@ -451,20 +450,20 @@
   },
   "adminUsers": {
     "title": "إدارة المستخدمين",
-    "searchPlaceholder": "البحث بالاسم أو البريد الإلكتروني",
+    "searchPlaceholder": "????? ?????? ?????? ?? ?????? ??????????",
     "filterAll": "الكل",
     "filterStudents": "الطلاب",
     "filterTeachers": "المعلمون",
     "filterAdmins": "المسؤولون",
     "table": {
       "id": "المعرف",
-      "nickname": "الاسم المستعار",
       "email": "البريد الإلكتروني",
       "type": "النوع",
       "active": "نشط",
       "admin": "مسؤول",
       "curator": "منسق",
-      "actions": "الإجراءات"
+      "actions": "الإجراءات",
+      "fullname": "????? ??????"
     },
     "userType": {
       "student": "طالب",
@@ -522,8 +521,6 @@
   },
   "login": {
     "title": "تسجيل الدخول",
-    "nicknameOrEmail": "الاسم المستعار أو البريد الإلكتروني",
-    "nicknamePlaceholder": "أدخل الاسم المستعار أو البريد الإلكتروني",
     "password": "كلمة المرور",
     "passwordPlaceholder": "أدخل كلمة المرور",
     "loginButton": "تسجيل الدخول",
@@ -537,7 +534,10 @@
     "errorPrefix": "خطأ",
     "networkError": "خطأ في الشبكة. تحقق من اتصالك بالإنترنت",
     "unknownError": "خطأ غير معروف",
-    "oauthError": "خطأ في تفويض Google"
+    "oauthError": "خطأ في تفويض Google",
+    "email": "?????? ??????????",
+    "emailPlaceholder": "???? ?????? ??????????",
+    "invalidEmail": "???? ????? ????????? ?????"
   },
   "myProjects": {
     "noProjects": "ليس لديك مشاريع بعد",
@@ -557,7 +557,6 @@
     "confirmUnlink": "هل أنت متأكد أنك تريد إلغاء ربط حساب Google؟",
     "linkError": "فشل في ربط حساب Google",
     "unlinkError": "فشل في إلغاء ربط حساب Google",
-    "nickname": "الاسم المستعار",
     "fullname": "الاسم الكامل",
     "email": "البريد الإلكتروني",
     "class": "الفصل",
@@ -754,8 +753,6 @@
     "additionalInfo": "معلومات إضافية",
     "participants": "مشاركو المشروع",
     "currentParticipants": "المشاركون الحاليون",
-    "addParticipantByNickname": "إضافة مشارك بالاسم المستعار",
-    "nicknamePlaceholder": "أدخل الاسم المستعار...",
     "inviteByEmail": "دعوة مشارك عبر البريد الإلكتروني",
     "emailPlaceholder": "البريد الإلكتروني للمستخدم",
     "sendInvite": "إرسال الدعوة",
@@ -829,8 +826,6 @@
     "student": "طالب",
     "teacher": "معلم / ممثل خارجي",
     "avatarOptional": "الصورة الرمزية (اختياري)",
-    "nickname": "الاسم المستعار",
-    "nicknamePlaceholder": "أدخل الاسم المستعار",
     "fullname": "الاسم الكامل",
     "fullnamePlaceholder": "أدخل الاسم الكامل",
     "email": "البريد الإلكتروني",
@@ -864,7 +859,8 @@
     "emailNotAllowed": "البريد الإلكتروني غير مسموح به",
     "codeSendError": "خطأ في إرسال الرمز. ربما البريد الإلكتروني مسجل بالفعل.",
     "networkError": "خطأ في الشبكة. تحقق من اتصالك بالخادم.",
-    "genericError": "حدث خطأ أثناء التسجيل"
+    "genericError": "حدث خطأ أثناء التسجيل",
+    "invalidEmail": "???? ????? ????????? ?????"
   },
   "taskDetails": {
     "confirmDeleteFile": "هل أنت متأكد أنك تريد حذف هذا الملف؟",
@@ -1012,7 +1008,7 @@
       "network": "خطأ في الشبكة. تحقق من اتصالك بالخادم.",
       "invalidOrExpiredCode": "رمز التأكيد غير صالح أو منتهي الصلاحية",
       "resendHint": "حاول طلب الرمز مرة أخرى",
-      "alreadyRegistered": "يوجد مستخدم بالفعل بهذا الاسم المستعار أو البريد الإلكتروني",
+      "alreadyRegistered": "???? ?????? ???? ?????? ??????????",
       "tryLogin": "حاول تسجيل الدخول أو استخدم بيانات مختلفة",
       "registrationFailed": "خطأ في التسجيل",
       "emailNotAllowed": "البريد الإلكتروني غير مسموح به لتسجيل المعلم",
