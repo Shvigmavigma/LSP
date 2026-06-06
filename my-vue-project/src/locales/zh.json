@@ -296,6 +296,10 @@
     },
     "adminPanel": {
         "title": "管理面板",
+        "createAdmin": {
+            "title": "创建管理员",
+            "desc": "创建新的平台管理员"
+        },
         "createProject": {
             "title": "创建项目",
             "desc": "创建项目并强制指定客户"

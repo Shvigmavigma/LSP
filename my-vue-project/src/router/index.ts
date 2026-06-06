@@ -145,6 +145,12 @@ const routes: Array<RouteRecordRaw> = [
   component: () => import('@/views/AdminCreateProject.vue'),
   meta: { requiresAdmin: true }
   },
+  {
+  path: '/admin/create-admin',
+  name: 'AdminCreator',
+  component: () => import('@/views/AdminAdminCreate.vue'),
+  meta: { requiresAdmin: true }
+},
 ]
 
 const router = createRouter({
