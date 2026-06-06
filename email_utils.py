@@ -1,7 +1,6 @@
 
 import random
 import string
-import json
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 import os
 from html import escape
@@ -48,12 +47,263 @@ PROJECT_FIELD_LABELS = {
     "suggestions": "предложения",
     "join_requests": "заявки на вступление",
     "lifecycle_state": "этап жизненного цикла",
+    "file_quota_overrides": "персональные ограничения файлов",
     "required_roles": "необходимые роли",
     "is_hidden": "видимость проекта",
+    "hidden_by": "кто скрыл проект",
+    "hidden_by_users": "пользователи, скрывшие проект",
     "is_old": "архивный статус",
     "ignore_file_limits": "ограничения файлов",
+    "is_approved": "одобрение проекта",
     "approval_status": "статус одобрения",
+    "approval_requested_at": "время запроса на одобрение",
+    "approval_requested_by": "автор запроса на одобрение",
+    "approval_handled_at": "время решения по одобрению",
+    "approval_handled_by": "кто принял решение по одобрению",
     "approval_comment": "комментарий к одобрению",
+}
+
+ROLE_LABELS = {
+    "customer": "заказчик",
+    "supervisor": "научный руководитель",
+    "expert": "эксперт",
+    "executor": "исполнитель",
+    "curator": "куратор",
+}
+
+STATUS_LABELS = {
+    "pending": "ожидает",
+    "current": "текущий",
+    "approval_pending": "ожидает подтверждения",
+    "completed": "завершён",
+    "accepted": "принято",
+    "approved": "одобрено",
+    "rejected": "отклонено",
+    "draft": "черновик",
+}
+
+NESTED_FIELD_LABELS = {
+    "id": "идентификатор",
+    "user_id": "пользователь",
+    "author_id": "автор",
+    "authorId": "автор",
+    "role": "роль",
+    "requested_role": "запрошенная роль",
+    "title": "название",
+    "body": "описание",
+    "content": "текст",
+    "status": "статус",
+    "progress": "прогресс",
+    "timeline": "начало",
+    "timelinend": "срок завершения",
+    "assigned_to": "назначенный исполнитель",
+    "current_stage_id": "текущий этап",
+    "stages": "этапы",
+    "comment": "комментарий",
+    "changes": "предлагаемые изменения",
+    "target_type": "объект предложения",
+    "target_id": "идентификатор объекта",
+    "github": "GitHub",
+    "google_drive": "Google Диск",
+    "project_limit": "лимит проекта",
+    "user_limit": "лимит пользователя",
+}
+
+
+def readable_status(value) -> str:
+    return STATUS_LABELS.get(str(value), str(value))
+
+
+def readable_role(value) -> str:
+    return ROLE_LABELS.get(str(value), str(value))
+
+
+def format_scalar(value, field: str = "") -> str:
+    if isinstance(value, bool):
+        text = "да" if value else "нет"
+    elif value is None or value == "":
+        text = "не указано"
+    elif field in {"role", "requested_role"}:
+        text = readable_role(value)
+    elif field == "status":
+        text = readable_status(value)
+    else:
+        text = str(value)
+    if len(text) > 300:
+        text = f"{text[:300]}..."
+    return escape(text)
+
+
+def format_generic_value(value, field: str = "", depth: int = 0) -> str:
+    """Преобразует неизвестную структуру в читаемый HTML без вывода JSON."""
+    if depth >= 3 and isinstance(value, list):
+        return f"элементов: {len(value)}"
+    if depth >= 3 and isinstance(value, dict):
+        return f"параметров: {len(value)}"
+    if not isinstance(value, (dict, list)):
+        return format_scalar(value, field)
+    if isinstance(value, list):
+        if not value:
+            return "список пуст"
+        items = [f"<li>{format_generic_value(item, depth=depth + 1)}</li>" for item in value[:8]]
+        if len(value) > 8:
+            items.append(f"<li>И ещё элементов: {len(value) - 8}.</li>")
+        return f"<ul>{''.join(items)}</ul>"
+
+    if not value:
+        return "не указано"
+    rows = []
+    for key, nested_value in list(value.items())[:10]:
+        label = escape(NESTED_FIELD_LABELS.get(key, key.replace("_", " ")))
+        rendered = format_generic_value(nested_value, key, depth + 1)
+        rows.append(f"<li><strong>{label}:</strong> {rendered}</li>")
+    if len(value) > 10:
+        rows.append(f"<li>И ещё параметров: {len(value) - 10}.</li>")
+    return f"<ul>{''.join(rows)}</ul>"
+
+
+def format_participants(value) -> str:
+    if not value:
+        return "участников нет"
+    rows = []
+    for participant in value[:12]:
+        if not isinstance(participant, dict):
+            rows.append(f"<li>{format_scalar(participant)}</li>")
+            continue
+        user_id = format_scalar(participant.get("user_id"))
+        role = format_scalar(participant.get("role"), "role")
+        rows.append(f"<li>Пользователь №{user_id}, роль: <strong>{role}</strong></li>")
+    if len(value) > 12:
+        rows.append(f"<li>И ещё участников: {len(value) - 12}.</li>")
+    return f"<ul>{''.join(rows)}</ul>"
+
+
+def format_tasks(value) -> str:
+    if not value:
+        return "задач нет"
+    rows = []
+    for task in value[:10]:
+        if not isinstance(task, dict):
+            rows.append(f"<li>{format_scalar(task)}</li>")
+            continue
+        title = format_scalar(task.get("title") or "Без названия")
+        status = format_scalar(task.get("status"), "status")
+        extras = []
+        if task.get("progress") is not None:
+            extras.append(f"прогресс: {format_scalar(task.get('progress'))}%")
+        if task.get("timelinend"):
+            extras.append(f"срок: {format_scalar(task.get('timelinend'))}")
+        if task.get("assigned_to"):
+            extras.append(f"исполнитель №{format_scalar(task.get('assigned_to'))}")
+        suffix = f" ({'; '.join(extras)})" if extras else ""
+        rows.append(f"<li><strong>{title}</strong> — статус: {status}{suffix}</li>")
+    if len(value) > 10:
+        rows.append(f"<li>И ещё задач: {len(value) - 10}.</li>")
+    return f"<ul>{''.join(rows)}</ul>"
+
+
+def format_links(value) -> str:
+    if not value:
+        return "ссылок нет"
+    rows = []
+    for key, link in value.items():
+        label = escape(NESTED_FIELD_LABELS.get(key, key.replace("_", " ")))
+        rows.append(f"<li><strong>{label}:</strong> {format_scalar(link)}</li>")
+    return f"<ul>{''.join(rows)}</ul>"
+
+
+def format_comments(value) -> str:
+    if not value:
+        return "комментариев нет"
+    rows = []
+    for comment in value[:8]:
+        if not isinstance(comment, dict):
+            rows.append(f"<li>{format_scalar(comment)}</li>")
+            continue
+        author = format_scalar(comment.get("authorId"))
+        content = format_scalar(comment.get("content"))
+        hidden = " (скрыт)" if comment.get("hidden") else ""
+        rows.append(f"<li>Пользователь №{author}: «{content}»{hidden}</li>")
+    if len(value) > 8:
+        rows.append(f"<li>И ещё комментариев: {len(value) - 8}.</li>")
+    return f"<ul>{''.join(rows)}</ul>"
+
+
+def format_lifecycle(value) -> str:
+    if not value:
+        return "состояние жизненного цикла не указано"
+    current = format_scalar(value.get("current_stage_id") or "не выбран")
+    stages = value.get("stages") or []
+    rows = [f"<li><strong>Текущий этап:</strong> {current}</li>"]
+    for stage in stages[:10]:
+        if not isinstance(stage, dict):
+            rows.append(f"<li>{format_scalar(stage)}</li>")
+            continue
+        stage_id = format_scalar(stage.get("id") or "без названия")
+        status = format_scalar(stage.get("status"), "status")
+        rows.append(f"<li>Этап «{stage_id}»: {status}</li>")
+    if len(stages) > 10:
+        rows.append(f"<li>И ещё этапов: {len(stages) - 10}.</li>")
+    return f"<ul>{''.join(rows)}</ul>"
+
+
+def format_required_roles(value) -> str:
+    if not value:
+        return "дополнительные роли не требуются"
+    rows = [
+        f"<li><strong>{escape(readable_role(role))}:</strong> требуется {format_scalar(count)}</li>"
+        for role, count in value.items()
+    ]
+    return f"<ul>{''.join(rows)}</ul>"
+
+
+def format_join_requests(value) -> str:
+    if not value:
+        return "активных заявок нет"
+    rows = []
+    for request in value[:10]:
+        if not isinstance(request, dict):
+            rows.append(f"<li>{format_scalar(request)}</li>")
+            continue
+        user_id = format_scalar(request.get("user_id"))
+        role = format_scalar(request.get("requested_role"), "requested_role")
+        status = format_scalar(request.get("status"), "status")
+        rows.append(f"<li>Пользователь №{user_id}, роль: {role}, статус: {status}</li>")
+    if len(value) > 10:
+        rows.append(f"<li>И ещё заявок: {len(value) - 10}.</li>")
+    return f"<ul>{''.join(rows)}</ul>"
+
+
+def format_suggestions(value) -> str:
+    if not value:
+        return "предложений нет"
+    rows = []
+    for suggestion in value[:8]:
+        if not isinstance(suggestion, dict):
+            rows.append(f"<li>{format_scalar(suggestion)}</li>")
+            continue
+        author = format_scalar(suggestion.get("author_id"))
+        target = format_scalar(suggestion.get("target_type"))
+        status = format_scalar(suggestion.get("status"), "status")
+        changes = format_generic_value(suggestion.get("changes") or {})
+        rows.append(
+            f"<li>Автор №{author}, объект: {target}, статус: {status}. "
+            f"<strong>Предлагается:</strong> {changes}</li>"
+        )
+    if len(value) > 8:
+        rows.append(f"<li>И ещё предложений: {len(value) - 8}.</li>")
+    return f"<ul>{''.join(rows)}</ul>"
+
+
+FIELD_FORMATTERS = {
+    "participants": format_participants,
+    "tasks": format_tasks,
+    "links": format_links,
+    "comments": format_comments,
+    "lifecycle_state": format_lifecycle,
+    "required_roles": format_required_roles,
+    "join_requests": format_join_requests,
+    "suggestions": format_suggestions,
 }
 
 
@@ -65,17 +315,9 @@ def format_project_change_details(diff: dict) -> str:
     details = []
     for field, value in list(diff.items())[:8]:
         label = escape(PROJECT_FIELD_LABELS.get(field, field.replace("_", " ")))
-        if isinstance(value, bool):
-            rendered_value = "да" if value else "нет"
-        elif value is None:
-            rendered_value = "не указано"
-        elif isinstance(value, (dict, list)):
-            rendered_value = json.dumps(value, ensure_ascii=False, default=str)
-        else:
-            rendered_value = str(value)
-        if len(rendered_value) > 300:
-            rendered_value = f"{rendered_value[:300]}..."
-        details.append(f"<li><strong>{label}:</strong> {escape(rendered_value)}</li>")
+        formatter = FIELD_FORMATTERS.get(field)
+        rendered_value = formatter(value) if formatter else format_generic_value(value, field)
+        details.append(f"<li><strong>{label}:</strong> {rendered_value}</li>")
 
     if len(diff) > 8:
         details.append(f"<li>И ещё изменено полей: {len(diff) - 8}.</li>")
@@ -203,13 +445,11 @@ async def send_project_change_notification_email(
     change_type: str,
     points: int,
     diff: dict,
-    event_description: str,
 ):
     """Отправляет подробное уведомление о значимом изменении проекта."""
     safe_project = escape(project_title)
     safe_actor = escape(actor_name)
     safe_description = escape(PROJECT_CHANGE_LABELS.get(change_type, change_type.replace("_", " ")))
-    safe_event_description = escape(event_description.strip()) if event_description.strip() else ""
     change_details = format_project_change_details(diff)
     formatted_time = changed_at.strftime("%d.%m.%Y в %H:%M")
     html_content = f"""
@@ -221,7 +461,6 @@ async def send_project_change_notification_email(
         {formatted_time}<br>
         изменил: {safe_description}
       </p>
-      {f'<p><strong>Запись события:</strong> {safe_event_description}</p>' if safe_event_description else ''}
       <p><strong>Подробности изменения:</strong></p>
       <ul>{change_details}</ul>
       <p style="color: #666;">Сложность изменения: {points} очков.</p>
