@@ -460,10 +460,13 @@
     },
     "adminUsers": {
         "title": "User Management",
+        "toggleTeacherTitle": "Make teacher/student",
+        "toggleCuratorTitle": "Make curator",
         "createUser": "Create User",
         "searchPlaceholder": "Search by full name or email",
         "filterAll": "All",
         "filterStudents": "Students",
+        "filterCurators": "Curators",
         "filterTeachers": "Teachers",
         "filterAdmins": "Administrators",
         "table": {
@@ -474,6 +477,7 @@
             "admin": "Admin",
             "curator": "Curator",
             "actions": "Actions",
+            "isTeacher": "Teacher",
             "fullname": "Full name"
         },
         "userType": {
@@ -613,9 +617,9 @@
         "supervisorDesc": "Guides and advises",
         "avatarTooBig": "File too large (max 5 MB)",
         "avatarUploadError": "Error uploading avatar",
-    "saveError": "Error saving data",
-    "emailNotifications": "Project change notifications",
-    "emailNotificationsHint": "Receive emails about changes worth 3 points or more in projects where you are a curator, customer, expert, or supervisor."
+        "saveError": "Error saving data",
+        "emailNotifications": "Project change notifications",
+        "emailNotificationsHint": "Receive emails about changes worth 3 points or more in projects where you are a curator, customer, expert, or supervisor."
     },
     "projectDetails": {
         "markAsOld": "Mark as Old",

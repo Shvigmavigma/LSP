@@ -1361,6 +1361,94 @@ async def token_login(
     return TokenResponse(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
 
 # ==================== ЭНД АДМИНОВ ====================
+# Добавьте этот эндпоинт в ваш main.py (после других admin endpoints)
+
+# Добавьте эти эндпоинты в ваш main.py (например, после других admin эндпоинтов)
+
+@app.put("/admin/users/{user_id}/toggle-teacher", tags=["Admin"])
+async def toggle_user_teacher(
+    user_id: int,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """
+    Переключение пользователя между ролями ученик/учитель.
+    Поле: is_teacher (bool)
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_is_teacher = data.get("is_teacher", False)
+    
+    if new_is_teacher == user.is_teacher:
+        return {"id": user.id, "is_teacher": user.is_teacher}
+    
+    old_snapshot = {
+        "is_teacher": user.is_teacher,
+        "teacher_info": user.teacher_info,
+        "class_": user.class_
+    }
+    
+    user.is_teacher = new_is_teacher
+    
+    if new_is_teacher:
+        # Превращаем ученика в учителя
+        user.class_ = None
+        if not user.teacher_info:
+            user.teacher_info = {"roles": [], "curator": False}
+    else:
+        # Превращаем учителя в ученика
+        user.teacher_info = None
+        if user.class_ is None:
+            user.class_ = 0
+    
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "id": user.id,
+        "is_teacher": user.is_teacher,
+        "teacher_info": user.teacher_info
+    }
+
+
+@app.put("/admin/users/{user_id}/toggle-role", tags=["Admin"])
+async def toggle_user_role(
+    user_id: int,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """
+    Переключение ролей пользователя (админ, куратор).
+    Поля: is_admin (bool), is_curator (bool)
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Обновляем права администратора
+    if "is_admin" in data:
+        user.is_admin = data["is_admin"]
+    
+    # Обновляем права куратора (для любого пользователя)
+    if "is_curator" in data:
+        # Создаем teacher_info если его нет
+        if not user.teacher_info:
+            user.teacher_info = {"roles": [], "curator": False}
+        user.teacher_info["curator"] = data["is_curator"]
+        flag_modified(user, "teacher_info")
+    
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "id": user.id,
+        "is_admin": user.is_admin,
+        "is_curator": user.teacher_info.get("curator", False) if user.teacher_info else False
+    }
 @app.patch("/admin/projects/{project_id}/toggle-file-limits", response_model=ProjectResponse, tags=["Admin"])
 async def toggle_project_file_limits(
     project_id: int,

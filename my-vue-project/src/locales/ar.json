@@ -462,11 +462,14 @@
     },
     "adminUsers": {
         "title": "إدارة المستخدمين",
+        "toggleTeacherTitle": "جعله معلم/طالب",
+        "toggleCuratorTitle": "جعله مرشد",
         "createUser": "إنشاء مستخدم",
         "searchPlaceholder": "البحث بالاسم الكامل أو البريد الإلكتروني",
         "filterAll": "الكل",
         "filterStudents": "الطلاب",
         "filterTeachers": "المعلمون",
+        "filterCurators": "المرشدون",
         "filterAdmins": "المسؤولون",
         "table": {
             "id": "المعرف",
@@ -475,6 +478,7 @@
             "active": "نشط",
             "admin": "مسؤول",
             "curator": "منسق",
+            "isTeacher": "معلم",
             "actions": "الإجراءات",
             "fullname": "الاسم الكامل"
         },
@@ -615,9 +619,9 @@
         "supervisorDesc": "يوجه ويقدم الاستشارات",
         "avatarTooBig": "الملف كبير جداً (الحد الأقصى 5 ميجابايت)",
         "avatarUploadError": "خطأ في تحميل الصورة الرمزية",
-    "saveError": "خطأ في حفظ البيانات",
-    "emailNotifications": "إشعارات تغييرات المشروع",
-    "emailNotificationsHint": "تلقي رسائل بريد إلكتروني حول التغييرات التي تبلغ صعوبتها 3 نقاط أو أكثر في المشاريع التي تكون فيها مشرفًا أو عميلاً أو خبيرًا أو مشرفًا علميًا."
+        "saveError": "خطأ في حفظ البيانات",
+        "emailNotifications": "إشعارات تغييرات المشروع",
+        "emailNotificationsHint": "تلقي رسائل بريد إلكتروني حول التغييرات التي تبلغ صعوبتها 3 نقاط أو أكثر في المشاريع التي تكون فيها مشرفًا أو عميلاً أو خبيرًا أو مشرفًا علميًا."
     },
     "projectDetails": {
         "markAsOld": "تحديد كقديم",

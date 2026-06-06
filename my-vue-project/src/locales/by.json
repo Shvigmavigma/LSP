@@ -461,15 +461,19 @@
     },
     "adminUsers": {
         "title": "Кіраванне карыстальнікамі",
+        "toggleTeacherTitle": "Зрабіць настаўнікам/вучнем",
+        "toggleCuratorTitle": "Зрабіць куратарам",
         "createUser": "Стварыць карыстальніка",
         "searchPlaceholder": "Пошук па імені або email",
         "filterAll": "Усе",
         "filterStudents": "Вучні",
+        "filterCurators": "Куратары",
         "filterTeachers": "Настаўнікі",
         "filterAdmins": "Адміністратары",
         "table": {
             "id": "ID",
             "email": "Email",
+            "isTeacher": "Настаўнік",
             "type": "Тып",
             "active": "Актыўны",
             "admin": "Адмін",
@@ -614,9 +618,9 @@
         "supervisorDesc": "Накіроўвае і кансультуе",
         "avatarTooBig": "Файл занадта вялікі (макс. 5 МБ)",
         "avatarUploadError": "Памылка загрузкі аватаркі",
-    "saveError": "Памылка пры захаванні даных",
-    "emailNotifications": "Апавяшчэнні пра змены праекта",
-    "emailNotificationsHint": "Атрымліваць лісты пра змены складанасцю ад 3 балаў у праектах, дзе вы куратар, заказчык, эксперт або навуковы кіраўнік."
+        "saveError": "Памылка пры захаванні даных",
+        "emailNotifications": "Апавяшчэнні пра змены праекта",
+        "emailNotificationsHint": "Атрымліваць лісты пра змены складанасцю ад 3 балаў у праектах, дзе вы куратар, заказчык, эксперт або навуковы кіраўнік."
     },
     "projectDetails": {
         "markAsOld": " Пазначыць як стары",
