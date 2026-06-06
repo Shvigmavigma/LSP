@@ -49,6 +49,23 @@
           <span class="info-value">{{ user.speciality || $t('profile.notSpecified') }}</span>
         </div>
 
+        <div class="notification-setting">
+          <span>
+            <strong>{{ $t('profile.emailNotifications') }}</strong>
+            <small>{{ $t('profile.emailNotificationsHint') }}</small>
+          </span>
+          <label class="notification-switch">
+            <input
+              type="checkbox"
+              :checked="user.email_notifications_enabled !== false"
+              :disabled="savingNotifications"
+              @change="toggleEmailNotifications"
+            />
+            <span class="notification-slider"></span>
+          </label>
+        </div>
+        <div v-if="notificationError" class="oauth-error">{{ notificationError }}</div>
+
         <!-- Google привязка в строчку -->
         <div class="info-row">
           <span class="info-label">{{ $t('profile.connectedAccounts') }}</span>
@@ -142,6 +159,8 @@ const avatarError = ref(false);
 const showAvatarModal = ref(false);
 const deleting = ref(false);
 const resending = ref(false);
+const savingNotifications = ref(false);
+const notificationError = ref('');
 
 // OAuth состояния
 const googleLinked = ref(false);
@@ -212,6 +231,27 @@ const openAvatarModal = () => {
 
 const editProfile = () => {
   router.push('/profile/edit');
+};
+
+const toggleEmailNotifications = async (event: Event) => {
+  if (!user.value) return;
+  const input = event.target as HTMLInputElement;
+  const enabled = input.checked;
+  savingNotifications.value = true;
+  notificationError.value = '';
+  try {
+    const endpoint = user.value.is_teacher
+      ? `/teachers/${user.value.id}`
+      : `/students/${user.value.id}`;
+    const response = await api.put(endpoint, { email_notifications_enabled: enabled });
+    authStore.user = response.data;
+    localStorage.setItem('user', JSON.stringify(response.data));
+  } catch (error: any) {
+    input.checked = !enabled;
+    notificationError.value = error.response?.data?.detail || t('profile.notificationSaveError');
+  } finally {
+    savingNotifications.value = false;
+  }
 };
 
 const goToMain = () => {
@@ -481,6 +521,77 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   overflow-wrap: break-word;
   word-wrap: break-word;
   gap: 10px;
+}
+
+.notification-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.notification-setting > span {
+  display: grid;
+  gap: 4px;
+}
+
+.notification-setting strong {
+  color: var(--text-primary);
+}
+
+.notification-setting small {
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.notification-switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.notification-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.notification-slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  background: var(--border-color);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.notification-slider::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s;
+}
+
+.notification-switch input:checked + .notification-slider {
+  background: var(--accent-color);
+}
+
+.notification-switch input:checked + .notification-slider::before {
+  transform: translateX(20px);
+}
+
+.notification-switch input:disabled + .notification-slider {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .info-label {

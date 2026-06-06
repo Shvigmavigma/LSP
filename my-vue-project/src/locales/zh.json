@@ -600,7 +600,10 @@
         "serverError": "❌ 服务器错误",
         "networkError": "❌ 网络错误。请检查服务器连接。",
         "unknownError": "❌ 发送验证码失败。请稍后重试。",
-        "noRoles": "未分配角色"
+        "noRoles": "未分配角色",
+        "emailNotifications": "邮件通知",
+        "emailNotificationsHint": "接收有关您项目中重要变更的电子邮件。",
+        "notificationSaveError": "无法更新通知设置"
     },
     "profileEdit": {
         "title": "编辑个人资料",

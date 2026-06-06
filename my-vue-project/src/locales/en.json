@@ -597,7 +597,10 @@
         "serverError": "❌ Server error",
         "networkError": "❌ Network error. Check server connection.",
         "unknownError": "❌ Failed to send code. Please try again later.",
-        "noRoles": "No roles assigned"
+        "noRoles": "No roles assigned",
+        "emailNotifications": "Email notifications",
+        "emailNotificationsHint": "Receive emails about significant changes in your projects.",
+        "notificationSaveError": "Failed to update notification settings"
     },
     "profileEdit": {
         "title": "Edit Profile",
