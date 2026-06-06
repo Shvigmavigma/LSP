@@ -293,6 +293,10 @@
     },
     "adminPanel": {
         "title": "Admin Panel",
+        "createAdmin": {
+            "title": "Create Administrator",
+            "desc": "Create a new platform administrator"
+        },
         "createProject": {
             "title": "Create Project",
             "desc": "Create a project with mandatory customer assignment"

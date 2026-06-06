@@ -48,13 +48,19 @@
           <span class="card-desc">{{ $t('adminPanel.quotaLimits.desc') }}</span>
         </router-link>
 
-        <!-- НОВАЯ КАРТОЧКА: Создание пользователей админом -->
+        <!-- Создание пользователей админом -->
         <router-link to="/admin/create-users" class="menu-card">
           <span class="card-title">{{ $t('adminPanel.createUsers.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.createUsers.desc') }}</span>
         </router-link>
 
-        <!-- НОВАЯ КАРТОЧКА: Создание проекта админом -->
+        <!-- Создание администратора -->
+        <router-link to="/admin/create-admin" class="menu-card">
+          <span class="card-title">{{ $t('adminPanel.createAdmin.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.createAdmin.desc') }}</span>
+        </router-link>
+
+        <!-- Создание проекта админом -->
         <router-link to="/admin/create-project" class="menu-card">
           <span class="card-title">{{ $t('adminPanel.createProject.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.createProject.desc') }}</span>
