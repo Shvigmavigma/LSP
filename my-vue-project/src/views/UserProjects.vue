@@ -9,7 +9,7 @@
       </div>
     </header>
 
-    <div class="action-bar">
+    <div v-if="!authStore.user?.is_outdated" class="action-bar">
       <button class="create-button" @click="createProject">+ {{ $t('userProjects.createProject') }}</button>
     </div>
 
@@ -70,6 +70,7 @@ import { ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
 import { useUsersStore } from '@/stores/users';
+import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
@@ -81,6 +82,7 @@ import HomeButton from '@/components/HomeButton.vue';
 const { t } = useI18n();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
+const authStore = useAuthStore();
 const router = useRouter();
 
 const projects = ref<Project[]>([]);
@@ -148,6 +150,7 @@ function getRoleIcon(role: ProjectRole): string {
 }
 
 const createProject = () => {
+  if (authStore.user?.is_outdated) return;
   router.push('/project/edit/new');
 };
 

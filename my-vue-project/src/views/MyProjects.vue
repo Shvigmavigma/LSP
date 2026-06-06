@@ -127,6 +127,7 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const canCreateProject = computed(() => {
   const user = authStore.user;
   if (!user) return false;
+  if (user.is_outdated) return false;
 
   // Администратор может создавать проекты
   if (user.is_admin) return true;

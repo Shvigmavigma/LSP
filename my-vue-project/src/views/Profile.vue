@@ -40,13 +40,28 @@
         <template v-else>
           <div class="info-row">
             <span class="info-label">{{ $t('profile.class') }}</span>
-            <span class="info-value">{{ user.class }}</span>
+            <span class="info-value">{{ user.class ?? $t('profile.notSpecified') }}</span>
           </div>
         </template>
 
         <div class="info-row">
           <span class="info-label">{{ $t('profile.speciality') }}</span>
           <span class="info-value">{{ user.speciality || $t('profile.notSpecified') }}</span>
+        </div>
+
+        <div v-if="user.is_outdated && !user.is_teacher" class="outdated-account">
+          <strong>{{ $t('profile.outdatedTitle') }}</strong>
+          <p>{{ $t('profile.outdatedHint') }}</p>
+          <button
+            v-if="restorationStatus !== 'pending'"
+            class="resend-button"
+            :disabled="requestingRestoration"
+            @click="requestRestoration"
+          >
+            {{ requestingRestoration ? $t('common.sending') : $t('profile.requestRestoration') }}
+          </button>
+          <span v-else>{{ $t('profile.restorationPending') }}</span>
+          <div v-if="restorationError" class="oauth-error">{{ restorationError }}</div>
         </div>
 
         <div class="notification-setting">
@@ -161,6 +176,9 @@ const deleting = ref(false);
 const resending = ref(false);
 const savingNotifications = ref(false);
 const notificationError = ref('');
+const restorationStatus = ref('');
+const requestingRestoration = ref(false);
+const restorationError = ref('');
 
 // OAuth состояния
 const googleLinked = ref(false);
@@ -202,6 +220,14 @@ onMounted(async () => {
   
   // Проверяем статус привязки Google
   await checkGoogleLinkStatus();
+  if (user.value?.is_outdated && !user.value.is_teacher) {
+    try {
+      const response = await api.get('/account-restoration-request');
+      restorationStatus.value = response.data.request?.status || '';
+    } catch (error) {
+      console.error('Failed to load restoration request:', error);
+    }
+  }
   
   // Проверяем, был ли только что привязан Google
   if (route.query.google_linked === 'true') {
@@ -251,6 +277,19 @@ const toggleEmailNotifications = async (event: Event) => {
     notificationError.value = error.response?.data?.detail || t('profile.notificationSaveError');
   } finally {
     savingNotifications.value = false;
+  }
+};
+
+const requestRestoration = async () => {
+  requestingRestoration.value = true;
+  restorationError.value = '';
+  try {
+    const response = await api.post('/account-restoration-requests');
+    restorationStatus.value = response.data.status;
+  } catch (error: any) {
+    restorationError.value = error.response?.data?.detail || t('profile.restorationError');
+  } finally {
+    requestingRestoration.value = false;
   }
 };
 
@@ -530,6 +569,19 @@ function formatTeacherRoles(teacherInfo: TeacherInfo): string {
   gap: 18px;
   padding: 14px 0;
   border-bottom: 1px solid var(--border-color);
+}
+
+.outdated-account {
+  padding: 14px 16px;
+  border: 1px solid var(--danger-color);
+  border-radius: 8px;
+  background: var(--danger-bg);
+  color: var(--text-primary);
+}
+
+.outdated-account p {
+  margin: 6px 0 12px;
+  color: var(--text-secondary);
 }
 
 .notification-setting > span {

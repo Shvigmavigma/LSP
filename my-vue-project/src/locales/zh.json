@@ -355,9 +355,13 @@
             "title": "项目生命周期",
             "desc": "配置项目阶段以及可关闭阶段的角色"
         },
-        "quotaLimits": {
-            "title": "项目和用户限制",
-            "desc": "全局和个人上传配额"
+    "quotaLimits": {
+      "title": "项目和用户限制",
+      "desc": "全局和个人上传配额"
+    },
+    "accountClasses": {
+      "title": "账户有效性",
+      "desc": "允许班级、年度升级和恢复申请"
         }
     },
     "adminProjectEdit": {
@@ -463,7 +467,9 @@
         "teacherRoles": "教师角色",
         "loadError": "加载用户错误",
         "saveSuccess": "更改已保存",
-        "saveError": "保存错误"
+    "saveError": "保存错误",
+    "outdated": "过期账户",
+    "outdatedHint": "过期学生仍可访问系统，但不能创建项目。"
     },
     "adminUsers": {
         "title": "用户管理",
@@ -607,8 +613,30 @@
         "noRoles": "未分配角色",
         "emailNotifications": "邮件通知",
         "emailNotificationsHint": "接收有关您项目中重要变更的电子邮件。",
-        "notificationSaveError": "无法更新通知设置"
-    },
+    "notificationSaveError": "无法更新通知设置",
+    "outdatedTitle": "账户已标记为过期",
+    "outdatedHint": "您可以继续参与项目，但不能创建新项目。",
+    "requestRestoration": "申请恢复账户",
+    "restorationPending": "恢复申请正在审核",
+    "restorationError": "无法提交恢复申请"
+  },
+  "accountClasses": {
+    "title": "学生账户有效性",
+    "allowedClasses": "允许的班级",
+    "rollover": "年度班级升级",
+    "rolloverEnabled": "在设定日期自动升级班级",
+    "month": "月份",
+    "day": "日期",
+    "lastRun": "上次完成年份",
+    "runNow": "立即运行升级",
+    "requests": "恢复申请",
+    "noRequests": "没有待处理申请",
+    "selectClass": "选择班级",
+    "approve": "恢复",
+    "reject": "拒绝",
+    "saved": "设置已保存",
+    "runResult": "已升级：{advanced}，已过期：{outdated}"
+  },
     "profileEdit": {
         "title": "编辑个人资料",
         "lastName": "姓",

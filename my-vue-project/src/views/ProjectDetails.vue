@@ -1092,7 +1092,10 @@ async function loadProject(force = false) {
     if (usersStore.users.length === 0) await usersStore.fetchAllUsers();
     // Проверяем статус одобрения через отдельный эндпоинт
     await checkApprovalStatus(id);
-    await loadLifecycle();
+    // Загружаем лайфцикл только для участников/админов/кураторов
+    if (userRole.value || isAdminOrCurator.value) {
+      await loadLifecycle();
+    }
   } catch (err) {
     error.value = t('projectDetails.loadError');
     console.error(err);
