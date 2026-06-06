@@ -45,8 +45,8 @@ class UserBase(BaseModel):
 
 # ---------- ученик ----------
 class StudentBase(UserBase):
-    class_: float = Field(
-        0.0,
+    class_: Optional[float] = Field(
+        None,
         alias="class",
         validation_alias="class",
         serialization_alias="class"
@@ -67,6 +67,7 @@ class StudentResponse(StudentBase):
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
     email_notifications_enabled: bool = True
+    is_outdated: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
@@ -78,6 +79,7 @@ class StudentUpdate(BaseModel):
     speciality: Optional[str] = None
     avatar: Optional[str] = None
     email_notifications_enabled: Optional[bool] = None
+    is_outdated: Optional[bool] = None
     model_config = ConfigDict(populate_by_name=True)
 
 # ---------- СТАТУСЫ ОДОБРЕНИЯ ----------
@@ -206,6 +208,7 @@ class UserResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_admin: bool = False
+    is_outdated: bool = False
     email_notifications_enabled: bool = True
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     google_id: Optional[str] = None

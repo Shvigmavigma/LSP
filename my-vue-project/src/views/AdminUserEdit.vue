@@ -48,6 +48,14 @@
           </label>
         </div>
 
+        <div v-if="!form.is_teacher" class="form-group">
+          <label>
+            <input type="checkbox" v-model="form.is_outdated" />
+            {{ $t('adminUserEdit.outdated') }}
+          </label>
+          <small>{{ $t('adminUserEdit.outdatedHint') }}</small>
+        </div>
+
         <div v-if="form.is_teacher" class="form-group">
           <label>{{ $t('adminUserEdit.teacherRoles') }}</label>
           <div class="roles-selector">
@@ -108,6 +116,7 @@ interface FormData {
   is_active: boolean;
   is_admin: boolean;
   is_teacher: boolean;
+  is_outdated: boolean;
   teacher_roles: string[];
   curator: boolean;
 }
@@ -120,6 +129,7 @@ const form = reactive<FormData>({
   is_active: true,
   is_admin: false,
   is_teacher: false,
+  is_outdated: false,
   teacher_roles: [],
   curator: false,
 });
@@ -135,6 +145,7 @@ onMounted(async () => {
     form.is_active = user.is_active ?? true;
     form.is_admin = user.is_admin ?? false;
     form.is_teacher = user.is_teacher ?? false;
+    form.is_outdated = user.is_outdated ?? false;
     form.teacher_roles = user.teacher_info?.roles || [];
     form.curator = user.teacher_info?.curator || false;
   } catch (err) {
@@ -155,6 +166,7 @@ async function handleSubmit() {
       speciality: form.speciality,
       is_active: form.is_active,
       is_admin: form.is_admin,
+      is_outdated: form.is_outdated,
     };
     if (form.is_teacher) {
       updateData.teacher_info = {

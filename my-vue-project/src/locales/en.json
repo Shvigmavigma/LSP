@@ -352,9 +352,13 @@
             "title": "Project Lifecycle",
             "desc": "Configure project stages and roles that can close them"
         },
-        "quotaLimits": {
-            "title": "Project and user limits",
-            "desc": "Global and personal upload quotas"
+    "quotaLimits": {
+      "title": "Project and user limits",
+      "desc": "Global and personal upload quotas"
+    },
+    "accountClasses": {
+      "title": "Account relevance",
+      "desc": "Allowed classes, annual rollover, and restoration requests"
         }
     },
     "adminProjectEdit": {
@@ -460,7 +464,9 @@
         "teacherRoles": "Teacher Roles",
         "loadError": "Error loading user",
         "saveSuccess": "Changes saved",
-        "saveError": "Error saving"
+    "saveError": "Error saving",
+    "outdated": "Outdated account",
+    "outdatedHint": "An outdated student retains system access but cannot create projects."
     },
     "adminUsers": {
         "title": "User Management",
@@ -604,8 +610,30 @@
         "noRoles": "No roles assigned",
         "emailNotifications": "Email notifications",
         "emailNotificationsHint": "Receive emails about significant changes in your projects.",
-        "notificationSaveError": "Failed to update notification settings"
-    },
+    "notificationSaveError": "Failed to update notification settings",
+    "outdatedTitle": "Account marked as outdated",
+    "outdatedHint": "You can continue working in projects, but cannot create new ones.",
+    "requestRestoration": "Request account restoration",
+    "restorationPending": "Restoration request is pending",
+    "restorationError": "Failed to submit restoration request"
+  },
+  "accountClasses": {
+    "title": "Student account relevance",
+    "allowedClasses": "Allowed classes",
+    "rollover": "Annual class rollover",
+    "rolloverEnabled": "Automatically advance classes on the configured date",
+    "month": "Month",
+    "day": "Day",
+    "lastRun": "Last completed year",
+    "runNow": "Run rollover now",
+    "requests": "Restoration requests",
+    "noRequests": "No pending requests",
+    "selectClass": "Select class",
+    "approve": "Restore",
+    "reject": "Reject",
+    "saved": "Settings saved",
+    "runResult": "Advanced: {advanced}, outdated: {outdated}"
+  },
     "profileEdit": {
         "title": "Edit Profile",
         "lastName": "Last Name",

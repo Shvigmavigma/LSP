@@ -134,6 +134,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAdmin: true }
   },
   {
+    path: '/admin/account-classes',
+    name: 'AdminAccountClasses',
+    component: () => import('@/views/AdminAccountClasses.vue'),
+    meta: { requiresAdmin: true }
+  },
+  {
   path: '/admin/create-users',
   name: 'AdminCreateUsers',
   component: () => import('@/views/AdminUserCreator.vue'), 

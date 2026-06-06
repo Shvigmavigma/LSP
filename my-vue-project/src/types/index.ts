@@ -67,6 +67,7 @@ export interface User {
   is_teacher?: boolean;
   teacher_info?: TeacherInfo;
   is_admin?: boolean;
+  is_outdated?: boolean;
   email_notifications_enabled?: boolean;
 
   google_id?: string | null;

@@ -80,6 +80,7 @@ DEFAULT_TASKS_FILE = "default_tasks.json"
 FILE_SIZE_LIMITS_FILE = "file_size_limits.json"
 PROJECT_LIFECYCLE_FILE = "project_lifecycle.json"
 FILE_QUOTAS_FILE = "file_quotas.json"
+ACCOUNT_CLASS_SETTINGS_FILE = "account_class_settings.json"
 
 _json_file_cache: Dict[str, Dict[str, Any]] = {}
 
@@ -107,6 +108,102 @@ def write_json_cached(path: str, data: Any):
     file_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     _json_file_cache[path] = {"mtime": file_path.stat().st_mtime, "data": data}
 
+
+def default_account_class_settings() -> Dict[str, Any]:
+    allowed_classes = [
+        round(grade + parallel / 10, 1)
+        for grade in range(3, 12)
+        for parallel in range(1, 7)
+    ]
+    return {
+        "allowed_classes": allowed_classes,
+        "annual_rollover_enabled": True,
+        "rollover_month": 8,
+        "rollover_day": 31,
+        "last_rollover_year": None,
+        "restoration_requests": [],
+    }
+
+
+def load_account_class_settings() -> Dict[str, Any]:
+    return read_json_cached(ACCOUNT_CLASS_SETTINGS_FILE, default_account_class_settings)
+
+
+def save_account_class_settings(settings: Dict[str, Any]):
+    write_json_cached(ACCOUNT_CLASS_SETTINGS_FILE, settings)
+
+
+def class_is_empty(value: Optional[float]) -> bool:
+    return value is None or float(value) == 0
+
+
+def normalize_class_value(value: Any) -> Optional[float]:
+    if value is None or value == "":
+        return None
+    return round(float(value), 1)
+
+
+def reconcile_outdated_students(db: Session, settings: Optional[Dict[str, Any]] = None) -> int:
+    settings = settings or load_account_class_settings()
+    allowed = {normalize_class_value(value) for value in settings.get("allowed_classes", [])}
+    changed = 0
+    for user in db.query(User).filter(User.is_teacher == False).all():
+        if not class_is_empty(user.class_) and normalize_class_value(user.class_) not in allowed and not user.is_outdated:
+            user.is_outdated = True
+            changed += 1
+    if changed:
+        db.commit()
+    return changed
+
+
+def student_class_is_invalid(user: User, settings: Optional[Dict[str, Any]] = None) -> bool:
+    if user.is_teacher or class_is_empty(user.class_):
+        return False
+    settings = settings or load_account_class_settings()
+    allowed = {normalize_class_value(value) for value in settings.get("allowed_classes", [])}
+    return normalize_class_value(user.class_) not in allowed
+
+
+def run_account_class_rollover(db: Session, settings: Optional[Dict[str, Any]] = None, force: bool = False) -> Dict[str, int]:
+    settings = settings or load_account_class_settings()
+    today = datetime.now().date()
+    if not force:
+        if not settings.get("annual_rollover_enabled", True):
+            return {"advanced": 0, "outdated": 0}
+        rollover_date = datetime(
+            today.year,
+            int(settings.get("rollover_month", 8)),
+            int(settings.get("rollover_day", 31)),
+        ).date()
+        if today < rollover_date or settings.get("last_rollover_year") == today.year:
+            return {"advanced": 0, "outdated": 0}
+
+    allowed = {normalize_class_value(value) for value in settings.get("allowed_classes", [])}
+    advanced = 0
+    outdated = 0
+    for user in db.query(User).filter(User.is_teacher == False).all():
+        if class_is_empty(user.class_):
+            continue
+        current = normalize_class_value(user.class_)
+        grade = int(current)
+        parallel = round(current - grade, 1)
+        if grade >= 11:
+            user.class_ = None
+            user.is_outdated = True
+            outdated += 1
+            continue
+        next_class = round(grade + 1 + parallel, 1)
+        user.class_ = next_class
+        advanced += 1
+        if next_class not in allowed:
+            user.is_outdated = True
+            outdated += 1
+
+    settings["last_rollover_year"] = today.year
+    save_account_class_settings(settings)
+    db.commit()
+    return {"advanced": advanced, "outdated": outdated}
+
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -123,6 +220,23 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=3600,
 )
+
+_last_account_rollover_check = None
+
+
+@app.middleware("http")
+async def check_account_rollover_daily(request: Request, call_next):
+    global _last_account_rollover_check
+    today = datetime.now().date()
+    if _last_account_rollover_check != today:
+        db = session_local()
+        try:
+            run_account_class_rollover(db)
+            reconcile_outdated_students(db)
+            _last_account_rollover_check = today
+        finally:
+            db.close()
+    return await call_next(request)
 
 os.makedirs("avatars", exist_ok=True)
 os.makedirs("uploads", exist_ok=True)
@@ -550,8 +664,22 @@ def ensure_runtime_schema():
             connection.exec_driver_sql(
                 "ALTER TABLE users ADD COLUMN email_notifications_enabled BOOLEAN NOT NULL DEFAULT 1"
             )
+        if "is_outdated" not in user_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN is_outdated BOOLEAN NOT NULL DEFAULT 0"
+            )
 
 ensure_runtime_schema()
+
+
+@app.on_event("startup")
+async def apply_scheduled_account_rollover():
+    db = session_local()
+    try:
+        run_account_class_rollover(db)
+        reconcile_outdated_students(db)
+    finally:
+        db.close()
 
 def get_db():
     db = session_local()
@@ -1398,6 +1526,7 @@ async def toggle_user_teacher(
     if new_is_teacher:
         # Превращаем ученика в учителя
         user.class_ = None
+        user.is_outdated = False
         if not user.teacher_info:
             user.teacher_info = {"roles": [], "curator": False}
     else:
@@ -1886,6 +2015,141 @@ async def get_editing_presence(
                 pass
     return {"items": items}
 
+def account_class_settings_response(db: Session, settings: Dict[str, Any]) -> Dict[str, Any]:
+    result = dict(settings)
+    requests = []
+    for item in settings.get("restoration_requests", []):
+        request = dict(item)
+        user = db.query(User).filter(User.id == request.get("user_id")).first()
+        request["user_name"] = user_display_name(user) if user else f"ID: {request.get('user_id')}"
+        requests.append(request)
+    result["restoration_requests"] = requests
+    return result
+
+
+@app.get("/admin/account-class-settings", tags=["Admin"])
+async def get_account_class_settings(
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    settings = load_account_class_settings()
+    reconcile_outdated_students(db, settings)
+    return account_class_settings_response(db, settings)
+
+
+@app.put("/admin/account-class-settings", tags=["Admin"])
+async def update_account_class_settings(
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    settings = load_account_class_settings()
+    allowed_classes = sorted({
+        normalize_class_value(value)
+        for value in payload.get("allowed_classes", settings.get("allowed_classes", []))
+        if normalize_class_value(value) is not None
+    })
+    month = int(payload.get("rollover_month", settings.get("rollover_month", 8)))
+    day = int(payload.get("rollover_day", settings.get("rollover_day", 31)))
+    try:
+        datetime(2023, month, day)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid rollover date")
+
+    settings.update({
+        "allowed_classes": allowed_classes,
+        "annual_rollover_enabled": bool(payload.get("annual_rollover_enabled", True)),
+        "rollover_month": month,
+        "rollover_day": day,
+    })
+    save_account_class_settings(settings)
+    reconcile_outdated_students(db, settings)
+    return account_class_settings_response(db, settings)
+
+
+@app.post("/admin/account-class-settings/run-rollover", tags=["Admin"])
+async def run_account_rollover_now(
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    result = run_account_class_rollover(db, force=True)
+    return result
+
+
+@app.get("/account-restoration-request", tags=["Common"])
+async def get_own_account_restoration_request(
+    current_user: User = Depends(get_current_user),
+):
+    settings = load_account_class_settings()
+    request = next(
+        (item for item in reversed(settings.get("restoration_requests", [])) if item.get("user_id") == current_user.id),
+        None,
+    )
+    return {"request": request}
+
+
+@app.post("/account-restoration-requests", tags=["Common"])
+async def create_account_restoration_request(
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.is_teacher or not current_user.is_outdated:
+        raise HTTPException(status_code=400, detail="Only outdated student accounts can request restoration")
+    settings = load_account_class_settings()
+    requests = settings.setdefault("restoration_requests", [])
+    if any(item.get("user_id") == current_user.id and item.get("status") == "pending" for item in requests):
+        raise HTTPException(status_code=400, detail="Restoration request already pending")
+    request = {
+        "id": str(uuid.uuid4()),
+        "user_id": current_user.id,
+        "status": "pending",
+        "created_at": datetime.utcnow().isoformat(),
+        "handled_at": None,
+        "handled_by": None,
+        "class_value": None,
+    }
+    requests.append(request)
+    save_account_class_settings(settings)
+    return request
+
+
+@app.put("/admin/account-restoration-requests/{request_id}", tags=["Admin"])
+async def decide_account_restoration_request(
+    request_id: str,
+    payload: dict = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    settings = load_account_class_settings()
+    request = next((item for item in settings.get("restoration_requests", []) if item.get("id") == request_id), None)
+    if not request:
+        raise HTTPException(status_code=404, detail="Restoration request not found")
+    if request.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Restoration request already handled")
+
+    decision = payload.get("decision")
+    if decision not in {"approved", "rejected"}:
+        raise HTTPException(status_code=400, detail="Decision must be approved or rejected")
+    user = db.query(User).filter(User.id == request.get("user_id")).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if decision == "approved":
+        class_value = normalize_class_value(payload.get("class_value"))
+        allowed = {normalize_class_value(value) for value in settings.get("allowed_classes", [])}
+        if class_value not in allowed:
+            raise HTTPException(status_code=400, detail="Selected class is not allowed")
+        user.class_ = class_value
+        user.is_outdated = False
+    request.update({
+        "status": decision,
+        "handled_at": datetime.utcnow().isoformat(),
+        "handled_by": admin.id,
+        "class_value": user.class_ if decision == "approved" else None,
+    })
+    save_account_class_settings(settings)
+    db.commit()
+    return request
+
+
 @app.post("/admin/users", response_model=UserResponse, tags=["Admin"])
 async def admin_create_user(
     password: str = Body(..., description="Пароль нового администратора"),
@@ -1990,10 +2254,16 @@ async def admin_update_user(
         "is_teacher",
         "teacher_info",
         "email_notifications_enabled",
+        "class_",
+        "is_outdated",
     }
     for field, value in user_update.items():
         if field in allowed_fields:
             setattr(user, field, value)
+    if user.is_teacher:
+        user.is_outdated = False
+    elif user.is_outdated:
+        user.class_ = None
     db.commit()
     db.refresh(user)
     return user
@@ -2318,6 +2588,8 @@ async def update_student(student_id: int, student_update: StudentUpdate, db: Ses
         student.speciality = student_update.speciality
     if student_update.email_notifications_enabled is not None:
         student.email_notifications_enabled = student_update.email_notifications_enabled
+    if student_class_is_invalid(student):
+        student.is_outdated = True
     db.commit()
     db.refresh(student)
     return student
@@ -3044,6 +3316,11 @@ async def create_project(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if student_class_is_invalid(current_user):
+        current_user.is_outdated = True
+        db.commit()
+    if current_user.is_outdated and not current_user.is_admin and not current_user.is_teacher:
+        raise HTTPException(status_code=403, detail="Outdated accounts cannot create projects")
     if project.required_roles is None:
         project.required_roles = {}
 
@@ -4294,6 +4571,8 @@ async def register_with_verification(
             is_teacher=False,
             teacher_info=None
         )
+        if student_class_is_invalid(db_user):
+            db_user.is_outdated = True
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -5124,6 +5403,8 @@ async def admin_create_student(
         is_teacher=False,
         teacher_info=None
     )
+    if student_class_is_invalid(db_user):
+        db_user.is_outdated = True
     
     db.add(db_user)
     db.commit()
@@ -5234,6 +5515,8 @@ async def admin_create_bulk_students(
                 is_teacher=False,
                 teacher_info=None
             )
+            if student_class_is_invalid(db_user):
+                db_user.is_outdated = True
             
             db.add(db_user)
             db.flush()  # Получаем ID без коммита

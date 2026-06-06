@@ -48,6 +48,11 @@
           <span class="card-desc">{{ $t('adminPanel.quotaLimits.desc') }}</span>
         </router-link>
 
+        <router-link to="/admin/account-classes" class="menu-card">
+          <span class="card-title">{{ $t('adminPanel.accountClasses.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.accountClasses.desc') }}</span>
+        </router-link>
+
         <!-- Создание пользователей админом -->
         <router-link to="/admin/create-users" class="menu-card">
           <span class="card-title">{{ $t('adminPanel.createUsers.title') }}</span>
