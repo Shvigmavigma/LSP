@@ -56,7 +56,13 @@ from auth import (
 )
 
 from fastapi.security import OAuth2PasswordRequestFormStrict
-from email_utils import generate_verification_code, send_verification_email, send_password_reset_email, send_project_notification_email
+from email_utils import (
+    generate_verification_code,
+    send_verification_email,
+    send_password_reset_email,
+    send_project_notification_email,
+    send_project_change_notification_email,
+)
 from core.memory_store import memory_store as redis_client
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -283,6 +289,41 @@ def get_total_points_since_last_checkpoint(db: Session, project_id: int) -> int:
 
 # ==================== ОСНОВНЫЕ ФУНКЦИИ ВЕРСИОНИРОВАНИЯ ====================
 
+NOTIFIABLE_PROJECT_ROLES = {"curator", "customer", "expert", "supervisor"}
+
+
+async def notify_significant_project_change(
+    db: Session,
+    project: Project,
+    actor: User,
+    change_type: str,
+    points: int,
+):
+    participant_ids = {
+        participant.get("user_id")
+        for participant in (project.participants or [])
+        if participant.get("role") in NOTIFIABLE_PROJECT_ROLES and participant.get("user_id")
+    }
+    if not participant_ids:
+        return
+
+    recipients = db.query(User).filter(
+        User.id.in_(participant_ids),
+        User.is_active == True,
+        User.email_notifications_enabled == True,
+    ).all()
+    changed_at = datetime.now()
+    for recipient in recipients:
+        await send_project_change_notification_email(
+            recipient.email,
+            project.title,
+            user_display_name(actor),
+            changed_at,
+            change_type,
+            points,
+        )
+
+
 async def record_change(
     db: Session,
     project_id: int,
@@ -320,7 +361,14 @@ async def record_change(
     )
     db.add(change)
     db.flush()  # Сохраняем без коммита
-    
+    if points >= 3:
+        notification_project = db.query(Project).filter(Project.id == project_id).first()
+        actor = db.query(User).filter(User.id == user_id).first()
+        if notification_project and actor:
+            await notify_significant_project_change(
+                db, notification_project, actor, change_type, points
+            )
+
     # Проверяем, не пора ли создать авто-чекпоинт
     total_points = get_total_points_since_last_checkpoint(db, project_id)
     if total_points >= POINTS_THRESHOLD:
@@ -495,6 +543,11 @@ def ensure_runtime_schema():
             connection.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_users_id ON users (id)")
             connection.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_users_fullname ON users (fullname)")
             connection.exec_driver_sql("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)")
+            user_columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(users)").fetchall()}
+        if "email_notifications_enabled" not in user_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN email_notifications_enabled BOOLEAN NOT NULL DEFAULT 1"
+            )
 
 ensure_runtime_schema()
 
@@ -1838,7 +1891,16 @@ async def admin_update_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(404, "User not found")
-    allowed_fields = {"fullname", "email", "is_active", "is_verified", "is_admin", "is_teacher", "teacher_info"}
+    allowed_fields = {
+        "fullname",
+        "email",
+        "is_active",
+        "is_verified",
+        "is_admin",
+        "is_teacher",
+        "teacher_info",
+        "email_notifications_enabled",
+    }
     for field, value in user_update.items():
         if field in allowed_fields:
             setattr(user, field, value)
@@ -2164,6 +2226,8 @@ async def update_student(student_id: int, student_update: StudentUpdate, db: Ses
         student.class_ = student_update.class_
     if student_update.speciality is not None:
         student.speciality = student_update.speciality
+    if student_update.email_notifications_enabled is not None:
+        student.email_notifications_enabled = student_update.email_notifications_enabled
     db.commit()
     db.refresh(student)
     return student
@@ -2302,6 +2366,8 @@ async def update_teacher(teacher_id: int, teacher_update: TeacherUpdate, db: Ses
         teacher.speciality = teacher_update.speciality
     if teacher_update.teacher_info is not None:
         teacher.teacher_info = teacher_update.teacher_info.model_dump()
+    if teacher_update.email_notifications_enabled is not None:
+        teacher.email_notifications_enabled = teacher_update.email_notifications_enabled
     db.commit()
     db.refresh(teacher)
     return teacher

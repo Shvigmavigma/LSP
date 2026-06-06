@@ -66,6 +66,7 @@ class StudentResponse(StudentBase):
     id: int
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
+    email_notifications_enabled: bool = True
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
@@ -76,6 +77,7 @@ class StudentUpdate(BaseModel):
     class_: Optional[float] = Field(None, alias="class")
     speciality: Optional[str] = None
     avatar: Optional[str] = None
+    email_notifications_enabled: Optional[bool] = None
     model_config = ConfigDict(populate_by_name=True)
 
 # ---------- СТАТУСЫ ОДОБРЕНИЯ ----------
@@ -174,6 +176,7 @@ class TeacherResponse(TeacherBase):
     id: int
     is_active: Optional[bool] = None
     is_verified: Optional[bool] = None
+    email_notifications_enabled: bool = True
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
@@ -184,6 +187,7 @@ class TeacherUpdate(BaseModel):
     speciality: Optional[str] = None
     avatar: Optional[str] = None
     teacher_info: Optional[TeacherInfo] = None
+    email_notifications_enabled: Optional[bool] = None
     model_config = ConfigDict(populate_by_name=True)
 
 # ---------- Общий пользователь ----------
@@ -202,6 +206,7 @@ class UserResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_admin: bool = False
+    email_notifications_enabled: bool = True
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     google_id: Optional[str] = None
     vk_id: Optional[str] = None
