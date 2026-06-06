@@ -298,6 +298,8 @@ async def notify_significant_project_change(
     actor: User,
     change_type: str,
     points: int,
+    diff: dict,
+    description: str,
 ):
     participant_ids = {
         participant.get("user_id")
@@ -321,6 +323,8 @@ async def notify_significant_project_change(
             changed_at,
             change_type,
             points,
+            diff,
+            description,
         )
 
 
@@ -366,7 +370,7 @@ async def record_change(
         actor = db.query(User).filter(User.id == user_id).first()
         if notification_project and actor:
             await notify_significant_project_change(
-                db, notification_project, actor, change_type, points
+                db, notification_project, actor, change_type, points, diff, description
             )
 
     # Проверяем, не пора ли создать авто-чекпоинт

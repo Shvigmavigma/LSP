@@ -1,6 +1,7 @@
 
 import random
 import string
+import json
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 import os
 from html import escape
@@ -33,6 +34,52 @@ PROJECT_CHANGE_LABELS = {
     "project_approval_cancel": "запрос на одобрение проекта: отменен",
     "project_approval_decision": "решение по одобрению проекта",
 }
+
+PROJECT_FIELD_LABELS = {
+    "title": "название",
+    "class_key": "параллель",
+    "direction_key": "направление",
+    "body": "описание",
+    "underbody": "дополнительное описание",
+    "participants": "участники",
+    "tasks": "задачи",
+    "links": "ссылки",
+    "comments": "комментарии",
+    "suggestions": "предложения",
+    "join_requests": "заявки на вступление",
+    "lifecycle_state": "этап жизненного цикла",
+    "required_roles": "необходимые роли",
+    "is_hidden": "видимость проекта",
+    "is_old": "архивный статус",
+    "ignore_file_limits": "ограничения файлов",
+    "approval_status": "статус одобрения",
+    "approval_comment": "комментарий к одобрению",
+}
+
+
+def format_project_change_details(diff: dict) -> str:
+    """Формирует краткий и безопасный список конкретных изменений."""
+    if not diff:
+        return "<li>Дополнительные сведения отсутствуют.</li>"
+
+    details = []
+    for field, value in list(diff.items())[:8]:
+        label = escape(PROJECT_FIELD_LABELS.get(field, field.replace("_", " ")))
+        if isinstance(value, bool):
+            rendered_value = "да" if value else "нет"
+        elif value is None:
+            rendered_value = "не указано"
+        elif isinstance(value, (dict, list)):
+            rendered_value = json.dumps(value, ensure_ascii=False, default=str)
+        else:
+            rendered_value = str(value)
+        if len(rendered_value) > 300:
+            rendered_value = f"{rendered_value[:300]}..."
+        details.append(f"<li><strong>{label}:</strong> {escape(rendered_value)}</li>")
+
+    if len(diff) > 8:
+        details.append(f"<li>И ещё изменено полей: {len(diff) - 8}.</li>")
+    return "".join(details)
 
 # Конфигурация для отправки 
 conf = ConnectionConfig(
@@ -155,11 +202,15 @@ async def send_project_change_notification_email(
     changed_at: datetime,
     change_type: str,
     points: int,
+    diff: dict,
+    event_description: str,
 ):
-    """Отправляет уведомление о значимом изменении проекта."""
+    """Отправляет подробное уведомление о значимом изменении проекта."""
     safe_project = escape(project_title)
     safe_actor = escape(actor_name)
     safe_description = escape(PROJECT_CHANGE_LABELS.get(change_type, change_type.replace("_", " ")))
+    safe_event_description = escape(event_description.strip()) if event_description.strip() else ""
+    change_details = format_project_change_details(diff)
     formatted_time = changed_at.strftime("%d.%m.%Y в %H:%M")
     html_content = f"""
     <div style="font-family: Arial, sans-serif; color: #242424; line-height: 1.6;">
@@ -170,7 +221,13 @@ async def send_project_change_notification_email(
         {formatted_time}<br>
         изменил: {safe_description}
       </p>
+      {f'<p><strong>Запись события:</strong> {safe_event_description}</p>' if safe_event_description else ''}
+      <p><strong>Подробности изменения:</strong></p>
+      <ul>{change_details}</ul>
       <p style="color: #666;">Сложность изменения: {points} очков.</p>
+      <p style="color: #777; font-size: 13px;">
+        Уведомления о значимых изменениях можно выключить или снова включить в вашем профиле LSP.
+      </p>
     </div>
     """
     try:
