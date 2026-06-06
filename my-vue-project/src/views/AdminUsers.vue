@@ -22,6 +22,7 @@
           <option value="student">{{ $t('adminUsers.filterStudents') }}</option>
           <option value="teacher">{{ $t('adminUsers.filterTeachers') }}</option>
           <option value="admin">{{ $t('adminUsers.filterAdmins') }}</option>
+          <option value="curator">{{ $t('adminUsers.filterCurators') }}</option>
         </select>
       </div>
 
@@ -33,6 +34,7 @@
             <th>{{ $t('adminUsers.table.email') }}</th>
             <th>{{ $t('adminUsers.table.type') }}</th>
             <th>{{ $t('adminUsers.table.active') }}</th>
+            <th>{{ $t('adminUsers.table.isTeacher') }}</th>
             <th>{{ $t('adminUsers.table.admin') }}</th>
             <th>{{ $t('adminUsers.table.curator') }}</th>
             <th>{{ $t('adminUsers.table.actions') }}</th>
@@ -49,16 +51,27 @@
             <td>{{ user.email }}</td>
             <td>{{ user.is_teacher ? $t('adminUsers.userType.teacher') : $t('adminUsers.userType.student') }}</td>
             <td>
-              <input type="checkbox" :checked="user.is_active" @change="toggleActive(user)" />
+              <input type="checkbox" :checked="user.is_active === true" @change="toggleActive(user)" />
             </td>
             <td>
-              <input type="checkbox" :checked="user.is_admin" @change="toggleAdmin(user)" />
+              <input 
+                type="checkbox" 
+                :checked="user.is_teacher === true" 
+                @change="toggleTeacher(user)"
+                :title="$t('adminUsers.toggleTeacherTitle')"
+              />
             </td>
             <td>
-              <template v-if="user.is_teacher">
-                <input type="checkbox" :checked="user.teacher_info?.curator" @change="toggleCurator(user)" />
-              </template>
-              <span v-else>—</span>
+              <input type="checkbox" :checked="user.is_admin === true" @change="toggleAdmin(user)" />
+            </td>
+            <td>
+              <!-- Куратором можно сделать любого пользователя -->
+              <input 
+                type="checkbox" 
+                :checked="user.teacher_info?.curator === true" 
+                @change="toggleCurator(user)"
+                :title="$t('adminUsers.toggleCuratorTitle')"
+              />
             </td>
             <td>
               <button class="edit-btn" @click="editUser(user.id)" :title="$t('common.edit')">✎</button>
@@ -86,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
+import { getUserDisplayName as displayUserName } from '@/utils/userDisplay';
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
@@ -125,14 +138,16 @@ const filteredUsers = computed(() => {
   let filtered = users.value;
   if (search.value) {
     const q = search.value.toLowerCase();
-    filtered = filtered.filter(u => (displayUserName(u).toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) || u.email.toLowerCase().includes(q));
+    filtered = filtered.filter(u => (displayUserName(u).toLowerCase().includes(q) || u.email.toLowerCase().includes(q)));
   }
   if (roleFilter.value === 'student') {
     filtered = filtered.filter(u => !u.is_teacher);
   } else if (roleFilter.value === 'teacher') {
-    filtered = filtered.filter(u => u.is_teacher);
+    filtered = filtered.filter(u => u.is_teacher === true);
   } else if (roleFilter.value === 'admin') {
-    filtered = filtered.filter(u => u.is_admin);
+    filtered = filtered.filter(u => u.is_admin === true);
+  } else if (roleFilter.value === 'curator') {
+    filtered = filtered.filter(u => u.teacher_info?.curator === true);
   }
   return filtered;
 });
@@ -147,26 +162,47 @@ async function toggleActive(user: User) {
   }
 }
 
+// Переключение типа пользователя (ученик/учитель) - без подтверждения
+async function toggleTeacher(user: User) {
+  const newIsTeacher = !user.is_teacher;
+  
+  try {
+    const response = await api.put(`/admin/users/${user.id}/toggle-teacher`, { is_teacher: newIsTeacher });
+    
+    user.is_teacher = response.data.is_teacher;
+    user.teacher_info = response.data.teacher_info;
+    
+    // Если переключаем обратно в ученика, сбрасываем curator (так как ученик не может быть куратором)
+    if (!newIsTeacher) {
+      if (user.teacher_info) {
+        user.teacher_info.curator = false;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to toggle teacher status', error);
+  }
+}
+
 async function toggleAdmin(user: User) {
   const newValue = !user.is_admin;
   try {
-    await api.put(`/admin/users/${user.id}`, { is_admin: newValue });
+    await api.put(`/admin/users/${user.id}/toggle-role`, { is_admin: newValue });
     user.is_admin = newValue;
   } catch (error) {
     console.error('Failed to toggle admin', error);
   }
 }
 
+// Куратором можно сделать любого пользователя
 async function toggleCurator(user: User) {
-  const newValue = !user.teacher_info?.curator;
+  const newValue = !(user.teacher_info?.curator === true);
+  
   try {
-    await api.put(`/admin/users/${user.id}`, {
-      teacher_info: {
-        ...user.teacher_info,
-        curator: newValue
-      }
-    });
-    if (!user.teacher_info) user.teacher_info = { roles: [], curator: false };
+    await api.put(`/admin/users/${user.id}/toggle-role`, { is_curator: newValue });
+    
+    if (!user.teacher_info) {
+      user.teacher_info = { roles: [], curator: false };
+    }
     user.teacher_info.curator = newValue;
   } catch (error) {
     console.error('Failed to toggle curator', error);
@@ -203,22 +239,18 @@ async function deleteUser() {
   }
 }
 
-function goHome() {
-  router.push('/main');
-}
-
 function goBack() {
   router.push('/admin');
 }
 </script>
 
 <style scoped>
-/* стили без изменений */
 .admin-users-page {
   min-height: 100vh;
   background: var(--bg-page);
   padding: 20px;
 }
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -226,11 +258,13 @@ function goBack() {
   max-width: 1200px;
   margin: 0 auto 20px;
 }
+
 .header-actions {
   display: flex;
   gap: 10px;
   align-items: center;
 }
+
 .create-user-btn {
   background: var(--accent-color);
   color: white;
@@ -241,13 +275,12 @@ function goBack() {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
+
 .create-user-btn:hover {
   background: var(--accent-hover);
 }
+
 .back-button {
   background: none;
   border: none;
@@ -263,9 +296,11 @@ function goBack() {
   transition: background 0.2s;
   color: var(--text-primary);
 }
+
 .back-button:hover {
   background: var(--hover-bg);
 }
+
 .filters {
   display: flex;
   gap: 10px;
@@ -273,6 +308,7 @@ function goBack() {
   max-width: 1200px;
   margin: 0 auto 20px;
 }
+
 .filters input {
   flex: 1;
   padding: 10px;
@@ -281,13 +317,16 @@ function goBack() {
   background: var(--input-bg);
   color: var(--text-primary);
 }
+
 .filters select {
   padding: 10px;
   border: 1px solid var(--input-border);
   border-radius: 8px;
   background: var(--input-bg);
   color: var(--text-primary);
+  cursor: pointer;
 }
+
 .users-table {
   width: 100%;
   max-width: 1200px;
@@ -298,6 +337,7 @@ function goBack() {
   overflow: hidden;
   box-shadow: var(--shadow);
 }
+
 .users-table th {
   background: var(--bg-page);
   color: var(--heading-color);
@@ -306,27 +346,32 @@ function goBack() {
   text-align: left;
   border-bottom: 2px solid var(--border-color);
 }
+
 .users-table td {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-color);
   color: var(--text-primary);
   vertical-align: middle;
 }
+
 .user-link {
   color: var(--link-color);
   text-decoration: none;
   font-weight: 500;
 }
+
 .user-link:hover {
   color: var(--link-hover);
   text-decoration: underline;
 }
+
 input[type="checkbox"] {
   width: 18px;
   height: 18px;
   cursor: pointer;
   accent-color: var(--accent-color);
 }
+
 .edit-btn, .delete-btn {
   background: none;
   border: none;
@@ -336,17 +381,21 @@ input[type="checkbox"] {
   border-radius: 4px;
   transition: background 0.2s;
 }
+
 .edit-btn:hover {
   background: rgba(33, 150, 243, 0.2);
 }
+
 .delete-btn:hover {
   background: rgba(244, 67, 54, 0.2);
 }
+
 .loading {
   text-align: center;
   padding: 40px;
   color: var(--text-secondary);
 }
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -359,6 +408,7 @@ input[type="checkbox"] {
   justify-content: center;
   z-index: 2000;
 }
+
 .modal-content {
   background: var(--modal-bg);
   border-radius: 24px;
@@ -367,12 +417,14 @@ input[type="checkbox"] {
   width: 90%;
   box-shadow: var(--shadow-strong);
 }
+
 .modal-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
   margin-top: 20px;
 }
+
 .confirm-btn {
   background: var(--danger-color);
   color: white;
@@ -381,6 +433,7 @@ input[type="checkbox"] {
   padding: 10px 20px;
   cursor: pointer;
 }
+
 .cancel-btn {
   background: var(--bg-card);
   color: var(--text-primary);
@@ -388,5 +441,24 @@ input[type="checkbox"] {
   border-radius: 30px;
   padding: 10px 20px;
   cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .users-table {
+    font-size: 0.85rem;
+    display: block;
+    overflow-x: auto;
+  }
+  
+  .users-table th,
+  .users-table td {
+    padding: 8px;
+    white-space: nowrap;
+  }
+  
+  .edit-btn, .delete-btn {
+    padding: 2px 4px;
+    font-size: 1rem;
+  }
 }
 </style>

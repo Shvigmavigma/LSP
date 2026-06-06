@@ -459,11 +459,14 @@
         "saveError": "Ошибка сохранения"
     },
     "adminUsers": {
+        "toggleTeacherTitle": "Сделать учителем/учеником",
+        "toggleCuratorTitle": "Сделать куратором",
         "title": "Управление пользователями",
         "createUser": "Создать пользователя",
         "searchPlaceholder": "Поиск по имени или email",
         "filterAll": "Все",
         "filterStudents": "Ученики",
+        "filterCurators": "Кураторы",
         "filterTeachers": "Учителя",
         "filterAdmins": "Администраторы",
         "table": {
@@ -474,6 +477,7 @@
             "admin": "Админ",
             "curator": "Куратор",
             "actions": "Действия",
+            "isTeacher": "Учитель",
             "fullname": "ФИО"
         },
         "userType": {
@@ -613,9 +617,9 @@
         "supervisorDesc": "Направляет и консультирует",
         "avatarTooBig": "Файл слишком большой (макс. 5 МБ)",
         "avatarUploadError": "Ошибка загрузки аватарки",
-    "saveError": "Ошибка при сохранении данных",
-    "emailNotifications": "Уведомления об изменениях проекта",
-    "emailNotificationsHint": "Получать письма об изменениях сложностью от 3 очков в проектах, где вы куратор, заказчик, эксперт или научный руководитель."
+        "saveError": "Ошибка при сохранении данных",
+        "emailNotifications": "Уведомления об изменениях проекта",
+        "emailNotificationsHint": "Получать письма об изменениях сложностью от 3 очков в проектах, где вы куратор, заказчик, эксперт или научный руководитель."
     },
     "projectDetails": {
         "markAsOld": "Пометить как старый",

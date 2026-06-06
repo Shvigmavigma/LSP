@@ -463,6 +463,9 @@
     },
     "adminUsers": {
         "title": "用户管理",
+        "toggleTeacherTitle": "设为教师/学生",
+        "toggleCuratorTitle": "设为导师",
+        "filterCurators": "导师",
         "createUser": "创建用户",
         "searchPlaceholder": "按全名或电子邮件搜索",
         "filterAll": "全部",
@@ -473,6 +476,7 @@
             "id": "ID",
             "email": "邮箱",
             "type": "类型",
+            "isTeacher": "教师",
             "active": "活跃",
             "admin": "管理员",
             "curator": "协调员",
@@ -616,9 +620,9 @@
         "supervisorDesc": "指导和建议",
         "avatarTooBig": "文件太大（最大5 MB）",
         "avatarUploadError": "上传头像错误",
-    "saveError": "保存数据时出错",
-    "emailNotifications": "项目变更通知",
-    "emailNotificationsHint": "当您作为协调员、客户、专家或导师参与的项目发生难度为3分或以上的变更时接收邮件。"
+        "saveError": "保存数据时出错",
+        "emailNotifications": "项目变更通知",
+        "emailNotificationsHint": "当您作为协调员、客户、专家或导师参与的项目发生难度为3分或以上的变更时接收邮件。"
     },
     "projectDetails": {
         "markAsOld": " 标记为旧",
