@@ -616,7 +616,9 @@
         "supervisorDesc": "指导和建议",
         "avatarTooBig": "文件太大（最大5 MB）",
         "avatarUploadError": "上传头像错误",
-        "saveError": "保存数据时出错"
+    "saveError": "保存数据时出错",
+    "emailNotifications": "项目变更通知",
+    "emailNotificationsHint": "当您作为协调员、客户、专家或导师参与的项目发生难度为3分或以上的变更时接收邮件。"
     },
     "projectDetails": {
         "markAsOld": " 标记为旧",

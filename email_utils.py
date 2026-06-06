@@ -3,9 +3,36 @@ import random
 import string
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 import os
+from html import escape
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
+
+PROJECT_CHANGE_LABELS = {
+    "admin_toggle_file_limits": "настройки ограничений файлов",
+    "admin_update_project": "параметры проекта",
+    "project_mark_old": "статус проекта: перенесен в архив",
+    "project_unmark_old": "статус проекта: возвращен из архива",
+    "join_request_create": "заявку на вступление в проект",
+    "join_request_accept": "статус заявки на вступление: принята",
+    "join_request_reject": "статус заявки на вступление: отклонена",
+    "participant_remove": "состав участников проекта",
+    "project_create": "создал проект",
+    "project_full_update": "данные проекта",
+    "tasks_bulk_update": "задачи проекта",
+    "suggestion_create": "добавил предложение по проекту",
+    "suggestion_accept": "статус предложения: принято",
+    "suggestion_reject": "статус предложения: отклонено",
+    "file_upload": "файлы проекта: добавлен файл",
+    "file_delete": "файлы проекта: удален файл",
+    "admin_delete_all_files": "файлы проекта: удалены все файлы",
+    "project_hide_toggle": "видимость проекта",
+    "admin_delete_project": "статус проекта: удален",
+    "project_approval_request": "запрос на одобрение проекта",
+    "project_approval_cancel": "запрос на одобрение проекта: отменен",
+    "project_approval_decision": "решение по одобрению проекта",
+}
 
 # Конфигурация для отправки 
 conf = ConnectionConfig(
@@ -119,3 +146,40 @@ async def send_project_notification_email(email: str, subject: str, body: str):
         await fm.send_message(message)
     except Exception as e:
         print(f"Error sending project notification email: {e}")
+
+
+async def send_project_change_notification_email(
+    email: str,
+    project_title: str,
+    actor_name: str,
+    changed_at: datetime,
+    change_type: str,
+    points: int,
+):
+    """Отправляет уведомление о значимом изменении проекта."""
+    safe_project = escape(project_title)
+    safe_actor = escape(actor_name)
+    safe_description = escape(PROJECT_CHANGE_LABELS.get(change_type, change_type.replace("_", " ")))
+    formatted_time = changed_at.strftime("%d.%m.%Y в %H:%M")
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; color: #242424; line-height: 1.6;">
+      <p>Добрый день!</p>
+      <p>В вашем проекте <strong>{safe_project}</strong> произошло значимое изменение.</p>
+      <p>
+        Пользователь <strong>{safe_actor}</strong><br>
+        {formatted_time}<br>
+        изменил: {safe_description}
+      </p>
+      <p style="color: #666;">Сложность изменения: {points} очков.</p>
+    </div>
+    """
+    try:
+        message = MessageSchema(
+            subject=f"LSP: изменение в проекте «{project_title}»",
+            recipients=[email],
+            body=html_content,
+            subtype="html",
+        )
+        await FastMail(conf).send_message(message)
+    except Exception as e:
+        print(f"Error sending project change notification to {email}: {e}")

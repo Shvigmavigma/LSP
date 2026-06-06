@@ -613,7 +613,9 @@
         "supervisorDesc": "Guides and advises",
         "avatarTooBig": "File too large (max 5 MB)",
         "avatarUploadError": "Error uploading avatar",
-        "saveError": "Error saving data"
+    "saveError": "Error saving data",
+    "emailNotifications": "Project change notifications",
+    "emailNotificationsHint": "Receive emails about changes worth 3 points or more in projects where you are a curator, customer, expert, or supervisor."
     },
     "projectDetails": {
         "markAsOld": "Mark as Old",

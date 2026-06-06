@@ -150,6 +150,16 @@
           />
         </div>
 
+        <div class="form-group notification-setting">
+          <label class="notification-toggle">
+            <input v-model="form.email_notifications_enabled" type="checkbox" />
+            <span>
+              <strong>{{ $t('profileEdit.emailNotifications') }}</strong>
+              <small>{{ $t('profileEdit.emailNotificationsHint') }}</small>
+            </span>
+          </label>
+        </div>
+
         <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
 
         <div class="button-group">
@@ -191,6 +201,7 @@ const form = ref({
   email: '',
   class: 0,
   speciality: '',
+  email_notifications_enabled: true,
 });
 
 const loading = ref(true);
@@ -246,6 +257,7 @@ onMounted(() => {
       email: user.email,
       class: user.is_teacher ? 0 : (user.class !== 0 ? user.class : 3.1),
       speciality: user.speciality || '',
+      email_notifications_enabled: user.email_notifications_enabled !== false,
     };
 
     // Если учитель, загружаем текущие роли и куратора
@@ -323,7 +335,8 @@ const handleSave = async () => {
         fullname: fullname,
         email: form.value.email,
         speciality: form.value.speciality,
-        teacher_info: teacherInfo
+        teacher_info: teacherInfo,
+        email_notifications_enabled: form.value.email_notifications_enabled
       };
       response = await api.put(`/teachers/${authStore.user.id}`, updateData);
     } else {
@@ -331,7 +344,8 @@ const handleSave = async () => {
         fullname: fullname,
         email: form.value.email,
         speciality: form.value.speciality,
-        class_: form.value.class
+        class_: form.value.class,
+        email_notifications_enabled: form.value.email_notifications_enabled
       };
       response = await api.put(`/students/${authStore.user.id}`, updateData);
     }
@@ -466,6 +480,43 @@ const goHome = () => {
 
 .form-group {
   margin-bottom: 20px;
+}
+
+.notification-setting {
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--input-bg);
+}
+
+.notification-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.notification-toggle input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+.notification-toggle span {
+  display: grid;
+  gap: 4px;
+}
+
+.notification-toggle strong {
+  color: var(--text-primary);
+}
+
+.notification-toggle small {
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 label {

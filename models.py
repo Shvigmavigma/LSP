@@ -23,6 +23,7 @@ class User(Base):
     is_teacher = Column(Boolean, default=False, nullable=False) 
     teacher_info = Column(JSON, nullable=True)
     is_admin = Column(Boolean, default=False, nullable=False)
+    email_notifications_enabled = Column(Boolean, default=True, nullable=False)
     google_id = Column(String, nullable=True, unique=True)
     vk_id = Column(String, nullable=True, unique=True)
     oauth_providers = Column(JSON, default=list)  # ['google', 'vk']
