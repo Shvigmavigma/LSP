@@ -1201,6 +1201,35 @@
         "requestedBy": "Отправил",
         "requestedStage": "Этап"
     },
+    "excelImport": {
+        "title": "Импорт из Excel",
+        "description": "Скачайте образец, заполните только указанные колонки и загрузите XLSX-файл.",
+        "downloadTemplate": "Скачать образец",
+        "manageTemplate": "Управление шаблоном",
+        "installTemplate": "Установить новый шаблон",
+        "resetTemplate": "Вернуть системный шаблон",
+        "templateInstalled": "Новый шаблон установлен",
+        "templateInstallError": "Не удалось установить шаблон",
+        "templateReset": "Системный шаблон восстановлен",
+        "templateResetError": "Не удалось восстановить шаблон",
+        "requiredColumns": "Обязательные колонки:",
+        "dropTitle": "Перетащите XLSX-файл сюда",
+        "dropHint": "или нажмите, чтобы выбрать файл",
+        "removeFile": "Удалить выбранный файл",
+        "xlsxOnly": "Разрешены только файлы XLSX",
+        "import": "Импортировать",
+        "importing": "Импорт...",
+        "templateError": "Не удалось скачать образец",
+        "importError": "Не удалось импортировать файл",
+        "success": "Добавлено строк: {count}. Пропущено существующих: {skipped}.",
+        "modes": {
+            "student_emails": "Почты учеников",
+            "teacher_emails": "Почты учителей",
+            "students": "Создание учеников",
+            "teachers": "Создание учителей",
+            "projects": "Создание проектов"
+        }
+    },
     "adminQuotaLimits": {
         "title": "Лимиты проектов и пользователей",
         "globalTitle": "Общие лимиты",

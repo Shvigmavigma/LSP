@@ -1201,6 +1201,35 @@
         "requestedBy": "Requested by",
         "requestedStage": "Stage"
     },
+    "excelImport": {
+        "title": "Excel import",
+        "description": "Download the template, fill only the listed columns, and upload the XLSX file.",
+        "downloadTemplate": "Download template",
+        "manageTemplate": "Manage template",
+        "installTemplate": "Install new template",
+        "resetTemplate": "Restore system template",
+        "templateInstalled": "New template installed",
+        "templateInstallError": "Failed to install template",
+        "templateReset": "System template restored",
+        "templateResetError": "Failed to restore template",
+        "requiredColumns": "Required columns:",
+        "dropTitle": "Drop an XLSX file here",
+        "dropHint": "or click to choose a file",
+        "removeFile": "Remove selected file",
+        "xlsxOnly": "Only XLSX files are allowed",
+        "import": "Import",
+        "importing": "Importing...",
+        "templateError": "Failed to download template",
+        "importError": "Failed to import file",
+        "success": "Rows added: {count}. Existing rows skipped: {skipped}.",
+        "modes": {
+            "student_emails": "Student emails",
+            "teacher_emails": "Teacher emails",
+            "students": "Create students",
+            "teachers": "Create teachers",
+            "projects": "Create projects"
+        }
+    },
     "adminQuotaLimits": {
         "title": "Project and user limits",
         "globalTitle": "Global limits",
