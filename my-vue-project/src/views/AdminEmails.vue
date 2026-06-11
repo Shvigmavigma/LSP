@@ -27,6 +27,11 @@
       </button>
     </div>
 
+    <AdminExcelImport
+      :modes="[activeTab === 'teachers' ? 'teacher_emails' : 'student_emails']"
+      @imported="loadData"
+    />
+
     <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else class="edit-card">
       <!-- Информационная подсказка -->
@@ -168,6 +173,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import HomeButton from '@/components/HomeButton.vue';
 import api from'@/utils/api'
+import AdminExcelImport from '@/components/AdminExcelImport.vue';
 
 const { t } = useI18n();
 const router = useRouter();

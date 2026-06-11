@@ -64,6 +64,13 @@ from email_utils import (
     send_project_change_notification_email,
 )
 from core.memory_store import memory_store as redis_client
+from excel_import_utils import (
+    ExcelImportValidationError,
+    get_excel_template,
+    install_excel_template,
+    parse_excel_import,
+    reset_excel_template,
+)
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -4803,6 +4810,194 @@ async def update_accepted_student_emails(
         return {"message": "Файл успешно обновлён"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка записи файла: {str(e)}")
+
+
+@app.get("/admin/excel-import/template/{import_type}", tags=["Admin"])
+async def download_excel_import_template(
+    import_type: str,
+    admin: User = Depends(get_current_admin),
+):
+    try:
+        stream = get_excel_template(import_type)
+    except ExcelImportValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{import_type}_template.xlsx"'},
+    )
+
+
+@app.put("/admin/excel-import/template/{import_type}", tags=["Admin"])
+async def upload_excel_import_template(
+    import_type: str,
+    file: UploadFile = File(...),
+    admin: User = Depends(get_current_admin),
+):
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Разрешены только файлы формата XLSX")
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Размер XLSX-файла не должен превышать 5 МБ")
+    try:
+        install_excel_template(content, import_type)
+    except ExcelImportValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"message": "Новый шаблон установлен"}
+
+
+@app.delete("/admin/excel-import/template/{import_type}", tags=["Admin"])
+async def delete_excel_import_template(
+    import_type: str,
+    admin: User = Depends(get_current_admin),
+):
+    try:
+        removed = reset_excel_template(import_type)
+    except ExcelImportValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"message": "Восстановлен системный шаблон", "removed": removed}
+
+
+@app.post("/admin/excel-import/{import_type}", tags=["Admin"])
+async def import_excel_data(
+    import_type: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Разрешены только файлы формата XLSX")
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Размер XLSX-файла не должен превышать 5 МБ")
+    try:
+        rows = parse_excel_import(content, import_type)
+    except ExcelImportValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if import_type in {"student_emails", "teacher_emails"}:
+        target_file = (
+            ACCEPTED_STUDENT_EMAILS_FILE if import_type == "student_emails" else ACCEPTED_EMAILS_FILE
+        )
+        current = (
+            load_accepted_student_emails() if import_type == "student_emails" else load_accepted_emails()
+        )
+        existing = {email.lower() for email in current.get("accepted_emails", [])}
+        added = []
+        for row in rows:
+            if row["email"] not in existing:
+                existing.add(row["email"])
+                added.append(row["email"])
+        current["accepted_emails"] = sorted(existing)
+        target_file.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {"imported_count": len(added), "skipped_count": len(rows) - len(added)}
+
+    if import_type == "projects":
+        customer_emails = {row["customer_email"] for row in rows}
+        customers = db.query(User).filter(User.email.in_(customer_emails)).all()
+        customers_by_email = {user.email.lower(): user for user in customers}
+        missing = next(
+            (row for row in rows if row["customer_email"] not in customers_by_email),
+            None,
+        )
+        if missing:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Строка {missing['_row']}: заказчик с такой почтой не найден",
+            )
+        created = []
+        try:
+            for row in rows:
+                customer = customers_by_email[row["customer_email"]]
+                project = Project(
+                    title=str(row["title"]).strip(),
+                    body=str(row["body"]).strip(),
+                    underbody="",
+                    participants=[{
+                        "user_id": customer.id,
+                        "role": ProjectRole.CUSTOMER.value,
+                        "joined_at": datetime.utcnow().isoformat(),
+                        "invited_by": admin.id,
+                    }],
+                    tasks=[],
+                    links={},
+                    comments=[],
+                    lifecycle_state={"current_stage_id": None, "stages": [], "audit_log": []},
+                    file_quota_overrides={},
+                    required_roles={"customer": 1},
+                    suggestions=[],
+                    join_requests=[],
+                    hidden_by_users=[],
+                    is_hidden=False,
+                    is_old=False,
+                    ignore_file_limits=False,
+                    is_approved=False,
+                    approval_status="draft",
+                )
+                db.add(project)
+                db.flush()
+                snapshot = create_project_snapshot(project)
+                db.add(ProjectCheckpoint(
+                    project_id=project.id,
+                    version=1,
+                    snapshot=snapshot,
+                    created_by=admin.id,
+                    message="Project imported from Excel",
+                    total_points=10,
+                ))
+                db.add(ProjectChange(
+                    project_id=project.id,
+                    checkpoint_version=1,
+                    change_version=1,
+                    change_type="project_create",
+                    points=10,
+                    diff=snapshot,
+                    created_by=admin.id,
+                    description=f"Project imported from Excel by {user_display_name(admin)}",
+                ))
+                created.append({"id": project.id, "title": project.title})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Не удалось сохранить проекты")
+        return {"imported_count": len(created), "created": created}
+
+    if import_type not in {"students", "teachers"}:
+        raise HTTPException(status_code=400, detail="Неизвестный тип импорта")
+
+    emails = [row["email"] for row in rows]
+    existing_users = db.query(User.email).filter(User.email.in_(emails)).all()
+    if existing_users:
+        existing_set = {email for (email,) in existing_users}
+        first = next(row for row in rows if row["email"] in existing_set)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Строка {first['_row']}: пользователь с такой почтой уже существует",
+        )
+
+    created = []
+    try:
+        for row in rows:
+            user = User(
+                fullname=str(row["fullname"]).strip(),
+                email=row["email"],
+                password=get_password_hash(str(row["password"]).strip()),
+                class_=row.get("class") if import_type == "students" else None,
+                is_active=True,
+                is_verified=True,
+                is_teacher=import_type == "teachers",
+                teacher_info={"roles": [], "curator": False} if import_type == "teachers" else None,
+            )
+            if import_type == "students" and student_class_is_invalid(user):
+                user.is_outdated = True
+            db.add(user)
+            db.flush()
+            created.append({"id": user.id, "email": user.email})
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Не удалось сохранить пользователей")
+    return {"imported_count": len(created), "created": created}
 
 # ==================== УПРАВЛЕНИЕ ШАБЛОНАМИ ЗАДАЧ ====================
 @app.put("/admin/default-tasks/class/{class_key}/direction/{direction_key}", tags=["Admin"])

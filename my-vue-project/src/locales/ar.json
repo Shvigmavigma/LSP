@@ -1209,6 +1209,35 @@
         "requestedBy": "طلبه",
         "requestedStage": "المرحلة"
     },
+    "excelImport": {
+        "title": "استيراد Excel",
+        "description": "نزّل النموذج واملأ الأعمدة المحددة فقط ثم ارفع ملف XLSX.",
+        "downloadTemplate": "تنزيل النموذج",
+        "manageTemplate": "إدارة النموذج",
+        "installTemplate": "تثبيت نموذج جديد",
+        "resetTemplate": "استعادة نموذج النظام",
+        "templateInstalled": "تم تثبيت النموذج الجديد",
+        "templateInstallError": "تعذر تثبيت النموذج",
+        "templateReset": "تمت استعادة نموذج النظام",
+        "templateResetError": "تعذر استعادة النموذج",
+        "requiredColumns": "الأعمدة المطلوبة:",
+        "dropTitle": "اسحب ملف XLSX إلى هنا",
+        "dropHint": "أو انقر لاختيار ملف",
+        "removeFile": "حذف الملف المحدد",
+        "xlsxOnly": "يسمح فقط بملفات XLSX",
+        "import": "استيراد",
+        "importing": "جارٍ الاستيراد...",
+        "templateError": "تعذر تنزيل النموذج",
+        "importError": "تعذر استيراد الملف",
+        "success": "تمت إضافة الصفوف: {count}. تم تخطي الموجود: {skipped}.",
+        "modes": {
+            "student_emails": "بريد الطلاب",
+            "teacher_emails": "بريد المعلمين",
+            "students": "إنشاء طلاب",
+            "teachers": "إنشاء معلمين",
+            "projects": "إنشاء مشاريع"
+        }
+    },
     "adminQuotaLimits": {
         "title": "حدود المشاريع والمستخدمين",
         "globalTitle": "الحدود العامة",

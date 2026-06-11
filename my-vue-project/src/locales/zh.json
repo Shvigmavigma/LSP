@@ -1210,6 +1210,35 @@
         "requestedBy": "申请人",
         "requestedStage": "阶段"
     },
+    "excelImport": {
+        "title": "Excel 导入",
+        "description": "下载模板，仅填写指定列，然后上传 XLSX 文件。",
+        "downloadTemplate": "下载模板",
+        "manageTemplate": "管理模板",
+        "installTemplate": "安装新模板",
+        "resetTemplate": "恢复系统模板",
+        "templateInstalled": "新模板已安装",
+        "templateInstallError": "无法安装模板",
+        "templateReset": "系统模板已恢复",
+        "templateResetError": "无法恢复模板",
+        "requiredColumns": "必填列：",
+        "dropTitle": "将 XLSX 文件拖到此处",
+        "dropHint": "或点击选择文件",
+        "removeFile": "删除所选文件",
+        "xlsxOnly": "仅允许 XLSX 文件",
+        "import": "导入",
+        "importing": "正在导入...",
+        "templateError": "无法下载模板",
+        "importError": "无法导入文件",
+        "success": "已添加行：{count}。已跳过现有行：{skipped}。",
+        "modes": {
+            "student_emails": "学生邮箱",
+            "teacher_emails": "教师邮箱",
+            "students": "创建学生",
+            "teachers": "创建教师",
+            "projects": "创建项目"
+        }
+    },
     "adminQuotaLimits": {
         "title": "项目和用户限制",
         "globalTitle": "全局限制",

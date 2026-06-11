@@ -13,6 +13,11 @@
       </div>
     </header>
 
+    <AdminExcelImport
+      :modes="['projects']"
+      @imported="loadProjects"
+    />
+
     <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
     <div v-else>
       <div class="filters">
@@ -148,6 +153,7 @@ import type { Project } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import api from '@/utils/api'
+import AdminExcelImport from '@/components/AdminExcelImport.vue';
 
 const { t } = useI18n();
 const router = useRouter();

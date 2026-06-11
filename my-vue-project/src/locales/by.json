@@ -1208,6 +1208,35 @@
         "requestedBy": "Адправіў",
         "requestedStage": "Этап"
     },
+    "excelImport": {
+        "title": "Імпарт з Excel",
+        "description": "Спампуйце ўзор, запоўніце толькі пазначаныя слупкі і загрузіце XLSX-файл.",
+        "downloadTemplate": "Спампаваць узор",
+        "manageTemplate": "Кіраванне шаблонам",
+        "installTemplate": "Усталяваць новы шаблон",
+        "resetTemplate": "Вярнуць сістэмны шаблон",
+        "templateInstalled": "Новы шаблон усталяваны",
+        "templateInstallError": "Не ўдалося ўсталяваць шаблон",
+        "templateReset": "Сістэмны шаблон адноўлены",
+        "templateResetError": "Не ўдалося аднавіць шаблон",
+        "requiredColumns": "Абавязковыя слупкі:",
+        "dropTitle": "Перацягніце XLSX-файл сюды",
+        "dropHint": "або націсніце, каб выбраць файл",
+        "removeFile": "Выдаліць выбраны файл",
+        "xlsxOnly": "Дазволены толькі XLSX-файлы",
+        "import": "Імпартаваць",
+        "importing": "Імпарт...",
+        "templateError": "Не ўдалося спампаваць узор",
+        "importError": "Не ўдалося імпартаваць файл",
+        "success": "Дададзена радкоў: {count}. Прапушчана існуючых: {skipped}.",
+        "modes": {
+            "student_emails": "Пошты вучняў",
+            "teacher_emails": "Пошты настаўнікаў",
+            "students": "Стварэнне вучняў",
+            "teachers": "Стварэнне настаўнікаў",
+            "projects": "Стварэнне праектаў"
+        }
+    },
     "adminQuotaLimits": {
         "title": "Ліміты праектаў і карыстальнікаў",
         "globalTitle": "Агульныя ліміты",
