@@ -70,6 +70,25 @@
           {{ $t('adminQuotaLimits.saveUser') }}
         </button>
       </section>
+
+      <section class="limit-section role-section">
+        <h2>{{ $t('adminQuotaLimits.roleTitle') }}</h2>
+        <p class="section-hint">{{ $t('adminQuotaLimits.roleHint') }}</p>
+        <div v-for="role in roles" :key="role" class="role-limit-row">
+          <div class="role-name">{{ $t(`roles.${role}`) }}</div>
+          <label>
+            <span>{{ $t('adminQuotaLimits.userLimit') }}</span>
+            <input v-model.number="roleLimitsMb[role]" type="number" min="0" />
+          </label>
+          <label class="checkbox-label">
+            <input v-model="applyToCustom[role]" type="checkbox" />
+            <span>{{ $t('adminQuotaLimits.applyToCustom') }}</span>
+          </label>
+          <button class="primary-btn" @click="saveRoleLimit(role)">
+            {{ $t('common.save') }}
+          </button>
+        </div>
+      </section>
     </main>
   </div>
 </template>
@@ -97,6 +116,9 @@ const selectedUserId = ref(0);
 const projectOverrideMb = ref(0);
 const projectUserOverrideMb = ref(0);
 const userOverrideMb = ref(0);
+const roles = ['customer', 'supervisor', 'expert', 'executor', 'curator'] as const;
+const roleLimitsMb = ref<Record<string, number>>({});
+const applyToCustom = ref<Record<string, boolean>>({});
 
 function toMb(bytes?: number | null) {
   return Math.round((bytes || 0) / bytesInMb);
@@ -129,6 +151,10 @@ async function loadData() {
   projects.value = projectsResponse.data || [];
   users.value = usersResponse.data || [];
   userOverrides.value = userQuotasResponse.data.user_overrides || {};
+  roleLimitsMb.value = Object.fromEntries(
+    roles.map(role => [role, toMb(userQuotasResponse.data.role_overrides?.[role] ?? quotasResponse.data.user_limit)]),
+  );
+  applyToCustom.value = Object.fromEntries(roles.map(role => [role, false]));
   applySelectedProject();
   applySelectedUser();
 }
@@ -156,6 +182,16 @@ async function saveUserLimits() {
     user_limit: toBytes(userOverrideMb.value),
   });
   alert(t('adminQuotaLimits.saved'));
+  await loadData();
+}
+
+async function saveRoleLimit(role: string) {
+  const response = await api.put(`/admin/file-quotas/roles/${role}`, {
+    user_limit: toBytes(roleLimitsMb.value[role]),
+    apply_to_custom_limits: applyToCustom.value[role] || false,
+  });
+  const cleared = response.data.cleared_user_ids?.length || 0;
+  alert(t('adminQuotaLimits.roleSaved', { count: cleared }));
   await loadData();
 }
 
@@ -237,5 +273,21 @@ select {
 .primary-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+.role-section { grid-column: 1 / -1; }
+.section-hint { margin: 0; color: var(--text-secondary); }
+.role-limit-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1fr) minmax(240px, 1.5fr) auto;
+  gap: 14px;
+  align-items: end;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+}
+.role-name { align-self: center; font-weight: 700; color: var(--heading-color); }
+.checkbox-label { flex-direction: row; align-items: center; align-self: center; font-weight: 500; }
+.checkbox-label input { width: auto; }
+@media (max-width: 800px) {
+  .role-limit-row { grid-template-columns: 1fr; align-items: stretch; }
 }
 </style>

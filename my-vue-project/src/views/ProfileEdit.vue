@@ -10,6 +10,11 @@
     </header>
 
     <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
+    <div v-else-if="pendingRequest" class="edit-card">
+      <h2>{{ $t('profileEdit.pendingTitle') }}</h2>
+      <p>{{ $t('profileEdit.pendingHint') }}</p>
+      <button class="cancel-button" type="button" @click="goBack">{{ $t('common.back') }}</button>
+    </div>
     <div v-else class="edit-card">
       <!-- Секция аватарки -->
       <div class="avatar-section">
@@ -196,12 +201,14 @@ const form = ref({
 const loading = ref(true);
 const saving = ref(false);
 const errorMessage = ref('');
+const pendingRequest = ref<any>(null);
 
 // Для аватарки
 const uploading = ref(false);
 const uploadError = ref('');
 const previewAvatar = ref<string | null>(null);
 const avatarError = ref(false);
+const selectedAvatarFile = ref<File | null>(null);
 
 // Для ролей учителя (без куратора)
 const selectedRoles = ref<string[]>([]);
@@ -235,7 +242,13 @@ function parseFullname(fullname: string) {
   return { lastName: parts[0], firstName: parts[1], patronymic: parts[2] };
 }
 
-onMounted(() => {
+onMounted(async () => {
+  try {
+    const response = await api.get('/profile-change-request');
+    pendingRequest.value = response.data.request;
+  } catch (error) {
+    console.error('Failed to load profile change request', error);
+  }
   if (authStore.user) {
     const user = authStore.user;
     const { lastName, firstName, patronymic } = parseFullname(user.fullname);
@@ -273,31 +286,8 @@ const handleAvatarUpload = async (event: Event) => {
   };
   reader.readAsDataURL(file);
 
-  uploading.value = true;
+  selectedAvatarFile.value = file;
   uploadError.value = '';
-
-  const formData = new FormData();
-  formData.append('file', file);
-
-  try {
-    const response = await api.post(
-      `${baseUrl}/users/${authStore.user!.id}/avatar`,
-      formData,
-      {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }
-    );
-    authStore.user = response.data;
-    localStorage.setItem('user', JSON.stringify(response.data));
-    previewAvatar.value = null;
-    avatarError.value = false;
-  } catch (error: any) {
-    console.error('Error uploading avatar:', error);
-    uploadError.value = error.response?.data?.detail || t('profileEdit.avatarUploadError');
-    previewAvatar.value = null;
-  } finally {
-    uploading.value = false;
-  }
 };
 
 const handleSave = async () => {
@@ -313,31 +303,37 @@ const handleSave = async () => {
   const fullname = fullNameParts.join(' ');
 
   try {
-    let response;
+    let updateData;
     if (isTeacher.value) {
       const teacherInfo: TeacherInfo = {
         roles: selectedRoles.value,
         curator: currentCurator.value
       };
-      const updateData = {
+      updateData = {
         fullname: fullname,
         email: form.value.email,
         speciality: form.value.speciality,
         teacher_info: teacherInfo
       };
-      response = await api.put(`/teachers/${authStore.user.id}`, updateData);
     } else {
-      const updateData = {
+      updateData = {
         fullname: fullname,
         email: form.value.email,
         speciality: form.value.speciality,
         class_: form.value.class
       };
-      response = await api.put(`/students/${authStore.user.id}`, updateData);
     }
-
-    authStore.user = response.data;
-    localStorage.setItem('user', JSON.stringify(response.data));
+    await api.post('/profile-change-request', {
+      ...updateData,
+      _avatar_change: !!selectedAvatarFile.value,
+    });
+    if (selectedAvatarFile.value) {
+      const avatarData = new FormData();
+      avatarData.append('file', selectedAvatarFile.value);
+      await api.post('/profile-change-request/avatar', avatarData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
     router.push('/profile');
   } catch (error: any) {
     console.error('Error updating profile:', error);

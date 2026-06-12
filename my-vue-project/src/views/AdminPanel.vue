@@ -53,6 +53,11 @@
           <span class="card-desc">{{ $t('adminPanel.accountClasses.desc') }}</span>
         </router-link>
 
+        <router-link to="/admin/profile-change-requests" class="menu-card">
+          <span class="card-title">{{ $t('adminPanel.profileRequests.title') }}</span>
+          <span class="card-desc">{{ $t('adminPanel.profileRequests.desc') }}</span>
+        </router-link>
+
         <!-- Создание пользователей админом -->
         <router-link to="/admin/create-users" class="menu-card">
           <span class="card-title">{{ $t('adminPanel.createUsers.title') }}</span>

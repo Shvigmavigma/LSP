@@ -295,6 +295,10 @@
         "domainPlaceholder": "example.com"
     },
     "adminPanel": {
+        "profileRequests": {
+            "title": "个人资料更改",
+            "desc": "审核用户的个人资料更改申请"
+        },
         "title": "管理面板",
         "createAdmin": {
             "title": "创建管理员",
@@ -576,6 +580,11 @@
         "notAuthorized": "用户未授权"
     },
     "profile": {
+        "changePendingTitle": "个人资料更改正在等待审核",
+        "changePendingHint": "管理员决定前仍显示原资料。",
+        "withdrawChangeRequest": "撤回申请",
+        "withdrawChangeError": "无法撤回申请",
+        "editBlocked": "编辑正在等待审核",
         "title": "个人资料",
         "connectedAccounts": "Google账户",
         "link": "关联",
@@ -638,6 +647,8 @@
     "runResult": "已升级：{advanced}，已过期：{outdated}"
   },
     "profileEdit": {
+        "pendingTitle": "申请已提交",
+        "pendingHint": "管理员决定或撤回申请后才能继续编辑。",
         "title": "编辑个人资料",
         "lastName": "姓",
         "firstName": "名",
@@ -1247,6 +1258,15 @@
             "projects": "创建项目"
         }
     },
+    "profileRequests": {
+        "title": "个人资料更改申请",
+        "empty": "没有所选状态的申请",
+        "comment": "决定备注",
+        "approve": "批准",
+        "reject": "拒绝",
+        "statuses": {"pending": "待处理", "approved": "已批准", "rejected": "已拒绝", "withdrawn": "已撤回"},
+        "fields": {"fullname": "姓名", "email": "邮箱", "speciality": "专业", "class_": "班级", "teacher_info": "教师角色", "avatar": "头像"}
+    },
     "adminQuotaLimits": {
         "title": "项目和用户限制",
         "globalTitle": "全局限制",
@@ -1258,6 +1278,10 @@
         "user": "用户",
         "saveProject": "保存项目限制",
         "saveUser": "保存用户限制",
+        "roleTitle": "项目角色限制",
+        "roleHint": "个人用户限制优先于角色限制，角色限制优先于项目和全局限制。",
+        "applyToCustom": "同时应用于具有个人限制的用户",
+        "roleSaved": "角色限制已保存。已删除个人例外：{count}",
         "saved": "限制已保存"
     }
 }

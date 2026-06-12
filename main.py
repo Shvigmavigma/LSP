@@ -21,7 +21,7 @@ from auth import get_current_admin
 from oauth_routes import router as oauth_router
 load_dotenv()
 from sqlalchemy.orm.attributes import flag_modified
-from models import Base, User, Project, ProjectFile, Invitation, ProjectCheckpoint, ProjectChange  # ← Добавлены новые модели
+from models import Base, User, Project, ProjectFile, Invitation, ProjectCheckpoint, ProjectChange, ProfileChangeRequest  # ← Добавлены новые модели
 from database import engine, session_local
 from schemas import (
     StudentCreate, StudentResponse, StudentUpdate,
@@ -919,28 +919,41 @@ def get_default_file_quotas() -> Dict[str, Any]:
         "project_limit": 1024 * 1024 * 1024,
         "user_limit": 100 * 1024 * 1024,
         "user_overrides": {},
+        "role_overrides": {},
     }
 
 def load_file_quotas() -> Dict[str, Any]:
     data = read_json_cached(FILE_QUOTAS_FILE, get_default_file_quotas)
     defaults = get_default_file_quotas()
     raw_overrides = data.get("user_overrides") if isinstance(data.get("user_overrides"), dict) else {}
+    raw_role_overrides = data.get("role_overrides") if isinstance(data.get("role_overrides"), dict) else {}
     return {
         "project_limit": int(data.get("project_limit") or defaults["project_limit"]),
         "user_limit": int(data.get("user_limit") or defaults["user_limit"]),
         "user_overrides": {str(user_id): max(0, int(limit or 0)) for user_id, limit in raw_overrides.items()},
+        "role_overrides": {
+            str(role): max(0, int(limit or 0))
+            for role, limit in raw_role_overrides.items()
+            if str(role) in {item.value for item in ProjectRole}
+        },
     }
 
 def save_file_quotas(data: Dict[str, Any]) -> Dict[str, Any]:
     defaults = get_default_file_quotas()
     current = load_file_quotas()
     raw_overrides = data.get("user_overrides", current.get("user_overrides", {}))
+    raw_role_overrides = data.get("role_overrides", current.get("role_overrides", {}))
     if not isinstance(raw_overrides, dict):
         raw_overrides = {}
     normalized = {
         "project_limit": max(0, int(data.get("project_limit") or defaults["project_limit"])),
         "user_limit": max(0, int(data.get("user_limit") or defaults["user_limit"])),
         "user_overrides": {str(user_id): max(0, int(limit or 0)) for user_id, limit in raw_overrides.items()},
+        "role_overrides": {
+            str(role): max(0, int(limit or 0))
+            for role, limit in raw_role_overrides.items()
+            if str(role) in {item.value for item in ProjectRole}
+        },
     }
     write_json_cached(FILE_QUOTAS_FILE, normalized)
     return normalized
@@ -1131,16 +1144,40 @@ def get_project_version_audit(db: Session, project_id: int) -> List[Dict[str, An
         for change in changes
     ]
 
-def get_effective_project_quotas(project: Project, user_id: Optional[int] = None) -> Dict[str, int]:
+def get_quota_role(project: Project, user_id: int, user: Optional[User] = None) -> Optional[str]:
+    participant_role = get_participant_role(project, user_id)
+    if participant_role:
+        return participant_role
+    if user and is_curator(user):
+        return ProjectRole.CURATOR.value
+    return None
+
+
+def get_effective_project_quotas(
+    project: Project,
+    user_id: Optional[int] = None,
+    user: Optional[User] = None,
+) -> Dict[str, Any]:
     quotas = load_file_quotas()
     overrides = project.file_quota_overrides if isinstance(project.file_quota_overrides, dict) else {}
     user_overrides = quotas.get("user_overrides", {})
-    user_limit = overrides.get("user_limit") or quotas["user_limit"]
+    role_overrides = quotas.get("role_overrides", {})
+    user_limit = overrides["user_limit"] if overrides.get("user_limit") is not None else quotas["user_limit"]
+    role = None
     if user_id is not None:
-        user_limit = user_overrides.get(str(user_id), user_limit)
+        role = get_quota_role(project, user_id, user)
+        if role in role_overrides:
+            user_limit = role_overrides[role]
+        if str(user_id) in user_overrides:
+            user_limit = user_overrides[str(user_id)]
     return {
-        "project_limit": int(overrides.get("project_limit") or quotas["project_limit"]),
+        "project_limit": int(
+            overrides["project_limit"] if overrides.get("project_limit") is not None else quotas["project_limit"]
+        ),
         "user_limit": int(user_limit),
+        "role": role,
+        "role_limit": role_overrides.get(role) if role else None,
+        "has_user_override": str(user_id) in user_overrides if user_id is not None else False,
     }
 
 def get_project_storage_usage(db: Session, project_id: int, user_id: Optional[int] = None) -> int:
@@ -1639,7 +1676,11 @@ async def update_file_quotas(
 
 @app.get("/admin/user-file-quotas", tags=["Admin"])
 async def get_user_file_quotas(admin: User = Depends(get_current_admin)):
-    return {"user_overrides": load_file_quotas().get("user_overrides", {})}
+    quotas = load_file_quotas()
+    return {
+        "user_overrides": quotas.get("user_overrides", {}),
+        "role_overrides": quotas.get("role_overrides", {}),
+    }
 
 @app.put("/admin/users/{user_id}/file-quota", tags=["Admin"])
 async def update_user_file_quota(
@@ -1660,6 +1701,57 @@ async def update_user_file_quota(
     quotas["user_overrides"] = overrides
     saved = save_file_quotas(quotas)
     return {"message": "User file quota updated", "user_overrides": saved.get("user_overrides", {})}
+
+
+@app.put("/admin/file-quotas/roles/{role}", tags=["Admin"])
+async def update_role_file_quota(
+    role: str,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    allowed_roles = {item.value for item in ProjectRole}
+    if role not in allowed_roles:
+        raise HTTPException(status_code=400, detail="Unknown project role")
+    raw_limit = data.get("user_limit")
+    apply_to_custom = bool(data.get("apply_to_custom_limits", False))
+    quotas = load_file_quotas()
+    role_overrides = quotas.get("role_overrides", {})
+    if raw_limit is None:
+        role_overrides.pop(role, None)
+    else:
+        role_overrides[role] = max(0, int(raw_limit))
+    quotas["role_overrides"] = role_overrides
+
+    cleared_user_ids = []
+    if apply_to_custom:
+        users_with_role = set()
+        for project in db.query(Project).all():
+            for participant in project.participants or []:
+                if participant.get("role") == role and participant.get("user_id"):
+                    users_with_role.add(str(participant["user_id"]))
+        for user in db.query(User).all():
+            teacher_info = user.teacher_info if isinstance(user.teacher_info, dict) else {}
+            if role == ProjectRole.EXECUTOR.value and not user.is_teacher:
+                users_with_role.add(str(user.id))
+            elif role == ProjectRole.CURATOR.value and is_curator(user):
+                users_with_role.add(str(user.id))
+            elif role in (teacher_info.get("roles") or []):
+                users_with_role.add(str(user.id))
+        user_overrides = quotas.get("user_overrides", {})
+        for user_id in users_with_role:
+            if user_id in user_overrides:
+                user_overrides.pop(user_id)
+                cleared_user_ids.append(int(user_id))
+        quotas["user_overrides"] = user_overrides
+
+    saved = save_file_quotas(quotas)
+    return {
+        "message": "Role file quota updated",
+        "role_overrides": saved.get("role_overrides", {}),
+        "user_overrides": saved.get("user_overrides", {}),
+        "cleared_user_ids": cleared_user_ids,
+    }
 
 @app.get("/admin/project-lifecycle", tags=["Admin"])
 async def admin_get_project_lifecycle(admin: User = Depends(get_current_admin)):
@@ -1947,7 +2039,7 @@ async def get_project_file_quota(
         raise HTTPException(status_code=404, detail="Project not found")
     if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
         raise HTTPException(status_code=403, detail="Only project participants can view quota")
-    quotas = get_effective_project_quotas(project, current_user.id)
+    quotas = get_effective_project_quotas(project, current_user.id, current_user)
     return {
         "quotas": quotas,
         "project_used": get_project_storage_usage(db, project_id),
@@ -2580,10 +2672,20 @@ async def get_student(student_id: int, db: Session = Depends(get_db)):
     return student
 
 @app.put("/students/{student_id}", response_model=StudentResponse, tags=["Students"])
-async def update_student(student_id: int, student_update: StudentUpdate, db: Session = Depends(get_db)):
+async def update_student(
+    student_id: int,
+    student_update: StudentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     student = db.query(User).filter(User.id == student_id, User.is_teacher == False).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
+    if current_user.id != student_id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Can only update your own profile")
+    provided = student_update.model_dump(exclude_unset=True)
+    if current_user.id == student_id and set(provided) - {"email_notifications_enabled"}:
+        raise HTTPException(status_code=409, detail="Profile changes must be submitted for admin review")
     if student_update.fullname is not None:
         student.fullname = student_update.fullname
     if student_update.email is not None:
@@ -2722,10 +2824,20 @@ async def get_teacher(teacher_id: int, db: Session = Depends(get_db)):
     return teacher
 
 @app.put("/teachers/{teacher_id}", response_model=TeacherResponse, tags=["Teachers"])
-async def update_teacher(teacher_id: int, teacher_update: TeacherUpdate, db: Session = Depends(get_db)):
+async def update_teacher(
+    teacher_id: int,
+    teacher_update: TeacherUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     teacher = db.query(User).filter(User.id == teacher_id, User.is_teacher == True).first()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
+    if current_user.id != teacher_id and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Can only update your own profile")
+    provided = teacher_update.model_dump(exclude_unset=True)
+    if current_user.id == teacher_id and set(provided) - {"email_notifications_enabled"}:
+        raise HTTPException(status_code=409, detail="Profile changes must be submitted for admin review")
     if teacher_update.fullname is not None:
         teacher.fullname = teacher_update.fullname
     if teacher_update.email is not None:
@@ -2764,6 +2876,217 @@ async def delete_teacher(teacher_id: int, db: Session = Depends(get_db)):
 @app.get("/users/me", response_model=UserResponse, tags=["Common"])
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+PROFILE_REQUEST_FIELDS = {"fullname", "email", "speciality", "class_", "teacher_info", "avatar"}
+
+
+def profile_snapshot(user: User) -> Dict[str, Any]:
+    return {
+        "fullname": user.fullname,
+        "email": user.email,
+        "speciality": user.speciality,
+        "class_": user.class_,
+        "teacher_info": user.teacher_info,
+        "avatar": user.avatar,
+    }
+
+
+def remove_pending_profile_avatar(request: ProfileChangeRequest):
+    old_avatar = (request.old_data or {}).get("avatar")
+    new_avatar = (request.new_data or {}).get("avatar")
+    if new_avatar and new_avatar != old_avatar and str(new_avatar).startswith("pending_profile_"):
+        path = os.path.join(AVATAR_DIR, new_avatar)
+        if os.path.exists(path):
+            os.remove(path)
+
+
+def serialize_profile_change_request(request: ProfileChangeRequest, db: Session) -> Dict[str, Any]:
+    user = db.query(User).filter(User.id == request.user_id).first()
+    handler = db.query(User).filter(User.id == request.handled_by).first() if request.handled_by else None
+    return {
+        "id": request.id,
+        "user_id": request.user_id,
+        "user_name": user_display_name(user),
+        "user_email": user.email if user else None,
+        "old_data": request.old_data,
+        "new_data": request.new_data,
+        "status": request.status,
+        "created_at": request.created_at,
+        "handled_at": request.handled_at,
+        "handled_by": request.handled_by,
+        "handled_by_name": user_display_name(handler) if handler else None,
+        "decision_comment": request.decision_comment,
+    }
+
+
+@app.get("/profile-change-request", tags=["Common"])
+async def get_own_profile_change_request(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    request = db.query(ProfileChangeRequest).filter(
+        ProfileChangeRequest.user_id == current_user.id,
+        ProfileChangeRequest.status == "pending",
+    ).order_by(ProfileChangeRequest.created_at.desc()).first()
+    return {"request": serialize_profile_change_request(request, db) if request else None}
+
+
+@app.post("/profile-change-request", tags=["Common"])
+async def create_profile_change_request(
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    pending = db.query(ProfileChangeRequest).filter(
+        ProfileChangeRequest.user_id == current_user.id,
+        ProfileChangeRequest.status == "pending",
+    ).first()
+    if pending:
+        raise HTTPException(status_code=409, detail="Profile change request is already pending")
+    has_avatar_change = bool(data.pop("_avatar_change", False))
+    unknown = set(data) - PROFILE_REQUEST_FIELDS
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unsupported profile fields: {', '.join(sorted(unknown))}")
+    new_data = profile_snapshot(current_user)
+    new_data.update(data)
+    if new_data.get("email"):
+        new_data["email"] = str(new_data["email"]).strip().lower()
+        existing = db.query(User).filter(
+            User.email == new_data["email"],
+            User.id != current_user.id,
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+    if not current_user.is_teacher:
+        new_data["teacher_info"] = current_user.teacher_info
+    else:
+        new_data["class_"] = current_user.class_
+    if new_data == profile_snapshot(current_user) and not has_avatar_change:
+        raise HTTPException(status_code=400, detail="Profile data has not changed")
+    request = ProfileChangeRequest(
+        user_id=current_user.id,
+        old_data=profile_snapshot(current_user),
+        new_data=new_data,
+        status="pending",
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return serialize_profile_change_request(request, db)
+
+
+@app.delete("/profile-change-request", tags=["Common"])
+async def withdraw_profile_change_request(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    request = db.query(ProfileChangeRequest).filter(
+        ProfileChangeRequest.user_id == current_user.id,
+        ProfileChangeRequest.status == "pending",
+    ).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Pending profile change request not found")
+    remove_pending_profile_avatar(request)
+    request.status = "withdrawn"
+    request.handled_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Profile change request withdrawn"}
+
+
+@app.post("/profile-change-request/avatar", tags=["Common"])
+async def upload_profile_change_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    request = db.query(ProfileChangeRequest).filter(
+        ProfileChangeRequest.user_id == current_user.id,
+        ProfileChangeRequest.status == "pending",
+    ).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Pending profile change request not found")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 5 MB)")
+    remove_pending_profile_avatar(request)
+    try:
+        img = Image.open(io.BytesIO(contents))
+        width, height = img.get_size()
+        crop_size = min(width, height)
+        left = (width - crop_size) // 2
+        top = (height - crop_size) // 2
+        img = img.crop((left, top, left + crop_size, top + crop_size)).resize((256, 256))
+        filename = f"pending_profile_{request.id}_{uuid.uuid4().hex[:8]}.webp"
+        img.save_as_webp(os.path.join(AVATAR_DIR, filename))
+        new_data = dict(request.new_data or {})
+        new_data["avatar"] = filename
+        request.new_data = new_data
+        flag_modified(request, "new_data")
+        db.commit()
+        return {"message": "Avatar added to profile change request", "avatar": filename}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Image processing failed: {str(exc)}")
+
+
+@app.get("/admin/profile-change-requests", tags=["Admin"])
+async def admin_get_profile_change_requests(
+    status: Optional[str] = Query("pending"),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    query = db.query(ProfileChangeRequest)
+    if status and status != "all":
+        query = query.filter(ProfileChangeRequest.status == status)
+    requests = query.order_by(ProfileChangeRequest.created_at.desc()).all()
+    return [serialize_profile_change_request(item, db) for item in requests]
+
+
+@app.put("/admin/profile-change-requests/{request_id}", tags=["Admin"])
+async def admin_decide_profile_change_request(
+    request_id: int,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    request = db.query(ProfileChangeRequest).filter(ProfileChangeRequest.id == request_id).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Profile change request not found")
+    if request.status != "pending":
+        raise HTTPException(status_code=400, detail="Profile change request already handled")
+    decision = data.get("decision")
+    if decision not in {"approved", "rejected"}:
+        raise HTTPException(status_code=400, detail="Decision must be approved or rejected")
+    user = db.query(User).filter(User.id == request.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if decision == "approved":
+        new_data = request.new_data or {}
+        new_email = new_data.get("email")
+        if new_email:
+            existing = db.query(User).filter(User.email == new_email, User.id != user.id).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Email already in use")
+        old_avatar = user.avatar
+        for field in PROFILE_REQUEST_FIELDS:
+            if field in new_data:
+                setattr(user, field, new_data[field])
+        if new_data.get("avatar") and new_data.get("avatar") != old_avatar and old_avatar:
+            old_path = os.path.join(AVATAR_DIR, old_avatar)
+            if os.path.exists(old_path):
+                os.remove(old_path)
+        if not user.is_teacher and student_class_is_invalid(user):
+            user.is_outdated = True
+    else:
+        remove_pending_profile_avatar(request)
+    request.status = decision
+    request.handled_at = datetime.utcnow()
+    request.handled_by = admin.id
+    request.decision_comment = data.get("comment")
+    db.commit()
+    return serialize_profile_change_request(request, db)
 
 @app.get("/users/{user_id}", response_model=UserResponse, tags=["Common"])
 async def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
@@ -2811,6 +3134,7 @@ async def upload_avatar(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    raise HTTPException(status_code=409, detail="Avatar changes must be submitted for admin review")
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
     contents = await file.read()
@@ -4150,13 +4474,14 @@ async def upload_project_file(
         if file.content_type not in allowed:
             raise HTTPException(400, f"File type {file.content_type} not allowed")
 
-    quotas = get_effective_project_quotas(project, current_user.id)
-    project_used = get_project_storage_usage(db, project_id)
-    user_used = get_project_storage_usage(db, project_id, current_user.id)
-    if project_used + len(contents) > quotas["project_limit"]:
-        raise HTTPException(400, "Project file quota exceeded")
-    if user_used + len(contents) > quotas["user_limit"]:
-        raise HTTPException(400, "User file quota exceeded")
+    if not project.ignore_file_limits:
+        quotas = get_effective_project_quotas(project, current_user.id, current_user)
+        project_used = get_project_storage_usage(db, project_id)
+        user_used = get_project_storage_usage(db, project_id, current_user.id)
+        if project_used + len(contents) > quotas["project_limit"]:
+            raise HTTPException(400, "Project file quota exceeded")
+        if user_used + len(contents) > quotas["user_limit"]:
+            raise HTTPException(400, "User file quota exceeded")
     
     ext = os.path.splitext(file.filename)[1]
     unique_name = f"{uuid.uuid4().hex}{ext}"
