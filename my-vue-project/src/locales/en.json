@@ -292,6 +292,10 @@
         "domainPlaceholder": "example.com"
     },
     "adminPanel": {
+        "profileRequests": {
+            "title": "Profile changes",
+            "desc": "Review user profile change requests"
+        },
         "title": "Admin Panel",
         "createAdmin": {
             "title": "Create Administrator",
@@ -573,6 +577,11 @@
         "notAuthorized": "User not authorized"
     },
     "profile": {
+        "changePendingTitle": "Profile changes are awaiting review",
+        "changePendingHint": "The previous profile data remains visible until an administrator decides.",
+        "withdrawChangeRequest": "Withdraw request",
+        "withdrawChangeError": "Failed to withdraw request",
+        "editBlocked": "Editing awaits review",
         "title": "Profile",
         "connectedAccounts": "Google Account",
         "link": "Link",
@@ -635,6 +644,8 @@
     "runResult": "Advanced: {advanced}, outdated: {outdated}"
   },
     "profileEdit": {
+        "pendingTitle": "A request has already been submitted",
+        "pendingHint": "Editing becomes available after an administrator decides or the request is withdrawn.",
         "title": "Edit Profile",
         "lastName": "Last Name",
         "firstName": "First Name",
@@ -1238,6 +1249,27 @@
             "projects": "Create projects"
         }
     },
+    "profileRequests": {
+        "title": "Profile change requests",
+        "empty": "No requests with the selected status",
+        "comment": "Decision comment",
+        "approve": "Approve",
+        "reject": "Reject",
+        "statuses": {
+            "pending": "Pending",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "withdrawn": "Withdrawn"
+        },
+        "fields": {
+            "fullname": "Full name",
+            "email": "Email",
+            "speciality": "Speciality",
+            "class_": "Class",
+            "teacher_info": "Teacher roles"
+            ,"avatar": "Avatar"
+        }
+    },
     "adminQuotaLimits": {
         "title": "Project and user limits",
         "globalTitle": "Global limits",
@@ -1249,6 +1281,10 @@
         "user": "User",
         "saveProject": "Save project limits",
         "saveUser": "Save user limit",
+        "roleTitle": "Project role limits",
+        "roleHint": "A personal user limit takes priority over a role limit. A role limit takes priority over project and global limits.",
+        "applyToCustom": "Also apply to users with a personal limit",
+        "roleSaved": "Role limit saved. Personal exceptions removed: {count}",
         "saved": "Limits saved"
     }
 }

@@ -294,6 +294,10 @@
         "domainPlaceholder": "example.com"
     },
     "adminPanel": {
+        "profileRequests": {
+            "title": "تغييرات الملفات الشخصية",
+            "desc": "مراجعة طلبات تعديل ملفات المستخدمين"
+        },
         "title": "لوحة التحكم",
         "createAdmin": {
             "title": "إنشاء مدير",
@@ -575,6 +579,11 @@
         "notAuthorized": "المستخدم غير مصرح له"
     },
     "profile": {
+        "changePendingTitle": "تغييرات الملف الشخصي بانتظار المراجعة",
+        "changePendingHint": "تبقى البيانات السابقة ظاهرة حتى قرار المسؤول.",
+        "withdrawChangeRequest": "سحب الطلب",
+        "withdrawChangeError": "تعذر سحب الطلب",
+        "editBlocked": "التعديل بانتظار المراجعة",
         "title": "الملف الشخصي",
         "connectedAccounts": "حساب Google",
         "link": "ربط",
@@ -637,6 +646,8 @@
     "runResult": "تمت الترقية: {advanced}، قديمة: {outdated}"
   },
     "profileEdit": {
+        "pendingTitle": "تم إرسال طلب بالفعل",
+        "pendingHint": "يتاح التعديل بعد قرار المسؤول أو سحب الطلب.",
         "title": "تعديل الملف الشخصي",
         "lastName": "اسم العائلة",
         "firstName": "الاسم الأول",
@@ -1246,6 +1257,15 @@
             "projects": "إنشاء مشاريع"
         }
     },
+    "profileRequests": {
+        "title": "طلبات تعديل الملف الشخصي",
+        "empty": "لا توجد طلبات بالحالة المحددة",
+        "comment": "تعليق القرار",
+        "approve": "قبول",
+        "reject": "رفض",
+        "statuses": {"pending": "قيد الانتظار", "approved": "مقبول", "rejected": "مرفوض", "withdrawn": "مسحوب"},
+        "fields": {"fullname": "الاسم الكامل", "email": "البريد", "speciality": "التخصص", "class_": "الفصل", "teacher_info": "أدوار المعلم", "avatar": "الصورة الشخصية"}
+    },
     "adminQuotaLimits": {
         "title": "حدود المشاريع والمستخدمين",
         "globalTitle": "الحدود العامة",
@@ -1257,6 +1277,10 @@
         "user": "المستخدم",
         "saveProject": "حفظ حدود المشروع",
         "saveUser": "حفظ حد المستخدم",
+        "roleTitle": "حدود أدوار المشروع",
+        "roleHint": "حد المستخدم الشخصي له أولوية على حد الدور، وحد الدور له أولوية على حد المشروع والحد العام.",
+        "applyToCustom": "تطبيقه أيضاً على المستخدمين ذوي الحد الشخصي",
+        "roleSaved": "تم حفظ حد الدور. تمت إزالة الاستثناءات الشخصية: {count}",
         "saved": "تم حفظ الحدود"
     }
 }

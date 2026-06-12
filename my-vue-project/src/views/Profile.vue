@@ -81,6 +81,15 @@
         </div>
         <div v-if="notificationError" class="oauth-error">{{ notificationError }}</div>
 
+        <div v-if="profileChangeRequest" class="outdated-account">
+          <strong>{{ $t('profile.changePendingTitle') }}</strong>
+          <p>{{ $t('profile.changePendingHint') }}</p>
+          <button class="resend-button" :disabled="withdrawingRequest" @click="withdrawProfileChangeRequest">
+            {{ withdrawingRequest ? $t('common.sending') : $t('profile.withdrawChangeRequest') }}
+          </button>
+          <div v-if="profileChangeError" class="oauth-error">{{ profileChangeError }}</div>
+        </div>
+
         <!-- Google привязка в строчку -->
         <div class="info-row">
           <span class="info-label">{{ $t('profile.connectedAccounts') }}</span>
@@ -134,7 +143,9 @@
         {{ $t('common.loading') }}
       </div>
 
-      <button class="edit-button" @click="editProfile">{{ $t('profile.editProfile') }}</button>
+      <button class="edit-button" @click="editProfile" :disabled="!!profileChangeRequest">
+        {{ profileChangeRequest ? $t('profile.editBlocked') : $t('profile.editProfile') }}
+      </button>
       <button class="logout-button" @click="logout">{{ $t('navigation.logout') }}</button>
     </div>
 
@@ -179,6 +190,9 @@ const notificationError = ref('');
 const restorationStatus = ref('');
 const requestingRestoration = ref(false);
 const restorationError = ref('');
+const profileChangeRequest = ref<any>(null);
+const withdrawingRequest = ref(false);
+const profileChangeError = ref('');
 
 // OAuth состояния
 const googleLinked = ref(false);
@@ -220,6 +234,7 @@ onMounted(async () => {
   
   // Проверяем статус привязки Google
   await checkGoogleLinkStatus();
+  await loadProfileChangeRequest();
   if (user.value?.is_outdated && !user.value.is_teacher) {
     try {
       const response = await api.get('/account-restoration-request');
@@ -256,7 +271,30 @@ const openAvatarModal = () => {
 };
 
 const editProfile = () => {
+  if (profileChangeRequest.value) return;
   router.push('/profile/edit');
+};
+
+const loadProfileChangeRequest = async () => {
+  try {
+    const response = await api.get('/profile-change-request');
+    profileChangeRequest.value = response.data.request;
+  } catch (error) {
+    console.error('Failed to load profile change request:', error);
+  }
+};
+
+const withdrawProfileChangeRequest = async () => {
+  withdrawingRequest.value = true;
+  profileChangeError.value = '';
+  try {
+    await api.delete('/profile-change-request');
+    profileChangeRequest.value = null;
+  } catch (error: any) {
+    profileChangeError.value = error.response?.data?.detail || t('profile.withdrawChangeError');
+  } finally {
+    withdrawingRequest.value = false;
+  }
 };
 
 const toggleEmailNotifications = async (event: Event) => {

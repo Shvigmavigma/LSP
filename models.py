@@ -130,3 +130,17 @@ class ProjectChange(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     description = Column(String, default="")  # Автоматическое описание
+
+
+class ProfileChangeRequest(Base):
+    __tablename__ = "profile_change_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    old_data = Column(JSON, nullable=False)
+    new_data = Column(JSON, nullable=False)
+    status = Column(String, default="pending", nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    handled_at = Column(DateTime, nullable=True)
+    handled_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    decision_comment = Column(String, nullable=True)
