@@ -66,7 +66,9 @@ from email_utils import (
 from core.memory_store import memory_store as redis_client
 from excel_import_utils import (
     ExcelImportValidationError,
+    generate_excel_template,
     get_excel_template,
+    get_excel_template_config,
     install_excel_template,
     parse_excel_import,
     reset_excel_template,
@@ -4844,6 +4846,36 @@ async def upload_excel_import_template(
     except ExcelImportValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"message": "Новый шаблон установлен"}
+
+
+@app.get("/admin/excel-import/template/{import_type}/config", tags=["Admin"])
+async def get_excel_import_template_configuration(
+    import_type: str,
+    admin: User = Depends(get_current_admin),
+):
+    try:
+        return get_excel_template_config(import_type)
+    except ExcelImportValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.put("/admin/excel-import/template/{import_type}/generate", tags=["Admin"])
+async def generate_excel_import_template(
+    import_type: str,
+    data: dict = Body(...),
+    admin: User = Depends(get_current_admin),
+):
+    example_values = data.get("example_values")
+    columns = data.get("columns")
+    if not isinstance(example_values, dict):
+        raise HTTPException(status_code=400, detail="Не переданы примеры значений")
+    if not isinstance(columns, list):
+        raise HTTPException(status_code=400, detail="Не передан список столбцов")
+    try:
+        generate_excel_template(import_type, example_values, columns)
+    except ExcelImportValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"message": "Шаблон сгенерирован и установлен"}
 
 
 @app.delete("/admin/excel-import/template/{import_type}", tags=["Admin"])
