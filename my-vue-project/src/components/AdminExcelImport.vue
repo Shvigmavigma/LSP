@@ -5,9 +5,14 @@
         <h2>{{ $t('excelImport.title') }}</h2>
         <p>{{ $t('excelImport.description') }}</p>
       </div>
-      <button class="template-button" type="button" @click="showTemplateControls = !showTemplateControls">
-        {{ $t('excelImport.manageTemplate') }}
-      </button>
+      <div class="heading-actions">
+        <button class="template-button" type="button" @click="downloadTemplate" :disabled="busy">
+          {{ $t('excelImport.downloadTemplate') }}
+        </button>
+        <button class="template-button" type="button" @click="showTemplateControls = !showTemplateControls">
+          {{ $t('excelImport.manageTemplate') }}
+        </button>
+      </div>
     </div>
 
     <div v-if="modes.length > 1" class="mode-tabs">
@@ -24,24 +29,50 @@
 
     <div class="required-columns">
       <strong>{{ $t('excelImport.requiredColumns') }}</strong>
-      <code v-for="column in columns[selectedMode]" :key="column">{{ column }}</code>
+      <code v-for="column in requiredColumns[selectedMode]" :key="column">{{ column }}</code>
     </div>
 
     <div v-if="showTemplateControls" class="template-controls">
-      <button class="template-button" type="button" @click="downloadTemplate" :disabled="busy">
-        {{ $t('excelImport.downloadTemplate') }}
-      </button>
-      <label class="template-button file-button">
-        {{ $t('excelImport.installTemplate') }}
-        <input
-          type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          @change="installTemplate"
-        />
-      </label>
-      <button class="reset-template-button" type="button" @click="resetTemplate" :disabled="busy">
-        {{ $t('excelImport.resetTemplate') }}
-      </button>
+      <div class="builder-heading">
+        <strong>{{ $t('excelImport.builderTitle') }}</strong>
+        <span>{{ $t('excelImport.builderHint') }}</span>
+      </div>
+      <div class="builder-grid">
+        <div v-for="(column, index) in builderColumns" :key="`${column}-${index}`" class="builder-column">
+          <div class="column-heading">
+            <strong v-if="isRequired(column)">{{ column }}</strong>
+            <input
+              v-else
+              :value="column"
+              type="text"
+              :placeholder="$t('excelImport.columnName')"
+              @change="renameColumnFromEvent(index, $event)"
+            />
+            <button
+              v-if="!isRequired(column)"
+              type="button"
+              class="remove-column"
+              :title="$t('excelImport.removeColumn')"
+              @click="removeColumn(index)"
+            >✕</button>
+          </div>
+          <input v-model="builderValues[column]" type="text" :placeholder="$t('excelImport.examplePlaceholder')" />
+        </div>
+      </div>
+      <div class="add-column">
+        <input v-model="newColumnName" type="text" :placeholder="$t('excelImport.columnName')" @keyup.enter="addColumn" />
+        <button class="template-button" type="button" :disabled="!newColumnName.trim()" @click="addColumn">
+          {{ $t('excelImport.addColumn') }}
+        </button>
+      </div>
+      <div class="builder-actions">
+        <button class="import-button" type="button" @click="generateTemplate" :disabled="busy || !builderComplete">
+          {{ $t('excelImport.generateTemplate') }}
+        </button>
+        <button class="reset-template-button" type="button" @click="resetTemplate" :disabled="busy">
+          {{ $t('excelImport.resetTemplate') }}
+        </button>
+      </div>
     </div>
 
     <div
@@ -94,7 +125,7 @@ const props = defineProps<{ modes: ImportMode[] }>();
 const emit = defineEmits<{ imported: [] }>();
 const { t } = useI18n();
 
-const columns: Record<ImportMode, string[]> = {
+const requiredColumns: Record<ImportMode, string[]> = {
   student_emails: ['email'],
   teacher_emails: ['email'],
   students: ['fullname', 'email', 'password', 'class'],
@@ -110,6 +141,9 @@ const message = ref('');
 const isError = ref(false);
 const dragging = ref(false);
 const showTemplateControls = ref(false);
+const builderValues = ref<Record<string, string>>({});
+const builderColumns = ref<string[]>([]);
+const newColumnName = ref('');
 
 watch(
   () => props.modes,
@@ -118,6 +152,7 @@ watch(
     resetResult();
   },
 );
+watch(selectedMode, loadBuilder, { immediate: true });
 
 function resetResult() {
   file.value = null;
@@ -157,6 +192,77 @@ function formatFileSize(bytes: number) {
     : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function resetBuilder() {
+  builderColumns.value = [...requiredColumns[selectedMode.value]];
+  builderValues.value = Object.fromEntries(builderColumns.value.map((column) => [column, '']));
+}
+
+const builderComplete = computed(() =>
+  builderColumns.value.length > 0
+  && new Set(builderColumns.value).size === builderColumns.value.length
+  && builderColumns.value.every(
+    (column) => column.trim() && String(builderValues.value[column] || '').trim(),
+  ),
+);
+
+async function loadBuilder() {
+  resetBuilder();
+  try {
+    const response = await api.get(`/admin/excel-import/template/${selectedMode.value}/config`);
+    builderColumns.value = response.data.columns || [...requiredColumns[selectedMode.value]];
+    builderValues.value = Object.fromEntries(
+      builderColumns.value.map((column) => [
+        column,
+        String(response.data.example_values?.[column] ?? ''),
+      ]),
+    );
+  } catch (error: any) {
+    isError.value = true;
+    message.value = error.response?.data?.detail || t('excelImport.templateConfigError');
+  }
+}
+
+function isRequired(column: string) {
+  return requiredColumns[selectedMode.value].includes(column);
+}
+
+function addColumn() {
+  const column = newColumnName.value.trim();
+  if (!column || builderColumns.value.includes(column)) {
+    isError.value = true;
+    message.value = t('excelImport.columnDuplicate');
+    return;
+  }
+  builderColumns.value.push(column);
+  builderValues.value[column] = '';
+  newColumnName.value = '';
+  message.value = '';
+}
+
+function removeColumn(index: number) {
+  const column = builderColumns.value[index];
+  if (isRequired(column)) return;
+  builderColumns.value.splice(index, 1);
+  delete builderValues.value[column];
+}
+
+function renameColumn(index: number, rawName: string) {
+  const oldName = builderColumns.value[index];
+  const newName = rawName.trim();
+  if (!newName || (newName !== oldName && builderColumns.value.includes(newName))) {
+    isError.value = true;
+    message.value = t('excelImport.columnDuplicate');
+    return;
+  }
+  builderColumns.value[index] = newName;
+  builderValues.value[newName] = builderValues.value[oldName] || '';
+  if (newName !== oldName) delete builderValues.value[oldName];
+}
+
+function renameColumnFromEvent(index: number, event: Event) {
+  renameColumn(index, (event.target as HTMLInputElement).value);
+}
+
 async function downloadTemplate() {
   busy.value = true;
   try {
@@ -177,22 +283,19 @@ async function downloadTemplate() {
   }
 }
 
-async function installTemplate(event: Event) {
-  const selected = (event.target as HTMLInputElement).files?.[0];
-  (event.target as HTMLInputElement).value = '';
-  if (!selected) return;
+async function generateTemplate() {
   busy.value = true;
-  const form = new FormData();
-  form.append('file', selected);
   try {
-    await api.put(`/admin/excel-import/template/${selectedMode.value}`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    await api.put(`/admin/excel-import/template/${selectedMode.value}/generate`, {
+      example_values: builderValues.value,
+      columns: builderColumns.value,
     });
     isError.value = false;
-    message.value = t('excelImport.templateInstalled');
+    message.value = t('excelImport.templateGenerated');
+    await loadBuilder();
   } catch (error: any) {
     isError.value = true;
-    message.value = error.response?.data?.detail || t('excelImport.templateInstallError');
+    message.value = error.response?.data?.detail || t('excelImport.templateGenerateError');
   } finally {
     busy.value = false;
   }
@@ -204,6 +307,7 @@ async function resetTemplate() {
     await api.delete(`/admin/excel-import/template/${selectedMode.value}`);
     isError.value = false;
     message.value = t('excelImport.templateReset');
+    await loadBuilder();
   } catch (error: any) {
     isError.value = true;
     message.value = error.response?.data?.detail || t('excelImport.templateResetError');
@@ -250,12 +354,13 @@ async function upload() {
   border-radius: 8px;
   box-shadow: var(--shadow);
 }
-.import-heading, .upload-row, .template-controls {
+.import-heading, .upload-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 14px;
 }
+.heading-actions, .builder-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .import-heading h2 { margin: 0 0 4px; color: var(--heading-color); font-size: 1.2rem; }
 .import-heading p { margin: 0; color: var(--text-secondary); }
 .mode-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
@@ -272,9 +377,30 @@ async function upload() {
   color: var(--button-text);
 }
 .reset-template-button { border-color: var(--danger-color); color: var(--danger-color); }
-.template-controls { justify-content: flex-start; flex-wrap: wrap; margin: 14px 0; }
-.file-button { position: relative; overflow: hidden; }
-.file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.template-controls {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-column);
+}
+.builder-heading { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; }
+.builder-heading span { color: var(--text-secondary); font-size: .9rem; }
+.builder-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.builder-column { display: flex; flex-direction: column; gap: 5px; color: var(--text-secondary); }
+.builder-grid input, .add-column input, .column-heading input {
+  width: 100%;
+  padding: 9px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+}
+.column-heading { display: flex; align-items: center; gap: 6px; min-height: 34px; }
+.column-heading input { min-width: 0; flex: 1; }
+.remove-column { border: 0; background: transparent; color: var(--danger-color); cursor: pointer; }
+.add-column { display: flex; gap: 8px; margin-top: 12px; }
+.add-column input { flex: 1; }
+.builder-actions { margin-top: 12px; }
 .drop-zone {
   min-height: 132px;
   display: flex;
@@ -308,6 +434,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .result { margin: 12px 0 0; color: var(--accent-color); }
 .result.error { color: var(--danger-color); }
 @media (max-width: 700px) {
-  .import-heading, .upload-row, .template-controls { align-items: stretch; flex-direction: column; }
+  .import-heading, .upload-row { align-items: stretch; flex-direction: column; }
+  .heading-actions, .builder-actions { flex-direction: column; }
 }
 </style>
