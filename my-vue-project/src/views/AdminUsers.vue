@@ -25,6 +25,27 @@
           <option value="teacher">{{ $t('adminUsers.filterTeachers') }}</option>
           <option value="admin">{{ $t('adminUsers.filterAdmins') }}</option>
           <option value="curator">{{ $t('adminUsers.filterCurators') }}</option>
+          <option value="customer">{{ $t('roles.customer') }}</option>
+          <option value="supervisor">{{ $t('roles.supervisor') }}</option>
+          <option value="expert">{{ $t('roles.expert') }}</option>
+          <option value="executor">{{ $t('roles.executor') }}</option>
+        </select>
+        <input v-model.number="parallelFilter" type="number" min="1" max="11" :placeholder="$t('adminDirections.parallel')" />
+        <input v-model.number="classFilter" type="number" min="0" max="9" :placeholder="$t('adminDirections.class')" />
+        <select v-model="directionFilter">
+          <option value="">{{ $t('adminDirections.all') }}</option>
+          <option v-for="direction in directions" :key="direction.key" :value="direction.key">{{ direction.label }}</option>
+        </select>
+        <select v-model="sortBy">
+          <option value="fullname">{{ $t('adminUsers.table.fullname') }}</option>
+          <option value="role">{{ $t('adminUsers.table.type') }}</option>
+          <option value="parallel">{{ $t('adminDirections.parallel') }}</option>
+          <option value="class">{{ $t('adminDirections.class') }}</option>
+          <option value="direction">{{ $t('adminDirections.direction') }}</option>
+        </select>
+        <select v-model="sortOrder">
+          <option value="asc">A-Z</option>
+          <option value="desc">Z-A</option>
         </select>
       </div>
 
@@ -118,6 +139,12 @@ const users = ref<User[]>([]);
 const loading = ref(true);
 const search = ref('');
 const roleFilter = ref('all');
+const classFilter = ref<number | null>(null);
+const parallelFilter = ref<number | null>(null);
+const directionFilter = ref('');
+const sortBy = ref('fullname');
+const sortOrder = ref('asc');
+const directions = ref<Array<{ key: string; label: string }>>([]);
 
 const showDeleteModal = ref(false);
 const userToDelete = ref<number | null>(null);
@@ -128,8 +155,9 @@ onMounted(async () => {
 
 async function loadUsers() {
   try {
-    const response = await api.get('/admin/users');
+    const [response, directionResponse] = await Promise.all([api.get('/admin/users'), api.get('/user-directions')]);
     users.value = response.data;
+    directions.value = directionResponse.data.directions || [];
   } catch (error) {
     console.error('Failed to load users', error);
   } finally {
@@ -151,8 +179,23 @@ const filteredUsers = computed(() => {
     filtered = filtered.filter(u => u.is_admin === true);
   } else if (roleFilter.value === 'curator') {
     filtered = filtered.filter(u => u.teacher_info?.curator === true);
+  } else if (['customer', 'supervisor', 'expert'].includes(roleFilter.value)) {
+    filtered = filtered.filter(u => u.teacher_info?.roles?.includes(roleFilter.value));
+  } else if (roleFilter.value === 'executor') {
+    filtered = filtered.filter(u => !u.is_admin);
   }
-  return filtered;
+  if (parallelFilter.value) filtered = filtered.filter(u => Math.trunc(u.class || 0) === parallelFilter.value);
+  if (classFilter.value !== null) filtered = filtered.filter(u => Math.round(((u.class || 0) % 1) * 10) === classFilter.value);
+  if (directionFilter.value) filtered = filtered.filter(u => u.direction_key === directionFilter.value);
+  return [...filtered].sort((a, b) => {
+    const value = (u: User): string | number => sortBy.value === 'class' ? Math.round(((u.class || 0) % 1) * 10)
+      : sortBy.value === 'parallel' ? Math.trunc(u.class || 0)
+      : sortBy.value === 'direction' ? (u.direction_key || '')
+      : sortBy.value === 'role' ? (u.is_admin ? 3 : u.is_teacher ? 2 : 1)
+      : displayUserName(u).toLowerCase();
+    const result = value(a) < value(b) ? -1 : value(a) > value(b) ? 1 : 0;
+    return sortOrder.value === 'desc' ? -result : result;
+  });
 });
 
 async function toggleActive(user: User) {

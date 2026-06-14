@@ -35,6 +35,14 @@
         </div>
 
         <div class="form-group">
+          <label>{{ $t('adminDirections.direction') }}</label>
+          <select v-model="form.direction_key">
+            <option value="">{{ $t('common.notSelected') }}</option>
+            <option v-for="direction in directions" :key="direction.key" :value="direction.key">{{ direction.label }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label>
             <input type="checkbox" v-model="form.is_active" />
             {{ $t('adminUserEdit.active') }}
@@ -107,12 +115,14 @@ const userId = Number(route.params.id);
 const loading = ref(true);
 const error = ref('');
 const saving = ref(false);
+const directions = ref<Array<{ key: string; label: string }>>([]);
 
 interface FormData {
   fullname: string;
   email: string;
   class: number;
   speciality: string;
+  direction_key: string;
   is_active: boolean;
   is_admin: boolean;
   is_teacher: boolean;
@@ -126,6 +136,7 @@ const form = reactive<FormData>({
   email: '',
   class: 0,
   speciality: '',
+  direction_key: 'no_direction',
   is_active: true,
   is_admin: false,
   is_teacher: false,
@@ -136,12 +147,17 @@ const form = reactive<FormData>({
 
 onMounted(async () => {
   try {
-    const response = await api.get(`/admin/users/${userId}`);
+    const [response, directionsResponse] = await Promise.all([
+      api.get(`/admin/users/${userId}`),
+      api.get('/user-directions'),
+    ]);
+    directions.value = directionsResponse.data.directions || [];
     const user: User = response.data;
     form.fullname = user.fullname;
     form.email = user.email;
     form.class = user.class ?? 0;
     form.speciality = user.speciality || '';
+    form.direction_key = user.direction_key || 'no_direction';
     form.is_active = user.is_active ?? true;
     form.is_admin = user.is_admin ?? false;
     form.is_teacher = user.is_teacher ?? false;
@@ -164,6 +180,7 @@ async function handleSubmit() {
       email: form.email,
       class_: form.class,
       speciality: form.speciality,
+      direction_key: form.direction_key || null,
       is_active: form.is_active,
       is_admin: form.is_admin,
       is_outdated: form.is_outdated,
@@ -241,7 +258,7 @@ label {
   margin-bottom: 6px;
   color: var(--text-secondary);
 }
-input[type="text"], input[type="email"] {
+input[type="text"], input[type="email"], select {
   width: 100%;
   padding: 10px;
   border: 1px solid var(--input-border);

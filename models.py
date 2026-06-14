@@ -12,6 +12,7 @@ class User(Base):
     fullname = Column(String, nullable=False, index=True)
     class_ = Column(Float, default=0.0)
     speciality = Column(String, nullable=True)
+    direction_key = Column(String, nullable=False, default="no_direction", index=True)
     email = Column(String, nullable=False, index=True, unique=True)
     avatar = Column(String, nullable=True)
     

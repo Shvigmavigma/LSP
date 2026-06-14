@@ -9,7 +9,7 @@
       </div>
     </header>
 
-    <div v-if="!authStore.user?.is_outdated" class="action-bar">
+    <div v-if="canCreateProject" class="action-bar">
       <button class="create-button" @click="createProject">+ {{ $t('userProjects.createProject') }}</button>
     </div>
 
@@ -66,7 +66,7 @@
 
 <script setup lang="ts">
 import { getUserDisplayName as displayUserName, getUserInitial as displayUserInitial } from '@/utils/userDisplay';
-import { ref, onMounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
 import { useUsersStore } from '@/stores/users';
@@ -89,6 +89,13 @@ const projects = ref<Project[]>([]);
 const loading = ref(true);
 const avatarError = ref<Record<number, boolean>>({});
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const canCreateProject = computed(() => {
+  const user = authStore.user;
+  if (!user || loading.value || user.is_outdated) return false;
+  if (user.is_admin) return true;
+  if (!user.is_teacher) return projects.value.length === 0;
+  return Boolean(user.teacher_info?.roles?.includes('customer') || user.teacher_info?.curator);
+});
 
 onMounted(async () => {
   if (usersStore.users.length === 0) {
@@ -150,7 +157,7 @@ function getRoleIcon(role: ProjectRole): string {
 }
 
 const createProject = () => {
-  if (authStore.user?.is_outdated) return;
+  if (!canCreateProject.value) return;
   router.push('/project/edit/new');
 };
 

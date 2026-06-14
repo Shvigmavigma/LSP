@@ -8,36 +8,41 @@
       </div>
     </header>
 
-    <div class="filter-tabs">
-      <button
-        class="tab-button"
-        :class="{ active: filterType === 'all' }"
-        @click="setFilter('all')"
-      >
-        {{ $t('allUsers.filterAll') }}
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: filterType === 'students' }"
-        @click="setFilter('students')"
-      >
-        {{ $t('allUsers.filterStudents') }}
-      </button>
-      <button
-        class="tab-button"
-        :class="{ active: filterType === 'teachers' }"
-        @click="setFilter('teachers')"
-      >
-        {{ $t('allUsers.filterTeachers') }}
-      </button>
-    </div>
-
     <div class="search-container">
       <input
         v-model="search"
         :placeholder="searchPlaceholder"
         @input="onSearchInput"
       />
+      <div class="advanced-filters">
+        <select v-model="roleFilter">
+          <option value="">{{ $t('allUsers.filterAll') }}</option>
+          <option value="student">{{ $t('register.student') }}</option>
+          <option value="admin">{{ $t('register.admin') }}</option>
+          <option value="curator">{{ $t('roles.curator') }}</option>
+          <option value="customer">{{ $t('roles.customer') }}</option>
+          <option value="supervisor">{{ $t('roles.supervisor') }}</option>
+          <option value="expert">{{ $t('roles.expert') }}</option>
+          <option value="executor">{{ $t('roles.executor') }}</option>
+        </select>
+        <input v-model.number="parallelFilter" type="number" min="1" max="11" :placeholder="$t('adminDirections.parallel')" />
+        <input v-model.number="classFilter" type="number" min="0" max="9" :placeholder="$t('adminDirections.class')" />
+        <select v-model="directionFilter">
+          <option value="">{{ $t('adminDirections.all') }}</option>
+          <option v-for="direction in directions" :key="direction.key" :value="direction.key">{{ direction.label }}</option>
+        </select>
+        <select v-model="sortBy">
+          <option value="fullname">{{ $t('adminDirections.sort') }}: {{ $t('adminUsers.table.fullname') }}</option>
+          <option value="role">{{ $t('adminUsers.table.type') }}</option>
+          <option value="parallel">{{ $t('adminDirections.parallel') }}</option>
+          <option value="class">{{ $t('adminDirections.class') }}</option>
+          <option value="direction">{{ $t('adminDirections.direction') }}</option>
+        </select>
+        <select v-model="sortOrder">
+          <option value="asc">A-Z</option>
+          <option value="desc">Z-A</option>
+        </select>
+      </div>
     </div>
 
     <div v-if="loading" class="loading">{{ $t('common.loading') }}</div>
@@ -61,6 +66,7 @@
         <h3 class="user-display-name">{{ displayUserName(user) }}</h3>
         <p class="user-fullname">{{ user.fullname }}</p>
         <p class="user-email">{{ user.email }}</p>
+        <p v-if="user.direction_key" class="user-speciality">{{ directionLabel(user.direction_key) }}</p>
 
         <template v-if="!user.is_teacher">
           <div class="user-class">{{ $t('allUsers.classLabel') }}: {{ user.class }}</div>
@@ -95,7 +101,13 @@ const users = ref<User[]>([]);
 const search = ref('');
 const loading = ref(true);
 const imageError = ref<Record<number, boolean>>({});
-const filterType = ref<'all' | 'students' | 'teachers'>('all');
+const roleFilter = ref('');
+const classFilter = ref<number | null>(null);
+const parallelFilter = ref<number | null>(null);
+const directionFilter = ref('');
+const sortBy = ref('fullname');
+const sortOrder = ref('asc');
+const directions = ref<Array<{ key: string; label: string }>>([]);
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -103,24 +115,19 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const avatarUrl = (avatar: string) => `${baseUrl}/avatars/${avatar}`;
 
-const searchPlaceholder = computed(() => {
-  switch (filterType.value) {
-    case 'students': return t('allUsers.searchStudents');
-    case 'teachers': return t('allUsers.searchTeachers');
-    default: return t('allUsers.searchAll');
-  }
-});
+const searchPlaceholder = computed(() => t('allUsers.searchAll'));
 
 async function loadUsers() {
   loading.value = true;
   try {
-    if (filterType.value === 'students') {
-      await usersStore.fetchStudents(search.value || undefined);
-    } else if (filterType.value === 'teachers') {
-      await usersStore.fetchTeachers(search.value || undefined);
-    } else {
-      await usersStore.fetchUsers(undefined, search.value || undefined);
-    }
+    const role = roleFilter.value || undefined;
+    await usersStore.fetchUsers(role, search.value || undefined, {
+      class_grade: classFilter.value ?? undefined,
+      parallel: parallelFilter.value || undefined,
+      direction_key: directionFilter.value || undefined,
+      sort_by: sortBy.value,
+      sort_order: sortOrder.value,
+    });
     users.value = usersStore.users;
     imageError.value = {};
   } catch (error) {
@@ -130,23 +137,20 @@ async function loadUsers() {
   }
 }
 
-watch([filterType, search], () => {
+watch([search, roleFilter, classFilter, parallelFilter, directionFilter, sortBy, sortOrder], () => {
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
     loadUsers();
   }, 300);
 });
 
-onMounted(() => {
+onMounted(async () => {
+  const response = await fetch(`${baseUrl}/user-directions`);
+  directions.value = (await response.json()).directions || [];
   loadUsers();
 });
 
 function onSearchInput() {
-  imageError.value = {};
-}
-
-function setFilter(type: 'all' | 'students' | 'teachers') {
-  filterType.value = type;
   imageError.value = {};
 }
 
@@ -163,6 +167,10 @@ function getRolesText(user: User): string {
   const roles = user.teacher_info.roles.map(role => t(`roles.${role}`));
   if (user.teacher_info.curator) roles.push(t('roles.curator'));
   return roles.join(', ');
+}
+
+function directionLabel(key: string): string {
+  return directions.value.find(item => item.key === key)?.label || key;
 }
 </script>
 
@@ -250,6 +258,8 @@ function getRolesText(user: User): string {
   background: var(--input-bg);
   color: var(--text-primary);
 }
+.advanced-filters { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
+.advanced-filters input, .advanced-filters select { padding: 10px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); }
 
 .search-container input::placeholder {
   color: var(--text-secondary);

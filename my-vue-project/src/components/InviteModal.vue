@@ -15,6 +15,7 @@
               @input="searchUsers"
               autocomplete="off"
             />
+            <UserSearchFilters v-model="userFilters" @change="searchUsers" />
             <div v-if="searchResults.length > 0" class="search-results">
               <div
                 v-for="user in searchResults"
@@ -79,6 +80,7 @@ import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth';
 import type { ProjectRole, User } from '@/types';
 import api from'@/utils/api'
+import UserSearchFilters, { type UserSearchFilterValue } from '@/components/UserSearchFilters.vue';
 
 const { t } = useI18n();
 const authStore = useAuthStore();
@@ -99,6 +101,7 @@ const selectedUser = ref<User | null>(null);
 const role = ref<ProjectRole>('executor');
 const sending = ref(false);
 const errorMessage = ref('');
+const userFilters = ref<UserSearchFilterValue>({});
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -173,7 +176,7 @@ async function searchUsers() {
     }
     try {
       const response = await api.get('/users/', {
-        params: { q: query }
+        params: { q: query, ...userFilters.value }
       });
       // Исключаем текущего пользователя из результатов
       const currentUserId = authStore.user?.id;

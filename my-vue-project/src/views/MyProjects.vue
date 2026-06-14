@@ -10,7 +10,7 @@
     </header>
 
     <!-- Кнопка создания проекта - показываем только если пользователь может создавать проекты -->
-    <div v-if="canCreateProject" class="create-section">
+    <div v-if="!loading && canCreateProject" class="create-section">
       <button class="create-button-top" @click="createProject">
         + {{ $t('myProjects.createProjectButton') }}
       </button>
@@ -127,14 +127,15 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const canCreateProject = computed(() => {
   const user = authStore.user;
   if (!user) return false;
+  if (!authChecked.value || loading.value) return false;
   if (user.is_outdated) return false;
 
   // Администратор может создавать проекты
   if (user.is_admin) return true;
 
-  // Если пользователь НЕ учитель (обычный ученик) - НЕ может создавать проекты
+  // Ученик может создать свой первый проект, пока не участвует в других
   if (!user.is_teacher) {
-    return false;
+    return projects.value.length === 0;
   }
   
   // Учитель может создавать проекты, если он заказчик или куратор

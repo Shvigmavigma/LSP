@@ -85,6 +85,7 @@
                 </select>
                 <button @click="addParticipant" :disabled="!selectedUser">{{ $t('common.add') }}</button>
               </div>
+              <UserSearchFilters v-model="userFilters" @change="searchUsers" />
               <div v-if="searchResults.length > 0" class="search-results">
                 <div
                   v-for="user in searchResults"
@@ -245,6 +246,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import type { Project, Task, User, Participant, ProjectRole } from '@/types';
 import api from '@/utils/api'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import UserSearchFilters, { type UserSearchFilterValue } from '@/components/UserSearchFilters.vue';
 const { t } = useI18n();
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -308,6 +310,7 @@ const searchQuery = ref('');
 const searchResults = ref<UserWithRoles[]>([]);
 const selectedUser = ref<UserWithRoles | null>(null);
 const selectedRole = ref<ProjectRole>('executor');
+const userFilters = ref<UserSearchFilterValue>({});
 
 // Приглашение
 const inviteEmail = ref('');
@@ -351,11 +354,29 @@ function searchUsers() {
     return;
   }
   const q = searchQuery.value.toLowerCase();
-  const allUsers = usersStore.users.filter(u =>
+  const filters = userFilters.value;
+  const filteredUsers = usersStore.users.filter(u =>
     (displayUserName(u).toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) &&
+    (!filters.role || (filters.role === 'student' && !u.is_teacher && !u.is_admin) ||
+      (filters.role === 'teacher' && u.is_teacher) ||
+      (filters.role === 'admin' && u.is_admin) ||
+      (filters.role === 'curator' && Boolean(u.teacher_info?.curator))) &&
+    (filters.class_grade === null || filters.class_grade === undefined ||
+      Math.round((Number(u.class) - Math.trunc(Number(u.class))) * 10) === filters.class_grade) &&
+    (!filters.parallel || Math.trunc(Number(u.class)) === filters.parallel) &&
+    (!filters.direction_key || u.direction_key === filters.direction_key) &&
     !participants.value.some(p => p.user_id === u.id)
   );
-  searchResults.value = allUsers.map(user => ({
+  const fieldValue = (user: User) => {
+    if (filters.sort_by === 'role') return user.is_admin ? 3 : user.is_teacher ? 2 : 1;
+    if (filters.sort_by === 'class') return Math.round((Number(user.class) - Math.trunc(Number(user.class))) * 10);
+    if (filters.sort_by === 'parallel') return Math.trunc(Number(user.class)) || 0;
+    if (filters.sort_by === 'direction') return user.direction_key || '';
+    return displayUserName(user);
+  };
+  const direction = filters.sort_order === 'desc' ? -1 : 1;
+  filteredUsers.sort((a, b) => String(fieldValue(a)).localeCompare(String(fieldValue(b)), undefined, { numeric: true }) * direction);
+  searchResults.value = filteredUsers.map(user => ({
     ...user,
     availableRoles: getAvailableRoles(user)
   })).slice(0, 10);

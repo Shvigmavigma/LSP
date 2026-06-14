@@ -49,7 +49,7 @@
         "date": "Дата",
         "status": "Статус",
         "user": "Пользователь",
-        "searchUser": "????? ???????????? ?? ??? ??? email",
+        "searchUser": "Поиск пользователя по ФИО или email",
         "selected": "Выбран",
         "send": "Отправить приглашение",
         "sentSuccess": "Приглашение успешно отправлено!",
@@ -173,7 +173,7 @@
         "availableRoles": "Доступные роли",
         "noAvailableRoles": "Для этого пользователя нет доступных ролей",
         "userSearchLabel": "Поиск пользователя",
-        "userSearchPlaceholder": "??????? ??? ??? email",
+        "userSearchPlaceholder": "Введите ФИО или email",
         "selectedUser": "Выбранный пользователь",
         "roleLabel": "Роль",
         "sendButton": "Отправить приглашение",
@@ -411,8 +411,8 @@
         "projectCreated": "Проект успешно создан",
         "projectSaved": "Изменения сохранены",
         "saveError": "Не удалось сохранить изменения. Пожалуйста, попробуйте позже.",
-        "addParticipant": "???????? ????????? ?? ??? ??? email",
-        "userPlaceholder": "??????? ??? ??? email"
+        "addParticipant": "Добавить участника по ФИО или email",
+        "userPlaceholder": "Введите ФИО или email"
     },
     "adminProjects": {
         "title": "Управление проектами",
@@ -565,8 +565,8 @@
         "unknownError": "Неизвестная ошибка",
         "oauthError": "Ошибка авторизации через Google",
         "email": "Email",
-        "emailPlaceholder": "??????? email",
-        "invalidEmail": "??????? ?????????? email"
+        "emailPlaceholder": "Введите email",
+        "invalidEmail": "Введите корректный email"
     },
     "myProjects": {
         "noProjects": "У вас пока нет проектов",
@@ -952,7 +952,7 @@
         "codeSendError": "Ошибка при отправке кода. Возможно, email уже зарегистрирован.",
         "networkError": "Ошибка сети. Проверьте подключение к серверу.",
         "genericError": "Произошла ошибка при регистрации",
-        "invalidEmail": "??????? ?????????? email"
+        "invalidEmail": "Введите корректный email"
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы уверены, что хотите удалить этот файл?",
@@ -1069,7 +1069,11 @@
         "participantsLabel": "Участники",
         "userNotFound": "Пользователь не найден",
         "invalidId": "Неверный ID пользователя",
-        "noRoles": "Роли не назначены"
+        "noRoles": "Роли не назначены",
+        "inviteProject": "Выберите проект",
+        "inviteToProject": "Пригласить в проект",
+        "inviteSent": "Приглашение отправлено",
+        "inviteError": "Не удалось отправить приглашение"
     },
     "userProjects": {
         "title": "Ваши проекты",
@@ -1100,7 +1104,7 @@
             "network": "Ошибка сети. Проверьте подключение к серверу.",
             "invalidOrExpiredCode": "Неверный или истекший код подтверждения",
             "resendHint": "Попробуйте запросить код повторно",
-            "alreadyRegistered": "???????????? ? ????? email ??? ??????????",
+            "alreadyRegistered": "Пользователь с таким email уже существует",
             "tryLogin": "Попробуйте войти или используйте другие данные",
             "registrationFailed": "Ошибка при регистрации",
             "emailNotAllowed": "Email не разрешен для регистрации учителя",
@@ -1266,8 +1270,9 @@
             "email": "Почта",
             "speciality": "Специализация",
             "class_": "Класс",
-            "teacher_info": "Роли учителя"
-            ,"avatar": "Аватар"
+            "teacher_info": "Роли учителя",
+            "direction_key": "Направление",
+            "avatar": "Аватар"
         }
     },
     "adminQuotaLimits": {
@@ -1286,5 +1291,16 @@
         "applyToCustom": "Применить также к пользователям с персональным лимитом",
         "roleSaved": "Ролевой лимит сохранён. Удалено персональных исключений: {count}",
         "saved": "Лимиты сохранены"
+    },
+    "adminDirections": {
+        "title": "Направления пользователей",
+        "desc": "Добавление и удаление направлений учеников и учителей",
+        "namePlaceholder": "Название направления",
+        "keyPlaceholder": "Ключ направления (необязательно)",
+        "direction": "Направление",
+        "all": "Все направления",
+        "sort": "Сортировка",
+        "class": "Класс",
+        "parallel": "Параллель"
     }
 }

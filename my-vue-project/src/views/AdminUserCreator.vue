@@ -100,6 +100,16 @@
             />
           </div>
 
+          <div v-if="userType !== 'admin'" class="form-group">
+            <label>{{ $t('adminDirections.direction') }}</label>
+            <select v-model="form.direction_key">
+              <option value="">{{ $t('common.notSelected') }}</option>
+              <option v-for="direction in directions" :key="direction.key" :value="direction.key">
+                {{ direction.label }}
+              </option>
+            </select>
+          </div>
+
           <!-- Специальность -->
           <div class="form-group">
             <label>{{ $t('register.speciality') }}</label>
@@ -174,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import ClassInput from '@/components/ClassInput.vue';
@@ -196,6 +206,7 @@ const userType = ref<'student' | 'teacher' | 'admin'>('student');
 const loading = ref(false);
 const errorMessage = ref('');
 const successMessage = ref('');
+const directions = ref<Array<{ key: string; label: string }>>([]);
 
 // Форма для одного пользователя
 const form = ref({
@@ -205,6 +216,7 @@ const form = ref({
   email: '',
   password: '',
   class_: 0,
+  direction_key: 'no_direction',
   speciality: '',
   isCurator: false,
   isAdmin: true,
@@ -273,7 +285,8 @@ const createUser = async () => {
       fullname,
       email: form.value.email.trim().toLowerCase(),
       password: form.value.password,
-      speciality: form.value.speciality
+      speciality: form.value.speciality,
+      direction_key: userType.value === 'admin' ? null : form.value.direction_key || null
     };
 
     let endpoint = '';
@@ -309,6 +322,7 @@ const createUser = async () => {
         email: '',
         password: '',
         class_: 0,
+        direction_key: 'no_direction',
         speciality: '',
         isCurator: false,
         isAdmin: true,
@@ -330,6 +344,11 @@ const createUser = async () => {
     loading.value = false;
   }
 };
+
+onMounted(async () => {
+  const response = await api.get('/user-directions');
+  directions.value = response.data.directions || [];
+});
 </script>
 
 <style scoped>
@@ -456,6 +475,15 @@ input[type="password"] {
   background: var(--input-bg);
   color: var(--text-primary);
   font-size: 1rem;
+}
+
+select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text-primary);
 }
 
 input:focus {
