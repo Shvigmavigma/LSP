@@ -1,0 +1,28 @@
+{
+  "directions": [
+    {
+      "key": "no_direction",
+      "label": "Без направления"
+    },
+    {
+      "key": "tech_design",
+      "label": "Тех дизайн"
+    },
+    {
+      "key": "arm",
+      "label": "АРМ"
+    },
+    {
+      "key": "natural_science",
+      "label": "Естественно-научный"
+    },
+    {
+      "key": "programming",
+      "label": "Программирование"
+    },
+    {
+      "key": "economics",
+      "label": "Экономика"
+    }
+  ]
+}

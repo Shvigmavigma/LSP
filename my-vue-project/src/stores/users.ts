@@ -17,11 +17,12 @@ export const useUsersStore = defineStore('users', {
      * @param userType - 'student', 'teacher' или undefined (все)
      * @param query - поисковый запрос
      */
-    async fetchUsers(userType?: string, query?: string) {
+    async fetchUsers(userType?: string, query?: string, filters: Record<string, any> = {}) {
       try {
         const params: any = {}
         if (userType) params.user_type = userType
         if (query) params.q = query
+        Object.assign(params, filters)
 
         const response = await axios.get('/users/', { params })
         this.users = response.data

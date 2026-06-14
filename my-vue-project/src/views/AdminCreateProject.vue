@@ -77,6 +77,7 @@
                 :placeholder="$t('admin.createProject.searchCustomerPlaceholder')"
                 @input="searchCustomers"
               />
+              <UserSearchFilters v-model="userFilters" @change="refreshUserSearches" />
               <div v-if="customerSearchResults.length > 0 && !selectedCustomer" class="search-results">
                 <div
                   v-for="user in customerSearchResults"
@@ -308,6 +309,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import HomeButton from '@/components/HomeButton.vue';
 import api from '@/utils/api';
+import UserSearchFilters, { type UserSearchFilterValue } from '@/components/UserSearchFilters.vue';
 
 const { t } = useI18n();
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -324,6 +326,7 @@ const selectedCustomer = ref<any>(null);
 const customerSearchResults = ref<any[]>([]);
 const participantSearchResults = ref<any[]>([]);
 const customerError = ref('');
+const userFilters = ref<UserSearchFilterValue>({});
 
 // Тип для участника
 interface OtherParticipant {
@@ -405,7 +408,7 @@ const searchCustomers = async () => {
     return;
   }
   try {
-    const response = await api.get(`/users/?q=${encodeURIComponent(customerSearchQuery.value)}`);
+    const response = await api.get('/users/', { params: { q: customerSearchQuery.value, ...userFilters.value } });
     customerSearchResults.value = response.data;
   } catch (error) {
     console.error('Error searching users:', error);
@@ -418,7 +421,7 @@ const searchParticipants = async () => {
     return;
   }
   try {
-    const response = await api.get(`/users/?q=${encodeURIComponent(participantSearchQuery.value)}`);
+    const response = await api.get('/users/', { params: { q: participantSearchQuery.value, ...userFilters.value } });
     participantSearchResults.value = response.data.filter(
       (u: any) => 
         (!selectedCustomer.value || u.id !== selectedCustomer.value.id) &&
@@ -427,6 +430,11 @@ const searchParticipants = async () => {
   } catch (error) {
     console.error('Error searching users:', error);
   }
+};
+
+const refreshUserSearches = () => {
+  if (customerSearchQuery.value.trim()) searchCustomers();
+  if (participantSearchQuery.value.trim()) searchParticipants();
 };
 
 const selectCustomer = (user: any) => {

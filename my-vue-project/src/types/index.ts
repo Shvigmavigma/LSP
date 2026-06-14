@@ -58,6 +58,7 @@ export interface User {
   fullname: string;
   class: number;
   speciality?: string;
+  direction_key?: string | null;
   email: string;
   avatar?: string;
   is_active?: boolean;

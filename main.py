@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, text, and_
+from sqlalchemy import Integer as SQLInteger, asc, case, cast, desc, func, or_, text, and_
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -90,6 +90,7 @@ FILE_SIZE_LIMITS_FILE = "file_size_limits.json"
 PROJECT_LIFECYCLE_FILE = "project_lifecycle.json"
 FILE_QUOTAS_FILE = "file_quotas.json"
 ACCOUNT_CLASS_SETTINGS_FILE = "account_class_settings.json"
+USER_DIRECTIONS_FILE = "user_directions.json"
 
 _json_file_cache: Dict[str, Dict[str, Any]] = {}
 
@@ -140,6 +141,42 @@ def load_account_class_settings() -> Dict[str, Any]:
 
 def save_account_class_settings(settings: Dict[str, Any]):
     write_json_cached(ACCOUNT_CLASS_SETTINGS_FILE, settings)
+
+
+def default_user_directions() -> Dict[str, Any]:
+    return {
+        "directions": [
+            {"key": "no_direction", "label": "Без направления"},
+            {"key": "tech_design", "label": "Тех дизайн"},
+            {"key": "arm", "label": "АРМ"},
+            {"key": "natural_science", "label": "Естественно-научный"},
+            {"key": "programming", "label": "Программирование"},
+            {"key": "economics", "label": "Экономика"},
+        ]
+    }
+
+
+def load_user_directions() -> Dict[str, Any]:
+    return read_json_cached(USER_DIRECTIONS_FILE, default_user_directions)
+
+
+def save_user_directions(data: Dict[str, Any]):
+    write_json_cached(USER_DIRECTIONS_FILE, data)
+
+
+def normalize_direction_key(value: Optional[str]) -> Optional[str]:
+    value = (value or "").strip().lower()
+    return value or None
+
+
+def validate_direction_key(value: Optional[str]) -> Optional[str]:
+    key = normalize_direction_key(value)
+    if key is None:
+        return "no_direction"
+    allowed = {item["key"] for item in load_user_directions().get("directions", [])}
+    if key not in allowed:
+        raise HTTPException(status_code=400, detail="Unknown user direction")
+    return key
 
 
 def class_is_empty(value: Optional[float]) -> bool:
@@ -677,6 +714,17 @@ def ensure_runtime_schema():
             connection.exec_driver_sql(
                 "ALTER TABLE users ADD COLUMN is_outdated BOOLEAN NOT NULL DEFAULT 0"
             )
+        if "direction_key" not in user_columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN direction_key VARCHAR NOT NULL DEFAULT 'no_direction'"
+            )
+        connection.exec_driver_sql(
+            "UPDATE users SET direction_key = 'no_direction' "
+            "WHERE direction_key IS NULL OR TRIM(direction_key) = ''"
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_users_direction_key ON users (direction_key)"
+        )
 
 ensure_runtime_schema()
 
@@ -696,6 +744,69 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def apply_user_query_options(
+    query,
+    q: Optional[str] = None,
+    role: Optional[str] = None,
+    class_grade: Optional[int] = None,
+    parallel: Optional[int] = None,
+    direction_key: Optional[str] = None,
+    sort_by: str = "fullname",
+    sort_order: str = "asc",
+):
+    role = (role or "").strip().lower()
+    if role == "student":
+        query = query.filter(User.is_teacher == False, User.is_admin == False)
+    elif role == "teacher":
+        query = query.filter(User.is_teacher == True)
+    elif role == "admin":
+        query = query.filter(User.is_admin == True)
+    elif role == "curator":
+        query = query.filter(User.is_teacher == True, User.teacher_info["curator"].as_boolean() == True)
+    elif role in {"customer", "expert", "supervisor"}:
+        query = query.filter(
+            User.is_teacher == True,
+            User.teacher_info["roles"].contains(role),
+        )
+    elif role == "executor":
+        query = query.filter(User.is_admin == False)
+
+    if q:
+        value = q.strip()
+        filters = [
+            User.fullname.ilike(f"%{value}%"),
+            User.email.ilike(f"%{value}%"),
+            User.speciality.ilike(f"%{value}%"),
+        ]
+        if value.isdigit():
+            filters.append(User.id == int(value))
+        query = query.filter(or_(*filters))
+
+    if class_grade is not None:
+        query = query.filter(func.round((User.class_ - cast(User.class_, SQLInteger)) * 10) == class_grade)
+    if parallel is not None:
+        query = query.filter(cast(User.class_, SQLInteger) == parallel)
+    if direction_key:
+        query = query.filter(User.direction_key == normalize_direction_key(direction_key))
+
+    role_sort = case(
+        (User.is_admin == True, 3),
+        (User.is_teacher == True, 2),
+        else_=1,
+    )
+    sort_columns = {
+        "fullname": User.fullname,
+        "email": User.email,
+        "role": role_sort,
+        "class": func.round((User.class_ - cast(User.class_, SQLInteger)) * 10),
+        "parallel": cast(User.class_, SQLInteger),
+        "direction": User.direction_key,
+    }
+    sort_column = sort_columns.get(sort_by, User.fullname)
+    ordering = desc(sort_column) if sort_order.lower() == "desc" else asc(sort_column)
+    return query.order_by(ordering, User.id.asc())
 
 def user_display_name(user: Optional[User]) -> str:
     if not user:
@@ -2128,6 +2239,52 @@ def account_class_settings_response(db: Session, settings: Dict[str, Any]) -> Di
     return result
 
 
+@app.get("/user-directions", tags=["Users"])
+async def get_user_directions():
+    return load_user_directions()
+
+
+@app.post("/admin/user-directions", tags=["Admin"])
+async def add_user_direction(
+    payload: Dict[str, Any] = Body(...),
+    admin: User = Depends(get_current_admin),
+):
+    label = str(payload.get("label") or "").strip()
+    key = normalize_direction_key(payload.get("key")) or f"direction_{uuid.uuid4().hex[:8]}"
+    if not label:
+        raise HTTPException(status_code=400, detail="Direction label is required")
+    if any(char not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for char in key):
+        raise HTTPException(status_code=400, detail="Direction key can contain only latin letters, numbers, _ and -")
+    data = load_user_directions()
+    directions = data.setdefault("directions", [])
+    if any(item.get("key") == key for item in directions):
+        raise HTTPException(status_code=400, detail="Direction key already exists")
+    directions.append({"key": key, "label": label})
+    save_user_directions(data)
+    return {"key": key, "label": label}
+
+
+@app.delete("/admin/user-directions/{direction_key}", tags=["Admin"])
+async def delete_user_direction(
+    direction_key: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    key = normalize_direction_key(direction_key)
+    if key == "no_direction":
+        raise HTTPException(status_code=400, detail="Default direction cannot be deleted")
+    if db.query(User).filter(User.direction_key == key).first():
+        raise HTTPException(status_code=409, detail="Direction is assigned to users")
+    data = load_user_directions()
+    directions = data.get("directions", [])
+    filtered = [item for item in directions if item.get("key") != key]
+    if len(filtered) == len(directions):
+        raise HTTPException(status_code=404, detail="Direction not found")
+    data["directions"] = filtered
+    save_user_directions(data)
+    return {"message": "Direction deleted"}
+
+
 @app.get("/admin/account-class-settings", tags=["Admin"])
 async def get_account_class_settings(
     db: Session = Depends(get_db),
@@ -2320,10 +2477,19 @@ async def admin_delete_comment_permanently(
 
 @app.get("/admin/users", response_model=List[UserResponse], tags=["Admin"])
 async def admin_get_all_users(
+    q: Optional[str] = Query(None),
+    role: Optional[str] = Query(None),
+    class_grade: Optional[int] = Query(None, ge=0, le=9),
+    parallel: Optional[int] = Query(None, ge=1, le=11),
+    direction_key: Optional[str] = Query(None),
+    sort_by: str = Query("fullname"),
+    sort_order: str = Query("asc"),
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
-    return db.query(User).all()
+    return apply_user_query_options(
+        db.query(User), q, role, class_grade, parallel, direction_key, sort_by, sort_order
+    ).all()
 
 @app.get("/admin/users/{user_id}", response_model=UserResponse, tags=["Admin"])
 async def admin_get_user(
@@ -2356,10 +2522,14 @@ async def admin_update_user(
         "teacher_info",
         "email_notifications_enabled",
         "class_",
+        "speciality",
+        "direction_key",
         "is_outdated",
     }
     for field, value in user_update.items():
         if field in allowed_fields:
+            if field == "direction_key":
+                value = validate_direction_key(value)
             setattr(user, field, value)
     if user.is_teacher:
         user.is_outdated = False
@@ -2644,6 +2814,7 @@ async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
         fullname=student.fullname,
         class_=student.class_,
         speciality=student.speciality,
+        direction_key=validate_direction_key(student.direction_key),
         email=student.email.strip().lower(),
         password=hashed_password,
         avatar=None,
@@ -2658,11 +2829,15 @@ async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     return db_user
 
 @app.get("/students/", response_model=List[StudentResponse], tags=["Students"])
-async def get_students(q: Optional[str] = Query(None), db: Session = Depends(get_db)):
-    query = db.query(User).filter(User.is_teacher == False)
-    if q:
-        query = query.filter(or_(User.fullname.ilike(f"%{q}%"), User.email.ilike(f"%{q}%")))
-    return query.all()
+async def get_students(
+    q: Optional[str] = Query(None), class_grade: Optional[int] = Query(None, ge=0, le=9),
+    parallel: Optional[int] = Query(None, ge=1, le=11), direction_key: Optional[str] = Query(None),
+    sort_by: str = Query("fullname"), sort_order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
+    return apply_user_query_options(
+        db.query(User), q, "student", class_grade, parallel, direction_key, sort_by, sort_order
+    ).all()
 
 @app.get("/students/{student_id}", response_model=StudentResponse, tags=["Students"])
 async def get_student(student_id: int, db: Session = Depends(get_db)):
@@ -2697,6 +2872,8 @@ async def update_student(
         student.class_ = student_update.class_
     if student_update.speciality is not None:
         student.speciality = student_update.speciality
+    if student_update.direction_key is not None:
+        student.direction_key = validate_direction_key(student_update.direction_key)
     if student_update.email_notifications_enabled is not None:
         student.email_notifications_enabled = student_update.email_notifications_enabled
     if student_class_is_invalid(student):
@@ -2753,6 +2930,7 @@ async def create_teacher(teacher: TeacherCreate, db: Session = Depends(get_db)):
         fullname=teacher.fullname,
         class_=None,
         speciality=teacher.speciality,
+        direction_key=validate_direction_key(teacher.direction_key),
         email=teacher.email.strip().lower(),
         password=hashed_password,
         avatar=None,
@@ -2805,16 +2983,14 @@ async def verify_and_create_teacher(request: Request, db: Session = Depends(get_
     return db_user
 
 @app.get("/teachers/", response_model=List[TeacherResponse], tags=["Teachers"])
-async def get_teachers(q: Optional[str] = Query(None), db: Session = Depends(get_db)):
-    query = db.query(User).filter(User.is_teacher == True)
-    if q:
-        text_condition = or_(
-            User.fullname.ilike(f"%{q}%"),
-            User.email.ilike(f"%{q}%"),
-            User.speciality.ilike(f"%{q}%")
-        )
-        query = query.filter(text_condition)
-    return query.all()
+async def get_teachers(
+    q: Optional[str] = Query(None), direction_key: Optional[str] = Query(None),
+    sort_by: str = Query("fullname"), sort_order: str = Query("asc"),
+    db: Session = Depends(get_db),
+):
+    return apply_user_query_options(
+        db.query(User), q, "teacher", None, None, direction_key, sort_by, sort_order
+    ).all()
 
 @app.get("/teachers/{teacher_id}", response_model=TeacherResponse, tags=["Teachers"])
 async def get_teacher(teacher_id: int, db: Session = Depends(get_db)):
@@ -2847,6 +3023,8 @@ async def update_teacher(
         teacher.email = teacher_update.email
     if teacher_update.speciality is not None:
         teacher.speciality = teacher_update.speciality
+    if teacher_update.direction_key is not None:
+        teacher.direction_key = validate_direction_key(teacher_update.direction_key)
     if teacher_update.teacher_info is not None:
         teacher.teacher_info = teacher_update.teacher_info.model_dump()
     if teacher_update.email_notifications_enabled is not None:
@@ -2878,7 +3056,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-PROFILE_REQUEST_FIELDS = {"fullname", "email", "speciality", "class_", "teacher_info", "avatar"}
+PROFILE_REQUEST_FIELDS = {"fullname", "email", "speciality", "direction_key", "class_", "teacher_info", "avatar"}
 
 
 def profile_snapshot(user: User) -> Dict[str, Any]:
@@ -2886,6 +3064,7 @@ def profile_snapshot(user: User) -> Dict[str, Any]:
         "fullname": user.fullname,
         "email": user.email,
         "speciality": user.speciality,
+        "direction_key": user.direction_key,
         "class_": user.class_,
         "teacher_info": user.teacher_info,
         "avatar": user.avatar,
@@ -2948,6 +3127,8 @@ async def create_profile_change_request(
     unknown = set(data) - PROFILE_REQUEST_FIELDS
     if unknown:
         raise HTTPException(status_code=400, detail=f"Unsupported profile fields: {', '.join(sorted(unknown))}")
+    if "direction_key" in data:
+        data["direction_key"] = validate_direction_key(data.get("direction_key"))
     new_data = profile_snapshot(current_user)
     new_data.update(data)
     if new_data.get("email"):
@@ -3099,28 +3280,17 @@ async def get_user_by_id(user_id: int, db: Session = Depends(get_db)):
 async def search_all_users(
     q: Optional[str] = Query(None, description="Поисковый запрос"),
     user_type: Optional[str] = Query(None, description="Фильтр по типу: student или teacher"),
+    role: Optional[str] = Query(None),
+    class_grade: Optional[int] = Query(None, ge=0, le=9),
+    parallel: Optional[int] = Query(None, ge=1, le=11),
+    direction_key: Optional[str] = Query(None),
+    sort_by: str = Query("fullname"),
+    sort_order: str = Query("asc"),
     db: Session = Depends(get_db)
 ):
-    query = db.query(User)
-    if user_type == "student":
-        query = query.filter(User.is_teacher == False)
-    elif user_type == "teacher":
-        query = query.filter(User.is_teacher == True)
-    if q:
-        try:
-            user_id = int(q)
-            id_filter = (User.id == user_id)
-        except ValueError:
-            id_filter = None
-        text_filters = [
-            User.fullname.ilike(f"%{q}%"),
-            User.email.ilike(f"%{q}%")
-        ]
-        if id_filter is not None:
-            query = query.filter(or_(id_filter, *text_filters))
-        else:
-            query = query.filter(or_(*text_filters))
-    return query.all()
+    return apply_user_query_options(
+        db.query(User), q, role or user_type, class_grade, parallel, direction_key, sort_by, sort_order
+    ).all()
 
 @app.post("/users/{user_id}/avatar", response_model=UserResponse, tags=["Common"])
 async def upload_avatar(
@@ -3654,6 +3824,16 @@ async def create_project(
         db.commit()
     if current_user.is_outdated and not current_user.is_admin and not current_user.is_teacher:
         raise HTTPException(status_code=403, detail="Outdated accounts cannot create projects")
+    if not current_user.is_teacher and not current_user.is_admin:
+        already_participates = any(
+            any(part.get("user_id") == current_user.id for part in (existing_project.participants or []))
+            for existing_project in db.query(Project).all()
+        )
+        if already_participates:
+            raise HTTPException(
+                status_code=403,
+                detail="Students can create a project only when they do not participate in other projects",
+            )
     if project.required_roles is None:
         project.required_roles = {}
 
@@ -4884,6 +5064,7 @@ async def register_with_verification(
             fullname=user_data.get('fullname'),
             class_=None,
             speciality=user_data.get('speciality'),
+            direction_key=validate_direction_key(user_data.get('direction_key')),
             email=email,
             password=hashed_password,
             avatar=None,
@@ -4897,6 +5078,7 @@ async def register_with_verification(
             fullname=user_data.get('fullname'),
             class_=user_data.get('class_', 0),
             speciality=user_data.get('speciality'),
+            direction_key=validate_direction_key(user_data.get('direction_key')),
             email=email,
             password=hashed_password,
             avatar=None,
@@ -5947,6 +6129,7 @@ async def admin_create_student(
         fullname=student_data["fullname"].strip(),
         class_=student_data.get("class_", 0),
         speciality=student_data.get("speciality", ""),
+        direction_key=validate_direction_key(student_data.get("direction_key")),
         email=email,
         password=hashed_password,
         avatar=None,
@@ -6007,6 +6190,7 @@ async def admin_create_teacher(
         fullname=teacher_data["fullname"].strip(),
         class_=None,
         speciality=teacher_data.get("speciality", ""),
+        direction_key=validate_direction_key(teacher_data.get("direction_key")),
         email=email,
         password=hashed_password,
         avatar=None,
@@ -6059,6 +6243,7 @@ async def admin_create_bulk_students(
                 fullname=student_data["fullname"].strip(),
                 class_=student_data.get("class_", 0),
                 speciality=student_data.get("speciality", ""),
+                direction_key=validate_direction_key(student_data.get("direction_key")),
                 email=email,
                 password=hashed_password,
                 avatar=None,
@@ -6138,6 +6323,7 @@ async def admin_create_bulk_teachers(
                 fullname=teacher_data["fullname"].strip(),
                 class_=None,
                 speciality=teacher_data.get("speciality", ""),
+                direction_key=validate_direction_key(teacher_data.get("direction_key")),
                 email=email,
                 password=hashed_password,
                 avatar=None,

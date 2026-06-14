@@ -140,6 +140,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAdmin: true }
   },
   {
+    path: '/admin/user-directions',
+    name: 'AdminUserDirections',
+    component: () => import('@/views/AdminUserDirections.vue'),
+    meta: { requiresAdmin: true }
+  },
+  {
     path: '/admin/profile-change-requests',
     name: 'AdminProfileChangeRequests',
     component: () => import('@/views/AdminProfileChangeRequests.vue'),

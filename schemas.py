@@ -41,6 +41,7 @@ class UserBase(BaseModel):
     email: EmailStr
     avatar: Optional[str] = None
     speciality: Optional[str] = None
+    direction_key: Optional[str] = None
     is_teacher: bool = False  
 
 # ---------- ученик ----------
@@ -77,6 +78,7 @@ class StudentUpdate(BaseModel):
     email: Optional[EmailStr] = None
     class_: Optional[float] = Field(None, alias="class")
     speciality: Optional[str] = None
+    direction_key: Optional[str] = None
     avatar: Optional[str] = None
     email_notifications_enabled: Optional[bool] = None
     is_outdated: Optional[bool] = None
@@ -187,6 +189,7 @@ class TeacherUpdate(BaseModel):
     fullname: Optional[str] = None
     email: Optional[EmailStr] = None
     speciality: Optional[str] = None
+    direction_key: Optional[str] = None
     avatar: Optional[str] = None
     teacher_info: Optional[TeacherInfo] = None
     email_notifications_enabled: Optional[bool] = None
@@ -200,6 +203,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     avatar: Optional[str] = None
     speciality: Optional[str] = None
+    direction_key: Optional[str] = None
     is_active: bool
     is_verified: bool
     is_teacher: bool

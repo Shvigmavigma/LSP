@@ -49,7 +49,7 @@
         "date": "日期",
         "status": "状态",
         "user": "用户",
-        "searchUser": "??????????",
+        "searchUser": "按姓名或邮箱搜索用户",
         "selected": "已选择",
         "send": "发送邀请",
         "sentSuccess": "邀请已成功发送！",
@@ -176,7 +176,7 @@
         "availableRoles": "可用角色",
         "noAvailableRoles": "此用户没有可用角色",
         "userSearchLabel": "搜索用户",
-        "userSearchPlaceholder": "???????",
+        "userSearchPlaceholder": "输入姓名或邮箱",
         "selectedUser": "已选择的用户",
         "roleLabel": "角色",
         "sendButton": "发送邀请",
@@ -414,8 +414,8 @@
         "projectCreated": "项目已成功创建",
         "projectSaved": "更改已保存",
         "saveError": "保存更改失败。请稍后重试。",
-        "addParticipant": "??????????",
-        "userPlaceholder": "???????"
+        "addParticipant": "按姓名或邮箱添加参与者",
+        "userPlaceholder": "输入姓名或邮箱"
     },
     "adminProjects": {
         "title": "项目管理",
@@ -567,9 +567,9 @@
         "networkError": "网络错误。请检查网络连接",
         "unknownError": "未知错误",
         "oauthError": "Google授权错误",
-        "email": "??",
-        "emailPlaceholder": "????",
-        "invalidEmail": "???????"
+        "email": "邮箱",
+        "emailPlaceholder": "输入邮箱",
+        "invalidEmail": "请输入有效的邮箱地址"
     },
     "myProjects": {
         "noProjects": "您还没有项目",
@@ -961,7 +961,7 @@
         "codeSendError": "发送验证码时出错。可能邮箱已注册。",
         "networkError": "网络错误。请检查服务器连接。",
         "genericError": "注册时发生错误",
-        "invalidEmail": "???????"
+        "invalidEmail": "请输入有效的邮箱地址"
     },
     "taskDetails": {
         "confirmDeleteFile": "您确定要删除此文件吗？",
@@ -1078,7 +1078,11 @@
         "participantsLabel": "参与者",
         "userNotFound": "用户未找到",
         "invalidId": "无效的用户ID",
-        "noRoles": "未分配角色"
+        "noRoles": "未分配角色",
+        "inviteProject": "选择项目",
+        "inviteToProject": "邀请加入项目",
+        "inviteSent": "邀请已发送",
+        "inviteError": "邀请发送失败"
     },
     "userProjects": {
         "title": "您的项目",
@@ -1109,7 +1113,7 @@
             "network": "网络错误。请检查服务器连接。",
             "invalidOrExpiredCode": "验证码无效或已过期",
             "resendHint": "尝试重新请求验证码",
-            "alreadyRegistered": "??????",
+            "alreadyRegistered": "该邮箱已被注册",
             "tryLogin": "尝试登录或使用其他信息",
             "registrationFailed": "注册错误",
             "emailNotAllowed": "邮箱不允许用于教师注册",
@@ -1265,7 +1269,7 @@
         "approve": "批准",
         "reject": "拒绝",
         "statuses": {"pending": "待处理", "approved": "已批准", "rejected": "已拒绝", "withdrawn": "已撤回"},
-        "fields": {"fullname": "姓名", "email": "邮箱", "speciality": "专业", "class_": "班级", "teacher_info": "教师角色", "avatar": "头像"}
+        "fields": {"fullname": "姓名", "email": "邮箱", "speciality": "专业", "class_": "班级", "teacher_info": "教师角色", "direction_key": "方向", "avatar": "头像"}
     },
     "adminQuotaLimits": {
         "title": "项目和用户限制",
@@ -1283,5 +1287,16 @@
         "applyToCustom": "同时应用于具有个人限制的用户",
         "roleSaved": "角色限制已保存。已删除个人例外：{count}",
         "saved": "限制已保存"
+    },
+    "adminDirections": {
+        "title": "用户方向",
+        "desc": "管理学生和教师方向",
+        "namePlaceholder": "方向名称",
+        "keyPlaceholder": "方向键",
+        "direction": "方向",
+        "all": "所有方向",
+        "sort": "排序",
+        "class": "班级",
+        "parallel": "平行班"
     }
 }

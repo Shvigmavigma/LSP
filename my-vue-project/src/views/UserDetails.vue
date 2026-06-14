@@ -31,8 +31,27 @@
       <p v-if="user.speciality" class="user-speciality">
         {{ $t('userDetails.specialityLabel') }} {{ user.speciality }}
       </p>
+      <p v-if="user.direction_key" class="user-speciality">
+        {{ $t('adminDirections.direction') }}: {{ directionLabel(user.direction_key) }}
+      </p>
       <div v-if="user.is_teacher && user.teacher_info" class="user-roles">
         {{ $t('userDetails.rolesLabel') }} {{ formatTeacherRoles(user.teacher_info) }}
+      </div>
+
+      <div v-if="inviteProjects.length > 0 && authStore.user?.id !== user.id" class="invite-panel">
+        <select v-model.number="inviteProjectId">
+          <option :value="0" disabled>{{ $t('userDetails.inviteProject') }}</option>
+          <option v-for="project in inviteProjects" :key="project.id" :value="project.id">
+            {{ project.title }}
+          </option>
+        </select>
+        <select v-model="inviteRole">
+          <option v-for="role in inviteRoles" :key="role" :value="role">{{ $t(`roles.${role}`) }}</option>
+        </select>
+        <button :disabled="sendingInvite || !inviteProjectId" @click="inviteToProject">
+          {{ sendingInvite ? $t('common.sending') : $t('userDetails.inviteToProject') }}
+        </button>
+        <p v-if="inviteMessage" class="invite-message">{{ inviteMessage }}</p>
       </div>
     </div>
 
@@ -98,6 +117,7 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useUsersStore } from '@/stores/users';
+import { useAuthStore } from '@/stores/auth';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import AvatarModal from '@/components/AvatarModal.vue';
@@ -110,6 +130,7 @@ const { t } = useI18n();
 const route = useRoute();
 const router = useRouter();
 const usersStore = useUsersStore();
+const authStore = useAuthStore();
 
 const user = ref<User | null>(null);
 const projects = ref<Project[]>([]);
@@ -119,12 +140,33 @@ const errorUser = ref('');
 const avatarError = ref(false);
 const showAvatarModal = ref(false);
 const avatarErrorMap = ref<Record<number, boolean>>({});
+const directions = ref<Array<{ key: string; label: string }>>([]);
+const manageableProjects = ref<Project[]>([]);
+const inviteProjectId = ref(0);
+const inviteRole = ref<ProjectRole>('executor');
+const sendingInvite = ref(false);
+const inviteMessage = ref('');
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const avatarUrl = computed(() => {
   if (!user.value?.avatar) return '';
   return `${baseUrl}/avatars/${user.value.avatar}`;
+});
+
+const inviteProjects = computed(() => {
+  if (!user.value) return [];
+  return manageableProjects.value.filter(project =>
+    !project.participants?.some(participant => participant.user_id === user.value?.id)
+  );
+});
+
+const inviteRoles = computed<ProjectRole[]>(() => {
+  if (!user.value?.is_teacher) return ['executor'];
+  const roles = [...(user.value.teacher_info?.roles || [])] as ProjectRole[];
+  if (user.value.teacher_info?.curator) roles.push('curator');
+  if (!roles.includes('executor')) roles.push('executor');
+  return roles;
 });
 
 const openAvatarModal = () => {
@@ -174,6 +216,19 @@ const loadUserData = async (id: number) => {
 };
 
 onMounted(async () => {
+  const [directionResponse, ownProjectsResponse] = await Promise.all([
+    api.get('/user-directions'),
+    authStore.user?.id
+      ? api.get('/projects/', { params: { participant_id: authStore.user.id } })
+      : Promise.resolve({ data: [] }),
+  ]);
+  directions.value = directionResponse.data.directions || [];
+  manageableProjects.value = ownProjectsResponse.data.filter((project: Project) =>
+    project.participants?.some(participant =>
+      participant.user_id === authStore.user?.id &&
+      (participant.role === 'customer' || participant.role === 'curator')
+    )
+  );
   const id = Number(route.params.id);
   if (!isNaN(id)) {
     await loadUserData(id);
@@ -182,6 +237,28 @@ onMounted(async () => {
     loadingUser.value = false;
   }
 });
+
+async function inviteToProject() {
+  if (!user.value || !inviteProjectId.value) return;
+  sendingInvite.value = true;
+  inviteMessage.value = '';
+  try {
+    await api.post('/invitations', {
+      project_id: inviteProjectId.value,
+      invited_user_id: user.value.id,
+      role: inviteRole.value,
+    });
+    inviteMessage.value = t('userDetails.inviteSent');
+    inviteProjectId.value = 0;
+  } catch (error: any) {
+    inviteMessage.value = error.response?.data?.detail || t('userDetails.inviteError');
+  } finally {
+    sendingInvite.value = false;
+  }
+}
+
+const directionLabel = (key?: string | null) =>
+  directions.value.find(direction => direction.key === key)?.label || key || t('profile.notSpecified');
 
 watch(() => route.params.id, async (newId) => {
   const id = Number(newId);
@@ -347,6 +424,38 @@ const goHome = () => {
   color: var(--text-secondary);
   font-size: 1rem;
   margin-top: 4px;
+}
+.invite-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+.invite-panel select,
+.invite-panel button {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.invite-panel select {
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+.invite-panel button {
+  border: 0;
+  background: var(--accent-color);
+  color: var(--button-text);
+  cursor: pointer;
+}
+.invite-panel button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.invite-message {
+  margin: 0;
+  color: var(--text-secondary);
 }
 .projects-section {
   max-width: 1000px;

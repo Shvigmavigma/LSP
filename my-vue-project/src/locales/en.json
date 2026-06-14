@@ -1069,7 +1069,11 @@
         "participantsLabel": "Participants",
         "userNotFound": "User not found",
         "invalidId": "Invalid user ID",
-        "noRoles": "No roles assigned"
+        "noRoles": "No roles assigned",
+        "inviteProject": "Select project",
+        "inviteToProject": "Invite to project",
+        "inviteSent": "Invitation sent",
+        "inviteError": "Failed to send invitation"
     },
     "userProjects": {
         "title": "Your Projects",
@@ -1266,8 +1270,9 @@
             "email": "Email",
             "speciality": "Speciality",
             "class_": "Class",
-            "teacher_info": "Teacher roles"
-            ,"avatar": "Avatar"
+            "teacher_info": "Teacher roles",
+            "direction_key": "Direction",
+            "avatar": "Avatar"
         }
     },
     "adminQuotaLimits": {
@@ -1286,5 +1291,16 @@
         "applyToCustom": "Also apply to users with a personal limit",
         "roleSaved": "Role limit saved. Personal exceptions removed: {count}",
         "saved": "Limits saved"
+    },
+    "adminDirections": {
+        "title": "User directions",
+        "desc": "Manage student and teacher directions",
+        "namePlaceholder": "Direction name",
+        "keyPlaceholder": "Direction key (optional)",
+        "direction": "Direction",
+        "all": "All directions",
+        "sort": "Sort",
+        "class": "Class",
+        "parallel": "Parallel"
     }
 }

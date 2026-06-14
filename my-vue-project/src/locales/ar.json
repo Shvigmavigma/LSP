@@ -49,7 +49,7 @@
         "date": "التاريخ",
         "status": "الحالة",
         "user": "المستخدم",
-        "searchUser": "????? ?? ???????? ?????? ?????? ?? ?????? ??????????",
+        "searchUser": "البحث عن مستخدم بالاسم الكامل أو البريد الإلكتروني",
         "selected": "تم الاختيار",
         "send": "إرسال الدعوة",
         "sentSuccess": "تم إرسال الدعوة بنجاح!",
@@ -175,7 +175,7 @@
         "availableRoles": "الأدوار المتاحة",
         "noAvailableRoles": "لا توجد أدوار متاحة لهذا المستخدم",
         "userSearchLabel": "البحث عن مستخدم",
-        "userSearchPlaceholder": "???? ????? ?????? ?? ?????? ??????????",
+        "userSearchPlaceholder": "أدخل الاسم الكامل أو البريد الإلكتروني",
         "selectedUser": "المستخدم المختار",
         "roleLabel": "الدور",
         "sendButton": "إرسال الدعوة",
@@ -413,8 +413,8 @@
         "projectCreated": "تم إنشاء المشروع بنجاح",
         "projectSaved": "تم حفظ التغييرات",
         "saveError": "فشل في حفظ التغييرات. يرجى المحاولة مرة أخرى لاحقاً.",
-        "addParticipant": "????? ????? ?????? ?????? ?? ?????? ??????????",
-        "userPlaceholder": "???? ????? ?????? ?? ?????? ??????????"
+        "addParticipant": "إضافة مشارك بالاسم الكامل أو البريد الإلكتروني",
+        "userPlaceholder": "أدخل الاسم الكامل أو البريد الإلكتروني"
     },
     "adminProjects": {
         "title": "إدارة المشاريع",
@@ -566,9 +566,9 @@
         "networkError": "خطأ في الشبكة. تحقق من اتصالك بالإنترنت",
         "unknownError": "خطأ غير معروف",
         "oauthError": "خطأ في تفويض Google",
-        "email": "?????? ??????????",
-        "emailPlaceholder": "???? ?????? ??????????",
-        "invalidEmail": "???? ????? ????????? ?????"
+        "email": "البريد الإلكتروني",
+        "emailPlaceholder": "أدخل البريد الإلكتروني",
+        "invalidEmail": "أدخل عنوان بريد إلكتروني صالح"
     },
     "myProjects": {
         "noProjects": "ليس لديك مشاريع بعد",
@@ -960,7 +960,7 @@
         "codeSendError": "خطأ في إرسال الرمز. ربما البريد الإلكتروني مسجل بالفعل.",
         "networkError": "خطأ في الشبكة. تحقق من اتصالك بالخادم.",
         "genericError": "حدث خطأ أثناء التسجيل",
-        "invalidEmail": "???? ????? ????????? ?????"
+        "invalidEmail": "أدخل عنوان بريد إلكتروني صالح"
     },
     "taskDetails": {
         "confirmDeleteFile": "هل أنت متأكد أنك تريد حذف هذا الملف؟",
@@ -1077,7 +1077,11 @@
         "participantsLabel": "المشاركون",
         "userNotFound": "المستخدم غير موجود",
         "invalidId": "معرف مستخدم غير صالح",
-        "noRoles": "لم يتم تعيين أدوار"
+        "noRoles": "لم يتم تعيين أدوار",
+        "inviteProject": "اختر المشروع",
+        "inviteToProject": "دعوة إلى المشروع",
+        "inviteSent": "تم إرسال الدعوة",
+        "inviteError": "تعذر إرسال الدعوة"
     },
     "userProjects": {
         "title": "مشاريعك",
@@ -1108,7 +1112,7 @@
             "network": "خطأ في الشبكة. تحقق من اتصالك بالخادم.",
             "invalidOrExpiredCode": "رمز التأكيد غير صالح أو منتهي الصلاحية",
             "resendHint": "حاول طلب الرمز مرة أخرى",
-            "alreadyRegistered": "???? ?????? ???? ?????? ??????????",
+            "alreadyRegistered": "يوجد مستخدم بهذا البريد الإلكتروني بالفعل",
             "tryLogin": "حاول تسجيل الدخول أو استخدم بيانات مختلفة",
             "registrationFailed": "خطأ في التسجيل",
             "emailNotAllowed": "البريد الإلكتروني غير مسموح به لتسجيل المعلم",
@@ -1264,7 +1268,7 @@
         "approve": "قبول",
         "reject": "رفض",
         "statuses": {"pending": "قيد الانتظار", "approved": "مقبول", "rejected": "مرفوض", "withdrawn": "مسحوب"},
-        "fields": {"fullname": "الاسم الكامل", "email": "البريد", "speciality": "التخصص", "class_": "الفصل", "teacher_info": "أدوار المعلم", "avatar": "الصورة الشخصية"}
+        "fields": {"fullname": "الاسم الكامل", "email": "البريد", "speciality": "التخصص", "class_": "الفصل", "teacher_info": "أدوار المعلم", "direction_key": "الاتجاه", "avatar": "الصورة الشخصية"}
     },
     "adminQuotaLimits": {
         "title": "حدود المشاريع والمستخدمين",
@@ -1282,5 +1286,16 @@
         "applyToCustom": "تطبيقه أيضاً على المستخدمين ذوي الحد الشخصي",
         "roleSaved": "تم حفظ حد الدور. تمت إزالة الاستثناءات الشخصية: {count}",
         "saved": "تم حفظ الحدود"
+    },
+    "adminDirections": {
+        "title": "اتجاهات المستخدمين",
+        "desc": "إدارة اتجاهات الطلاب والمعلمين",
+        "namePlaceholder": "اسم الاتجاه",
+        "keyPlaceholder": "مفتاح الاتجاه",
+        "direction": "الاتجاه",
+        "all": "كل الاتجاهات",
+        "sort": "الترتيب",
+        "class": "الصف",
+        "parallel": "الشعبة"
     }
 }

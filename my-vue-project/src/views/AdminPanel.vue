@@ -53,7 +53,15 @@
           <span class="card-desc">{{ $t('adminPanel.accountClasses.desc') }}</span>
         </router-link>
 
-        <router-link to="/admin/profile-change-requests" class="menu-card">
+        <router-link to="/admin/user-directions" class="menu-card">
+          <span class="card-title">{{ $t('adminDirections.title') }}</span>
+          <span class="card-desc">{{ $t('adminDirections.desc') }}</span>
+        </router-link>
+
+        <router-link to="/admin/profile-change-requests" class="menu-card notification-card">
+          <span v-if="pendingProfileRequests > 0" class="notification-dot" :title="String(pendingProfileRequests)">
+            {{ pendingProfileRequests > 99 ? '99+' : pendingProfileRequests }}
+          </span>
           <span class="card-title">{{ $t('adminPanel.profileRequests.title') }}</span>
           <span class="card-desc">{{ $t('adminPanel.profileRequests.desc') }}</span>
         </router-link>
@@ -84,6 +92,19 @@
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import HomeButton from '@/components/HomeButton.vue';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
+import { onMounted, ref } from 'vue';
+import api from '@/utils/api';
+
+const pendingProfileRequests = ref(0);
+
+onMounted(async () => {
+  try {
+    const response = await api.get('/admin/profile-change-requests', { params: { status: 'pending' } });
+    pendingProfileRequests.value = response.data.length;
+  } catch (error) {
+    console.error('Failed to load pending profile requests', error);
+  }
+});
 </script>
 
 <style scoped>
@@ -135,6 +156,28 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-color);
+}
+
+.notification-card {
+  position: relative;
+}
+
+.notification-dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 50%;
+  background: var(--danger-color);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .menu-card:hover {

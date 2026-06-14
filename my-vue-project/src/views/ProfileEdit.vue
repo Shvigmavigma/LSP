@@ -154,6 +154,13 @@
             type="text"
           />
         </div>
+        <div class="form-group">
+          <label>{{ $t('adminDirections.direction') }}</label>
+          <select v-model="form.direction_key">
+            <option value="">{{ $t('common.notSelected') }}</option>
+            <option v-for="direction in directions" :key="direction.key" :value="direction.key">{{ direction.label }}</option>
+          </select>
+        </div>
 
         <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
 
@@ -196,12 +203,14 @@ const form = ref({
   email: '',
   class: 0,
   speciality: '',
+  direction_key: 'no_direction',
 });
 
 const loading = ref(true);
 const saving = ref(false);
 const errorMessage = ref('');
 const pendingRequest = ref<any>(null);
+const directions = ref<Array<{ key: string; label: string }>>([]);
 
 // Для аватарки
 const uploading = ref(false);
@@ -244,8 +253,9 @@ function parseFullname(fullname: string) {
 
 onMounted(async () => {
   try {
-    const response = await api.get('/profile-change-request');
+    const [response, directionResponse] = await Promise.all([api.get('/profile-change-request'), api.get('/user-directions')]);
     pendingRequest.value = response.data.request;
+    directions.value = directionResponse.data.directions || [];
   } catch (error) {
     console.error('Failed to load profile change request', error);
   }
@@ -259,6 +269,7 @@ onMounted(async () => {
       email: user.email,
       class: user.is_teacher ? 0 : (user.class !== 0 ? user.class : 3.1),
       speciality: user.speciality || '',
+      direction_key: user.direction_key || 'no_direction',
     };
 
     // Если учитель, загружаем текущие роли и куратора
@@ -313,6 +324,7 @@ const handleSave = async () => {
         fullname: fullname,
         email: form.value.email,
         speciality: form.value.speciality,
+        direction_key: form.value.direction_key || null,
         teacher_info: teacherInfo
       };
     } else {
@@ -320,6 +332,7 @@ const handleSave = async () => {
         fullname: fullname,
         email: form.value.email,
         speciality: form.value.speciality,
+        direction_key: form.value.direction_key || null,
         class_: form.value.class
       };
     }

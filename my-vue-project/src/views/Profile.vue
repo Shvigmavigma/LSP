@@ -48,6 +48,10 @@
           <span class="info-label">{{ $t('profile.speciality') }}</span>
           <span class="info-value">{{ user.speciality || $t('profile.notSpecified') }}</span>
         </div>
+        <div class="info-row">
+          <span class="info-label">{{ $t('adminDirections.direction') }}</span>
+          <span class="info-value">{{ directionLabel(user.direction_key) }}</span>
+        </div>
 
         <div v-if="user.is_outdated && !user.is_teacher" class="outdated-account">
           <strong>{{ $t('profile.outdatedTitle') }}</strong>
@@ -150,10 +154,6 @@
     </div>
 
     <!-- Кнопка удаления аккаунта в правом нижнем углу экрана -->
-    <button class="delete-account-button" @click="confirmDeleteAccount" :disabled="deleting">
-      {{ deleting ? $t('common.sending') : $t('profile.deleteAccount') }}
-    </button>
-
     <AvatarModal
       :show="showAvatarModal"
       :src="avatarUrl"
@@ -187,6 +187,7 @@ const deleting = ref(false);
 const resending = ref(false);
 const savingNotifications = ref(false);
 const notificationError = ref('');
+const directions = ref<Array<{ key: string; label: string }>>([]);
 const restorationStatus = ref('');
 const requestingRestoration = ref(false);
 const restorationError = ref('');
@@ -223,6 +224,8 @@ const checkGoogleLinkStatus = async () => {
 };
 
 onMounted(async () => {
+  const directionResponse = await api.get('/user-directions');
+  directions.value = directionResponse.data.directions || [];
   // Проверяем аутентификацию
   if (!authStore.isAuthenticated) {
     const isValid = await authStore.checkAuth();
@@ -263,6 +266,9 @@ onMounted(async () => {
   console.log('Profile mounted - user:', user.value);
   console.log('Google linked status:', googleLinked.value);
 });
+
+const directionLabel = (key?: string | null) =>
+  directions.value.find(direction => direction.key === key)?.label || key || t('profile.notSpecified');
 
 const openAvatarModal = () => {
   if (user.value?.avatar && !avatarError.value) {

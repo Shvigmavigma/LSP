@@ -49,7 +49,7 @@
         "date": "Дата",
         "status": "Статус",
         "user": "Карыстальнік",
-        "searchUser": "????? ????????????? ?? ??? ??? email",
+        "searchUser": "Пошук карыстальніка па ПІБ або email",
         "selected": "Выбраны",
         "send": "Даслаць запрашэнне",
         "sentSuccess": "Запрашэнне паспяхова даслана!",
@@ -174,7 +174,7 @@
         "availableRoles": "Даступныя ролі",
         "noAvailableRoles": "Для гэтага карыстальніка няма даступных роляў",
         "userSearchLabel": "Пошук карыстальніка",
-        "userSearchPlaceholder": "???????? ??? ??? email",
+        "userSearchPlaceholder": "Увядзіце ПІБ або email",
         "selectedUser": "Выбраны карыстальнік",
         "roleLabel": "Роля",
         "sendButton": "Даслаць запрашэнне",
@@ -412,8 +412,8 @@
         "projectCreated": "Праект паспяхова створаны",
         "projectSaved": "Змены захаваны",
         "saveError": "Не атрымалася захаваць змены. Калі ласка, паспрабуйце пазней.",
-        "addParticipant": "?????? ?????????? ?? ??? ??? email",
-        "userPlaceholder": "???????? ??? ??? email"
+        "addParticipant": "Дадаць удзельніка па ПІБ або email",
+        "userPlaceholder": "Увядзіце ПІБ або email"
     },
     "adminProjects": {
         "title": "Кіраванне праектамі",
@@ -566,8 +566,8 @@
         "unknownError": "Невядомая памылка",
         "oauthError": "Памылка аўтарызацыі праз Google",
         "email": "Email",
-        "emailPlaceholder": "???????? email",
-        "invalidEmail": "???????? ???????? email"
+        "emailPlaceholder": "Увядзіце email",
+        "invalidEmail": "Увядзіце карэктны email"
     },
     "myProjects": {
         "noProjects": "У вас пакуль няма праектаў",
@@ -959,7 +959,7 @@
         "codeSendError": "Памылка пры дасылцы кода. Магчыма, email ужо зарэгістраваны.",
         "networkError": "Памылка сеткі. Праверце падключэнне да сервера.",
         "genericError": "Адбылася памылка пры рэгістрацыі",
-        "invalidEmail": "???????? ???????? email"
+        "invalidEmail": "Увядзіце карэктны email"
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы ўпэўнены, што жадаеце выдаліць гэты файл?",
@@ -1076,7 +1076,11 @@
         "participantsLabel": "Удзельнікі",
         "userNotFound": "Карыстальнік не знойдзены",
         "invalidId": "Няправільны ID карыстальніка",
-        "noRoles": "Ролі не прызначаны"
+        "noRoles": "Ролі не прызначаны",
+        "inviteProject": "Выберыце праект",
+        "inviteToProject": "Запрасіць у праект",
+        "inviteSent": "Запрашэнне адпраўлена",
+        "inviteError": "Не ўдалося адправіць запрашэнне"
     },
     "userProjects": {
         "title": "Вашы праекты",
@@ -1107,7 +1111,7 @@
             "network": "Памылка сеткі. Праверце падключэнне да сервера.",
             "invalidOrExpiredCode": "Няправільны або скончыўся тэрмін дзеяння кода пацверджання",
             "resendHint": "Паспрабуйце запытаць код паўторна",
-            "alreadyRegistered": "???????????? ? ????? email ??? ?????",
+            "alreadyRegistered": "Карыстальнік з такім email ужо існуе",
             "tryLogin": "Паспрабуйце ўвайсці або выкарыстайце іншыя даныя",
             "registrationFailed": "Памылка пры рэгістрацыі",
             "emailNotAllowed": "Email не дазволены для рэгістрацыі настаўніка",
@@ -1263,7 +1267,7 @@
         "approve": "Прыняць",
         "reject": "Адхіліць",
         "statuses": {"pending": "Чакае", "approved": "Прынята", "rejected": "Адхілена", "withdrawn": "Адклікана"},
-        "fields": {"fullname": "ПІБ", "email": "Пошта", "speciality": "Спецыялізацыя", "class_": "Клас", "teacher_info": "Ролі настаўніка", "avatar": "Аватар"}
+        "fields": {"fullname": "ПІБ", "email": "Пошта", "speciality": "Спецыялізацыя", "class_": "Клас", "teacher_info": "Ролі настаўніка", "direction_key": "Напрамак", "avatar": "Аватар"}
     },
     "adminQuotaLimits": {
         "title": "Ліміты праектаў і карыстальнікаў",
@@ -1281,5 +1285,16 @@
         "applyToCustom": "Прымяніць таксама да карыстальнікаў з асабістым лімітам",
         "roleSaved": "Ролевы ліміт захаваны. Выдалена асабістых выключэнняў: {count}",
         "saved": "Ліміты захаваны"
+    },
+    "adminDirections": {
+        "title": "Напрамкі карыстальнікаў",
+        "desc": "Кіраванне напрамкамі вучняў і настаўнікаў",
+        "namePlaceholder": "Назва напрамку",
+        "keyPlaceholder": "Ключ напрамку",
+        "direction": "Напрамак",
+        "all": "Усе напрамкі",
+        "sort": "Сартаванне",
+        "class": "Клас",
+        "parallel": "Паралель"
     }
 }

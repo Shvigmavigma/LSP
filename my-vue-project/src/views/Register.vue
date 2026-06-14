@@ -192,6 +192,13 @@
             :placeholder="accountType === 'teacher' ? $t('register.teacherSpecialityPlaceholder') : $t('register.studentSpecialityPlaceholder')"
           />
         </div>
+        <div class="form-group">
+          <label>{{ $t('adminDirections.direction') }}</label>
+          <select v-model="form.direction_key">
+            <option value="">{{ $t('common.notSelected') }}</option>
+            <option v-for="direction in directions" :key="direction.key" :value="direction.key">{{ direction.label }}</option>
+          </select>
+        </div>
 
         <div class="form-group">
           <label for="password">{{ $t('register.password') }}</label>
@@ -253,7 +260,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from '@/stores/auth';
@@ -272,6 +279,7 @@ interface RegisterForm {
   email: string;
   class_: number | null;
   speciality: string;
+  direction_key: string;
   password: string;
 }
 
@@ -284,6 +292,7 @@ const accountType = ref<'student' | 'teacher'>('student');
 // Роли учителя (множественный выбор)
 type TeacherRole = 'customer' | 'expert' | 'supervisor';
 const selectedRoles = ref<TeacherRole[]>([]);
+const directions = ref<Array<{ key: string; label: string }>>([]);
 const showRoleError = ref(false);
 
 const form = reactive<RegisterForm>({
@@ -293,6 +302,7 @@ const form = reactive<RegisterForm>({
   email: '',
   class_: 3.1,
   speciality: '',
+  direction_key: 'no_direction',
   password: '',
 });
 
@@ -308,6 +318,11 @@ const fileInput = ref<HTMLInputElement | null>(null);
 // Поле подтверждения пароля
 const confirmPassword = ref('');
 const passwordMatchError = ref(false);
+
+onMounted(async () => {
+  const response = await api.get('/user-directions');
+  directions.value = response.data.directions || [];
+});
 
 // Функция для переключения роли
 const toggleRole = (role: TeacherRole) => {
@@ -469,6 +484,7 @@ const requestVerification = async (isTeacher: boolean) => {
     fullname: fullname,
     email: form.email,
     speciality: form.speciality,
+    direction_key: form.direction_key || null,
     password: form.password,
     is_teacher: isTeacher,
   };
