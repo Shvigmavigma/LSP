@@ -54,7 +54,10 @@
           <h1 class="project-title-center">{{ project.title }}</h1>
           <section v-if="lifecycleSchema.stages.length" class="lifecycle-train-section">
             <div class="lifecycle-train-header">
-              <h3>{{ $t('projectDetails.lifecycle.title') }}</h3>
+              <div class="lifecycle-title-line">
+                <h3>{{ $t('projectDetails.lifecycle.title') }}</h3>
+                <span v-if="project.is_old" class="old-project-badge">{{ $t('projectDetails.oldProject') }}</span>
+              </div>
             </div>
             <div class="lifecycle-train">
               <div
@@ -1532,6 +1535,21 @@ watch(() => route.params.id, () => { loadProject(true); });
   padding: 8px 10px;
 }
 .lifecycle-train-header h3 { margin: 0; }
+.lifecycle-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.old-project-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(255, 152, 0, 0.14);
+  color: #ff9800;
+  border: 1px solid rgba(255, 152, 0, 0.35);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
 .lifecycle-train {
   display: flex;
   align-items: stretch;

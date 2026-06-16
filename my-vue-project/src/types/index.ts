@@ -23,6 +23,7 @@ export interface ApprovalInfo {
 export interface ApprovalRequestItem {
   project_id: number;
   project_title: string;
+  is_old?: boolean;
   requested_by: number | null;
   requested_by_name: string | null;
   requested_at: string | null;

@@ -210,6 +210,21 @@ def student_class_is_invalid(user: User, settings: Optional[Dict[str, Any]] = No
     return normalize_class_value(user.class_) not in allowed
 
 
+def verify_login_password_and_migrate_excel_numeric(db: Session, user: User, plain_password: str) -> bool:
+    password = plain_password.strip()
+    if verify_password(password, user.password):
+        return True
+    if password.endswith(".0"):
+        return False
+    legacy_excel_password = f"{password}.0"
+    if not verify_password(legacy_excel_password, user.password):
+        return False
+    user.password = get_password_hash(password)
+    db.commit()
+    db.refresh(user)
+    return True
+
+
 def run_account_class_rollover(db: Session, settings: Optional[Dict[str, Any]] = None, force: bool = False) -> Dict[str, int]:
     settings = settings or load_account_class_settings()
     today = datetime.now().date()
@@ -1638,7 +1653,7 @@ async def token_login(
     user = db.query(User).filter(User.email == form_data.username.strip().lower()).first()
     if not user:
         raise HTTPException(status_code=402, detail="Пользователь с таким логином не найден")
-    if not verify_password(form_data.password.strip(), user.password):
+    if not verify_login_password_and_migrate_excel_numeric(db, user, form_data.password):
         raise HTTPException(status_code=402, detail="Неверный пароль")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Пользователь забанен")
@@ -5100,7 +5115,7 @@ async def auth_login(request: Request, credentials: LoginRequest, db: Session = 
     user = db.query(User).filter(User.email == credentials.email.strip().lower()).first()
     if not user:
         raise HTTPException(status_code=402, detail="Пользователь с таким логином не найден")
-    if not verify_password(credentials.password.strip(), user.password):
+    if not verify_login_password_and_migrate_excel_numeric(db, user, credentials.password):
         raise HTTPException(status_code=402, detail="Неверный пароль")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Пользователь забанен")
@@ -6013,6 +6028,7 @@ async def get_approval_requests(
         approval_data = {
             "project_id": project.id,
             "project_title": project.title,
+            "is_old": bool(getattr(project, "is_old", False)),
             "requested_by": getattr(project, 'approval_requested_by', None),
             "requested_by_name": requester.fullname if requester else "Unknown",
             "requested_by_role": requester_role,

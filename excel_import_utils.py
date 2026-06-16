@@ -31,6 +31,20 @@ class ExcelImportValidationError(ValueError):
     pass
 
 
+def normalize_excel_password(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return str(value).strip()
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        return str(value).strip()
+    return str(value).strip()
+
+
 def create_excel_template(
     import_type: str,
     example_values: Dict[str, Any] | None = None,
@@ -218,6 +232,8 @@ def parse_excel_import(content: bytes, import_type: str) -> List[Dict[str, Any]]
             column: value.strip() if isinstance(value, str) else value
             for column, value in zip(expected, values)
         }
+        if import_type in {"students", "teachers"}:
+            item["password"] = normalize_excel_password(item.get("password"))
         missing = [
             column for column in required
             if item[column] is None or str(item[column]).strip() == ""
