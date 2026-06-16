@@ -1165,6 +1165,28 @@ def get_approval_info(project: Project) -> dict:
         "approval_comment": project.approval_comment if hasattr(project, 'approval_comment') else None
     }
 
+def get_initial_project_lifecycle_state(schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    schema = schema or load_project_lifecycle()
+    stages = []
+    for index, stage in enumerate(schema.get("stages", [])):
+        stage_id = stage.get("id")
+        if not stage_id:
+            continue
+        stages.append({
+            "id": stage_id,
+            "status": "current" if index == 0 else "pending",
+            "requested_by": None,
+            "requested_at": None,
+            "handled_by": None,
+            "handled_at": None,
+            "comment": None,
+        })
+    return {
+        "current_stage_id": stages[0]["id"] if stages else None,
+        "stages": stages,
+        "audit_log": [],
+    }
+
 def normalize_project_lifecycle_state(project: Project, schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     schema = schema or load_project_lifecycle()
     stage_ids = [stage["id"] for stage in schema.get("stages", [])]
@@ -1881,6 +1903,10 @@ async def update_role_file_quota(
 
 @app.get("/admin/project-lifecycle", tags=["Admin"])
 async def admin_get_project_lifecycle(admin: User = Depends(get_current_admin)):
+    return load_project_lifecycle()
+
+@app.get("/project-lifecycle", tags=["Projects"])
+async def get_project_lifecycle(current_user: User = Depends(get_current_user)):
     return load_project_lifecycle()
 
 @app.put("/admin/project-lifecycle", tags=["Admin"])
@@ -3891,7 +3917,7 @@ async def create_project(
         tasks=project.tasks,
         links=project.links,
         comments=[c.model_dump(mode='json') for c in project.comments] if project.comments else [],
-        lifecycle_state={"current_stage_id": None, "stages": [], "audit_log": []},
+        lifecycle_state=get_initial_project_lifecycle_state(),
         file_quota_overrides={},
         required_roles=project.required_roles,
         is_hidden=False,
@@ -5476,7 +5502,7 @@ async def import_excel_data(
                     tasks=[],
                     links={},
                     comments=[],
-                    lifecycle_state={"current_stage_id": None, "stages": [], "audit_log": []},
+                    lifecycle_state=get_initial_project_lifecycle_state(),
                     file_quota_overrides={},
                     required_roles={"customer": 1},
                     suggestions=[],

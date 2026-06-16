@@ -662,6 +662,19 @@ async function loadCurrentLifecycleStage(project: Project) {
   }
 }
 
+async function loadInitialLifecycleStage() {
+  try {
+    const { data } = await api.get('/project-lifecycle');
+    const firstStage = data?.stages?.[0];
+    currentDefaultTasksStageId.value = firstStage?.id || '';
+    currentDefaultTasksStageTitle.value = firstStage?.title || currentDefaultTasksStageId.value;
+  } catch (error) {
+    console.error('Failed to load initial project lifecycle stage', error);
+    currentDefaultTasksStageId.value = '';
+    currentDefaultTasksStageTitle.value = '';
+  }
+}
+
 function saveTask(index: number) {
   const task = tasks.value[index];
   if (!task) return;
@@ -775,6 +788,7 @@ onMounted(async () => {
   } else {
     isSuggestMode.value = false;
     isApplyingSuggestion.value = false;
+    await loadInitialLifecycleStage();
     requiredRolesValue.value = {};
     if (authStore.userId) {
       const creatorRole = getCreatorRole();
