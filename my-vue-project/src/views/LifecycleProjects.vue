@@ -24,7 +24,10 @@
     <div v-else class="project-list">
       <article v-for="project in projects" :key="project.id" class="project-row" @click="router.push(`/project/${project.id}`)">
         <div class="project-main">
-          <strong>{{ project.title }}</strong>
+          <div class="project-title-line">
+            <strong>{{ project.title }}</strong>
+            <span v-if="project.is_old" class="old-project-badge">{{ $t('projectDetails.oldProject') }}</span>
+          </div>
           <small v-if="project.class_key" class="class-badge">{{ $t('lifecycleDashboard.classLabel') }}: {{ project.class_key }}</small>
           <span>{{ project.body }}</span>
           <small>{{ $t('lifecycleDashboard.tasks', { count: project.tasks_count }) }}</small>
@@ -176,6 +179,21 @@ onMounted(loadProjects);
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.project-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.old-project-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(255, 152, 0, 0.14);
+  color: #ff9800;
+  border: 1px solid rgba(255, 152, 0, 0.35);
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 .project-main span {
   color: var(--text-secondary);

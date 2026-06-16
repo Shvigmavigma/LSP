@@ -47,7 +47,10 @@
           <div v-for="req in pending" :key="req.project_id" class="card pending">
             <div class="card-header">
               <h3>{{ req.project_title }}</h3>
-              <span class="status pending">{{ $t('moderation.pendingStatus') }}</span>
+              <div class="status-group">
+                <span v-if="req.is_old" class="old-project-badge">{{ $t('projectDetails.oldProject') }}</span>
+                <span class="status pending">{{ $t('moderation.pendingStatus') }}</span>
+              </div>
             </div>
             <div class="card-body">
               <div class="info-row">
@@ -85,7 +88,10 @@
           <div v-for="req in approved" :key="req.project_id" class="card approved">
             <div class="card-header">
               <h3>{{ req.project_title }}</h3>
-              <span class="status approved">{{ $t('moderation.approvedStatus') }}</span>
+              <div class="status-group">
+                <span v-if="req.is_old" class="old-project-badge">{{ $t('projectDetails.oldProject') }}</span>
+                <span class="status approved">{{ $t('moderation.approvedStatus') }}</span>
+              </div>
             </div>
             <div class="card-body">
               <div class="info-row">
@@ -113,7 +119,10 @@
           <div v-for="req in rejected" :key="req.project_id" class="card rejected">
             <div class="card-header">
               <h3>{{ req.project_title }}</h3>
-              <span class="status rejected">{{ $t('moderation.rejectedStatus') }}</span>
+              <div class="status-group">
+                <span v-if="req.is_old" class="old-project-badge">{{ $t('projectDetails.oldProject') }}</span>
+                <span class="status rejected">{{ $t('moderation.rejectedStatus') }}</span>
+              </div>
             </div>
             <div class="card-body">
               <div class="info-row">
@@ -379,6 +388,24 @@ onMounted(() => {
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 500;
+}
+
+.status-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.old-project-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(255, 152, 0, 0.14);
+  color: #ff9800;
+  border: 1px solid rgba(255, 152, 0, 0.35);
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 .status.pending { background: rgba(255,152,0,0.1); color: #ff9800; }

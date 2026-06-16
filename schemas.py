@@ -108,6 +108,7 @@ class ApprovalAction(BaseModel):
 class ApprovalRequest(BaseModel):
     project_id: int
     project_title: str
+    is_old: bool = False
     requested_by: int
     requested_by_name: str
     requested_at: datetime
