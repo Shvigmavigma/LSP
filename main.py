@@ -14,6 +14,7 @@ import uuid
 import random
 import gzip
 import string
+from urllib.parse import quote
 from dotenv import load_dotenv
 import json
 from pathlib import Path
@@ -1186,6 +1187,16 @@ def get_initial_project_lifecycle_state(schema: Optional[Dict[str, Any]] = None)
         "stages": stages,
         "audit_log": [],
     }
+
+def make_content_disposition(disposition: str, filename: str) -> str:
+    safe_filename = (filename or "file").replace("\\", "_").replace("/", "_").replace("\r", "").replace("\n", "")
+    ascii_filename = safe_filename.encode("ascii", "ignore").decode("ascii") or "file"
+    ascii_filename = ascii_filename.replace('"', "'")
+    ascii_stem, ascii_ext = os.path.splitext(ascii_filename)
+    if not ascii_stem.strip(" ._-"):
+        ascii_filename = f"file{ascii_ext}"
+    encoded_filename = quote(safe_filename, safe="")
+    return f"{disposition}; filename=\"{ascii_filename}\"; filename*=UTF-8''{encoded_filename}"
 
 def normalize_project_lifecycle_state(project: Project, schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     schema = schema or load_project_lifecycle()
@@ -5001,14 +5012,16 @@ async def download_file(
             "Content-Range": f"bytes {start}-{end}/{file_size}",
             "Accept-Ranges": "bytes",
             "Content-Length": str(chunk_size),
-            "Content-Disposition": f"inline; filename=\"{file_record.original_filename}\"",
+            "Content-Disposition": make_content_disposition("inline", file_record.original_filename),
         }
         return StreamingResponse(iterfile(), status_code=206, media_type=content_type, headers=headers)
 
-    headers = {"Content-Disposition": "inline"}
+    headers = {
+        "Content-Disposition": make_content_disposition("inline", file_record.original_filename),
+    }
     if is_gzip:
         headers["Content-Encoding"] = "gzip"
-    return FileResponse(file_path, filename=file_record.original_filename, media_type=content_type, headers=headers)
+    return FileResponse(file_path, media_type=content_type, headers=headers)
 
 # ==================== АУТЕНТИФИКАЦИЯ И ВЕРИФИКАЦИЯ ====================
 @app.post("/auth/request-verification-code", tags=["Auth"])

@@ -22,9 +22,15 @@
       </div>
       
       <!-- Прогресс -->
-      <span v-if="task.status === 'в работе'" class="task-progress">
-        {{ $t('projectDetails.progress') }}: {{ task.progress ?? 0 }}%
-      </span>
+      <div class="task-progress">
+        <div class="task-progress-meta">
+          <span>{{ $t('projectDetails.progress') }}</span>
+          <strong>{{ taskProgress(task) }}%</strong>
+        </div>
+        <div class="task-progress-bar">
+          <div class="task-progress-fill" :style="{ width: taskProgress(task) + '%' }"></div>
+        </div>
+      </div>
       
       <!-- Дедлайн -->
       <small>{{ $t('projectDetails.deadline') }}: {{ formatTaskDates(task) }}</small>
@@ -130,6 +136,12 @@ function getTaskStatusText(status: string): string {
     case 'выполнена': return t('projectDetails.status.completed');
     default: return status;
   }
+}
+
+function taskProgress(task: Task): number {
+  const raw = Number(task.progress ?? (task.status === 'выполнена' ? 100 : 0));
+  if (!Number.isFinite(raw)) return 0;
+  return Math.min(100, Math.max(0, Math.round(raw)));
 }
 
 function isTaskRequiredFileAttached(task: Task, requiredFileId: string): boolean {
@@ -242,14 +254,33 @@ function isTaskRequiredFileAttached(task: Task, requiredFileId: string): boolean
 }
 
 .task-progress {
-  display: inline-block;
-  margin-top: 4px;
+  margin-top: 10px;
   margin-right: 8px;
+  max-width: 360px;
+}
+
+.task-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
   font-size: 0.9rem;
   color: var(--heading-color);
+}
+
+.task-progress-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
   background: var(--completed-bg);
-  padding: 2px 8px;
-  border-radius: 12px;
+}
+
+.task-progress-fill {
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: var(--accent-color);
+  transition: width 0.25s ease;
 }
 
 .task-content small {
