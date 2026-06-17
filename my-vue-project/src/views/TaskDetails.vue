@@ -178,9 +178,9 @@
         <h3>{{ $t('taskDetails.totalProgress') }}</h3>
         <div class="gantt-container">
           <div class="gantt-bar-container">
-            <div class="gantt-bar" :style="{ width: totalProgress + '%', backgroundColor: barColor }"
-                 :title="`${$t('taskDetails.progress')}: ${totalProgress.toFixed(1)}%`"></div>
-            <span class="gantt-percent">{{ totalProgress.toFixed(1) }}%</span>
+            <div class="gantt-bar" :style="{ width: normalizedTotalProgress + '%', backgroundColor: barColor }"
+                 :title="`${$t('taskDetails.progress')}: ${normalizedTotalProgress.toFixed(1)}%`"></div>
+            <span class="gantt-percent">{{ normalizedTotalProgress.toFixed(1) }}%</span>
             <span class="gantt-dates">{{ task.timeline || '?' }} – {{ task.timelinend || '?' }}</span>
           </div>
           <div class="gantt-labels">
@@ -230,7 +230,7 @@
       </section>
 
       <!-- Ползунок прогресса (появляется только когда все подзадачи выполнены) -->
-      <section v-if="showManualProgress && canEditTask && !isOldReadOnly" class="progress-section">
+      <section v-if="canEditTask && !isOldReadOnly" class="progress-section" :class="{ disabled: !canChangeManualProgress }">
         <h3>{{ $t('taskDetails.extraProgress') }}</h3>
         <div class="progress-slider-container">
           <span class="progress-value">{{ sliderValue }}%</span>
@@ -245,9 +245,14 @@
             step="1"
           />
         </div>
-        <button class="apply-progress-button" @click="openConfirmDialog">{{ $t('taskDetails.applyExtraProgress') }}</button>
+        <p v-if="!canChangeManualProgress" class="disabled-message">
+          {{ $t('taskDetails.completeAllSubtasksForProgress') }}
+        </p>
+        <button class="apply-progress-button" @click="openConfirmDialog" :disabled="!canChangeManualProgress">
+          {{ $t('taskDetails.applyExtraProgress') }}
+        </button>
       </section>
-      <div v-else-if="showManualProgress && !canEditTask && !isOldReadOnly" class="progress-section-disabled">
+      <div v-else-if="!canEditTask && !isOldReadOnly" class="progress-section-disabled">
         <p class="disabled-message">🔒 {{ $t('taskDetails.onlyEditorsCanChangeProgress') }}</p>
       </div>
 
@@ -486,8 +491,14 @@ const maxExtra = computed(() => {
 });
 
 const totalProgress = computed(() => completedSubtasksPercent.value + sliderValue.value);
+const normalizedTotalProgress = computed(() => {
+  if (task.value?.status === 'выполнена') return 100;
+  const raw = Number(totalProgress.value);
+  const value = Number.isFinite(raw) ? raw : 0;
+  return Math.min(100, Math.max(0, value));
+});
 
-const showManualProgress = computed(() => {
+const canChangeManualProgress = computed(() => {
   return task.value?.status === 'в работе' && 
          subtasks.value.length > 0 && 
          allSubtasksCompleted.value && 
@@ -991,6 +1002,7 @@ const updateSliderValue = (event: Event) => {
 };
 
 const openConfirmDialog = () => { 
+  if (!canChangeManualProgress.value) return;
   oldSliderValue.value = sliderValue.value; 
   showConfirmDialog.value = true; 
 };
@@ -998,7 +1010,7 @@ const closeConfirmDialog = () => {
   showConfirmDialog.value = false; 
 };
 const confirmExtraChange = async () => {
-  if (!canEditTask.value || isOldReadOnly.value) { 
+  if (!canEditTask.value || isOldReadOnly.value || !canChangeManualProgress.value) { 
     showNotification(t('taskDetails.onlyEditorsCanChangeProgress'), 'info');
     closeConfirmDialog();
     return;
