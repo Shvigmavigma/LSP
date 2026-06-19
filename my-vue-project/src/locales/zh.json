@@ -316,6 +316,21 @@
             "desc": "审核用户的个人资料更改申请"
         },
         "title": "管理面板",
+        "workspace": "管理中心",
+        "sections": {
+            "access": {
+                "title": "用户与访问权限",
+                "desc": "账户、权限、方向和申请"
+            },
+            "projects": {
+                "title": "项目与流程",
+                "desc": "项目、阶段、任务模板和限制"
+            },
+            "creation": {
+                "title": "创建",
+                "desc": "新用户、管理员和项目"
+            }
+        },
         "createAdmin": {
             "title": "创建管理员",
             "desc": "创建新的平台管理员"
