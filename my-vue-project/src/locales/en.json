@@ -313,6 +313,21 @@
             "desc": "Review user profile change requests"
         },
         "title": "Admin Panel",
+        "workspace": "Management center",
+        "sections": {
+            "access": {
+                "title": "Users and access",
+                "desc": "Accounts, permissions, directions, and requests"
+            },
+            "projects": {
+                "title": "Projects and processes",
+                "desc": "Projects, stages, task templates, and limits"
+            },
+            "creation": {
+                "title": "Creation",
+                "desc": "New users, administrators, and projects"
+            }
+        },
         "createAdmin": {
             "title": "Create Administrator",
             "desc": "Create a new platform administrator"
