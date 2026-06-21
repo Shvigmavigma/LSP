@@ -1125,6 +1125,17 @@ def count_participants_by_role(project: Project, role: str) -> int:
         return 0
     return sum(1 for p in project.participants if p.get("role") == role)
 
+def normalize_class_parallel(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip().replace(",", ".")
+    if not text:
+        return None
+    try:
+        return str(int(float(text)))
+    except (TypeError, ValueError):
+        return text
+
 def user_can_act_as_role(user: User, role: str) -> bool:
     if role == "executor":
         return True   
@@ -3478,10 +3489,14 @@ async def create_join_request(
     if any(p.get("user_id") == current_user.id for p in (project.participants or [])):
         raise HTTPException(status_code=400, detail="You are already a participant")
 
-    if project.class_key and not (current_user.is_admin or is_curator(current_user) or current_user.is_teacher):
-        user_class = str(int(current_user.class_)) if current_user.class_ is not None else ""
-        if user_class != str(project.class_key):
-            raise HTTPException(status_code=403, detail="Only students from this project parallel can request to join")
+    if not (current_user.is_admin or is_curator(current_user) or current_user.is_teacher):
+        project_class = normalize_class_parallel(project.class_key)
+        user_class = normalize_class_parallel(current_user.class_)
+        if not project_class or user_class != project_class:
+            raise HTTPException(
+                status_code=403,
+                detail="Запрос на вступление доступен только ученикам из параллели проекта",
+            )
 
     if not user_can_act_as_role(current_user, requested_role):
         raise HTTPException(status_code=403, detail=f"You cannot act as {requested_role}")

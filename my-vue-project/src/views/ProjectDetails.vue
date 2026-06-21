@@ -592,39 +592,56 @@
               <p v-else>{{ $t('projectDetails.noParticipants') }}</p>
             </div>
 
-            <!-- Доступные роли для отклика -->
-            <div v-if="availableJoinRoles.length > 0" class="respond-roles-section">
-              <h4>{{ $t('projectDetails.availableRolesToJoin') }}</h4>
-              <div class="roles-to-join" :key="`roles-${project.id}-${project.join_requests?.length || 0}`">
-                <div v-for="roleInfo in availableJoinRoles" :key="`${roleInfo.role}-${hasPendingRequestForRole(roleInfo.role)}`" class="role-join-card">
-                  <div class="role-join-header">
-                    <span class="role-name">{{ getRoleDisplay(roleInfo.role) }}</span>
-                    <span class="role-openings">{{ $t('projectDetails.roleOpenings', { count: roleInfo.deficit }) }}</span>
-                  </div>
-                  <div class="role-description">{{ getRoleDescription(roleInfo.role) }}</div>
-                  
-                  <button
-                    class="respond-role-btn"
-                    @click="respondToProjectWithRole(roleInfo.role)"
-                    :disabled="hasPendingRequestForRole(roleInfo.role) || respondingRole === roleInfo.role"
-                  >
-                    {{ respondingRole === roleInfo.role ? $t('common.sending') : $t('projectDetails.joinAsRole', { role: getRoleDisplay(roleInfo.role) }) }}
-                  </button>
-                  
-                  <div v-if="hasPendingRequestForRole(roleInfo.role)" class="already-responded-role">
-                    {{ $t('projectDetails.alreadyResponded') }}
-                  </div>
+          </div>
+
+          <section v-if="shouldShowResponseSection" class="join-request-form">
+            <div class="join-request-form-header">
+              <div>
+                <span class="join-request-eyebrow">{{ $t('projectDetails.joinRequestEyebrow') }}</span>
+                <h3>{{ $t('projectDetails.availableRolesToJoin') }}</h3>
+              </div>
+              <span v-if="project.class_key" class="project-class-badge">
+                {{ $t('projectDetails.projectClass', { class: project.class_key }) }}
+              </span>
+            </div>
+
+            <div v-if="!studentClassMatchesProject" class="class-mismatch-banner">
+              {{ $t('projectDetails.classMismatch', { class: project.class_key || '—' }) }}
+            </div>
+
+            <div v-else-if="joinRoleOptions.length > 0" class="roles-to-join" :key="`roles-${project.id}-${project.join_requests?.length || 0}`">
+              <div
+                v-for="roleInfo in joinRoleOptions"
+                :key="`${roleInfo.role}-${hasPendingRequestForRole(roleInfo.role)}`"
+                class="role-join-card"
+                :class="{ 'request-exists': hasPendingRequestForRole(roleInfo.role) }"
+              >
+                <div class="role-join-header">
+                  <span class="role-name">{{ getRoleDisplay(roleInfo.role) }}</span>
+                  <span v-if="roleInfo.deficit > 0" class="role-openings">
+                    {{ $t('projectDetails.roleOpenings', { count: roleInfo.deficit }) }}
+                  </span>
                 </div>
+                <div class="role-description">{{ getRoleDescription(roleInfo.role) }}</div>
+
+                <div v-if="hasPendingRequestForRole(roleInfo.role)" class="role-request-status">
+                  {{ $t('projectDetails.requestAlreadyExistsForRole') }}
+                </div>
+                <button
+                  v-else
+                  class="respond-role-btn"
+                  @click="respondToProjectWithRole(roleInfo.role)"
+                  :disabled="roleInfo.deficit <= 0 || respondingRole === roleInfo.role"
+                >
+                  {{ respondingRole === roleInfo.role ? $t('common.sending') : $t('projectDetails.joinAsRole', { role: getRoleDisplay(roleInfo.role) }) }}
+                </button>
               </div>
             </div>
-            
-            <div v-else-if="userHasAnyPendingRequest" class="already-responded">
-              <span class="responded-message">✅ {{ $t('projectDetails.alreadyResponded') }}</span>
-            </div>
+
             <div v-else class="no-roles-available">
               <p>{{ $t('projectDetails.noOpenRoles') }}</p>
             </div>
-          </div>
+          </section>
         </div>
         
         <!-- Не одобренный проект для не-участников -->
@@ -855,23 +872,36 @@ const participantsCountByRole = computed(() => {
   return counts;
 });
 
-const availableJoinRoles = computed(() => {
+function normalizeClassParallel(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim().replace(',', '.');
+  if (!normalized) return null;
+  const numeric = Number(normalized);
+  return Number.isFinite(numeric) ? String(Math.trunc(numeric)) : normalized;
+}
+
+const studentClassMatchesProject = computed(() => {
+  const user = authStore.user;
+  if (!user || user.is_admin || user.is_teacher) return true;
+  const projectClass = normalizeClassParallel(project.value?.class_key);
+  const userClass = normalizeClassParallel(user.class);
+  return projectClass !== null && userClass === projectClass;
+});
+
+const joinRoleOptions = computed(() => {
   if (!project.value || !authStore.user) return [];
+  if (!studentClassMatchesProject.value) return [];
   const required = project.value.required_roles || {};
   const roles: { role: ProjectRole; deficit: number }[] = [];
   for (const [role, target] of Object.entries(required)) {
     const current = participantsCountByRole.value[role] || 0;
     const deficit = Math.max(0, target - current);
-    if (deficit > 0 && userCanActAsRole(role as ProjectRole)) {
+    const typedRole = role as ProjectRole;
+    if (userCanActAsRole(typedRole) && (deficit > 0 || hasPendingRequestForRole(typedRole))) {
       roles.push({ role: role as ProjectRole, deficit });
     }
   }
   return roles;
-});
-
-const userHasAnyPendingRequest = computed(() => {
-  if (!authStore.userId || !project.value?.join_requests) return false;
-  return project.value.join_requests.some(r => r.user_id === authStore.userId && r.status === 'pending');
 });
 
 const activeTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status !== 'выполнена') || []);
@@ -1171,8 +1201,17 @@ async function cancelApprovalRequest() {
 // ========== Отклик ==========
 async function respondToProjectWithRole(role: ProjectRole) {
   if (!project.value) return;
+  if (!studentClassMatchesProject.value) {
+    showNotification(t('projectDetails.classMismatch', { class: project.value.class_key || '—' }), 'error');
+    return;
+  }
   if (hasPendingRequestForRole(role)) {
-    showNotification(t('projectDetails.alreadyResponded'), 'info');
+    showNotification(t('projectDetails.requestAlreadyExistsForRole'), 'info');
+    return;
+  }
+  const roleOption = joinRoleOptions.value.find(option => option.role === role);
+  if (!roleOption || roleOption.deficit <= 0) {
+    showNotification(t('projectDetails.noOpenRoles'), 'error');
     return;
   }
   if (respondingRole.value === role) return;
@@ -1741,6 +1780,31 @@ watch(() => route.params.id, () => { loadProject(true); });
 .two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
 .info-column, .tasks-column { background: var(--bg-column); backdrop-filter: blur(4px); border-radius: 24px; padding: 30px; box-shadow: var(--shadow); }
 
+.non-author-layout {
+  width: min(100%, 1040px);
+  margin: 0 auto;
+}
+.non-author-layout .project-card {
+  padding: 28px 32px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+}
+.non-author-layout .project-section {
+  padding: 0 0 22px;
+  margin: 0 0 22px;
+  border-bottom: 1px solid var(--border-color);
+}
+.non-author-layout .project-section:last-child {
+  padding-bottom: 0;
+  margin-bottom: 0;
+  border-bottom: 0;
+}
+.non-author-layout .project-section h3 { margin: 0 0 10px; }
+.non-author-layout .project-section p { margin: 0; overflow-wrap: anywhere; }
+.non-author-layout .participants-list { align-items: center; }
+
 .project-section { margin-bottom: 28px; }
 .project-section h3 { color: var(--heading-color); margin-bottom: 10px; font-weight: 500; }
 .project-section p { color: var(--text-primary); line-height: 1.6; }
@@ -1855,10 +1919,22 @@ watch(() => route.params.id, () => { loadProject(true); });
 .old-project-banner { background-color: #ff9800; color: white; text-align: center; padding: 12px; margin-bottom: 20px; border-radius: 8px; font-weight: 500; box-shadow: var(--shadow); }
 .not-approved-public-banner { background: linear-gradient(135deg, #ff9800, #ffa726); color: white; text-align: center; padding: 12px; margin-bottom: 20px; border-radius: 8px; font-weight: 500; box-shadow: var(--shadow); }
 
-.respond-roles-section { margin-top: 24px; padding-top: 16px; border-top: 2px dashed var(--border-color); }
-.respond-roles-section h4 { color: var(--heading-color); margin-bottom: 16px; font-weight: 500; }
-.roles-to-join { display: flex; flex-direction: column; gap: 16px; }
-.role-join-card { background: var(--bg-card); border-radius: 16px; padding: 16px; border-left: 4px solid var(--accent-color); box-shadow: var(--shadow); }
+.join-request-form {
+  margin-top: 22px;
+  padding: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+}
+.join-request-form-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.join-request-form-header h3 { margin: 3px 0 0; color: var(--heading-color); }
+.join-request-eyebrow { color: var(--text-secondary); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.project-class-badge { flex-shrink: 0; padding: 7px 12px; border-radius: 999px; background: var(--completed-bg); color: var(--heading-color); border: 1px solid var(--border-color); font-size: 0.85rem; font-weight: 700; }
+.class-mismatch-banner { padding: 14px 16px; border: 1px solid var(--danger-color); border-radius: 12px; background: var(--danger-bg); color: var(--danger-color); font-weight: 600; line-height: 1.4; }
+.roles-to-join { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.role-join-card { background: var(--bg-card); border-radius: 14px; padding: 16px; border: 1px solid var(--border-color); border-left: 4px solid var(--accent-color); box-shadow: var(--shadow); }
+.role-join-card.request-exists { border-color: color-mix(in srgb, var(--accent-color) 55%, var(--border-color)); background: color-mix(in srgb, var(--accent-color) 6%, var(--bg-card)); }
 .role-join-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 .role-name { font-size: 1.1rem; font-weight: 600; color: var(--heading-color); }
 .role-openings { font-size: 0.85rem; background: rgba(76,175,80,0.1); padding: 2px 8px; border-radius: 20px; color: #4caf50; }
@@ -1866,8 +1942,7 @@ watch(() => route.params.id, () => { loadProject(true); });
 .respond-role-btn { width: 100%; padding: 10px; background: var(--accent-color); color: var(--button-text); border: none; border-radius: 30px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
 .respond-role-btn:hover:not(:disabled) { background: var(--accent-hover); }
 .respond-role-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.already-responded { text-align: center; padding: 12px 24px; background: rgba(76,175,80,0.1); border-radius: 30px; border: 2px solid #4caf50; color: #4caf50; font-weight: 600; font-size: 1.1rem; margin-bottom: 20px; }
-.already-responded-role { text-align: center; font-size: 0.75rem; color: #4caf50; margin-top: 6px; font-style: italic; }
+.role-request-status { padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--accent-color) 14%, transparent); color: var(--heading-color); text-align: center; font-size: 0.86rem; font-weight: 700; }
 .no-roles-available { text-align: center; color: var(--text-secondary); padding: 20px; font-style: italic; }
 
 .floating-leave-button { position: fixed; bottom: 20px; right: 20px; z-index: 1000; padding: 12px 24px; background: var(--danger-bg); color: var(--danger-color); border: 1px solid var(--danger-color); border-radius: 50px; font-size: 1rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: var(--shadow-strong); }
