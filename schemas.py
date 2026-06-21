@@ -8,7 +8,8 @@ class JoinRequest(BaseModel):
     id: str
     user_id: int
     created_at: datetime
-    status: str 
+    status: str
+    requested_role: Optional[str] = None
 
 # ---------- СХЕМА КОММЕНТОВ ----------
 class Comment(BaseModel):
