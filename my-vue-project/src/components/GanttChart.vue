@@ -3,11 +3,11 @@
     <div class="gantt-header">
       <h3>{{ title }}</h3>
       <div class="controls">
-        <button class="zoom-btn" @click="zoomOut" title="Уменьшить масштаб">−</button>
+        <button class="zoom-btn" @click="zoomOut" :title="t('projectDetails.gantt.zoomOut')" :aria-label="t('projectDetails.gantt.zoomOut')" :disabled="dayWidth <= 20">−</button>
         <span class="zoom-level">{{ Math.round(dayWidth / 40 * 100) }}%</span>
-        <button class="zoom-btn" @click="zoomIn" title="Увеличить масштаб">+</button>
-        <button class="expand-btn" @click="expanded = !expanded">
-          {{ expanded ? '▼ Свернуть' : '▲ Развернуть' }}
+        <button class="zoom-btn" @click="zoomIn" :title="t('projectDetails.gantt.zoomIn')" :aria-label="t('projectDetails.gantt.zoomIn')" :disabled="dayWidth >= 120">+</button>
+        <button class="expand-btn" @click="expanded = !expanded" :aria-expanded="expanded">
+          {{ expanded ? t('projectDetails.gantt.collapse') : t('projectDetails.gantt.expand') }}
         </button>
       </div>
     </div>
@@ -15,17 +15,21 @@
       <div class="gantt-chart" :style="{ minWidth: timelineWidth + 'px' }">
         <!-- Заголовки дат -->
         <div class="gantt-header-row">
-          <div class="gantt-label">Задача</div>
+          <div class="gantt-label">{{ t('projectDetails.gantt.task') }}</div>
           <div class="gantt-timeline" :style="{ width: timelineWidth + 'px' }">
             <div
               v-for="(date, idx) in dateHeaders"
-              :key="date"
+              :key="date.iso"
               class="date-header"
+              :class="{ weekend: date.isWeekend, today: date.isToday }"
               :style="{ left: idx * dayWidth + 'px', width: dayWidth + 'px' }"
             >
-              {{ date }}
+              {{ date.label }}
             </div>
           </div>
+        </div>
+        <div v-if="displayTasks.length === 0" class="gantt-empty">
+          {{ t('projectDetails.gantt.noTasks') }}
         </div>
         <!-- Строки задач -->
         <div
@@ -81,6 +85,7 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
 import { useEventListener } from '@vueuse/core';
+import { useI18n } from 'vue-i18n';
 import type { Task } from '@/types';
 import { parseDate, formatDate } from '@/utils/dateUtils';
 
@@ -89,6 +94,8 @@ const props = defineProps<{
   title: string;
   readonly?: boolean; // новый проп – отключает редактирование
 }>();
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   (e: 'update-tasks', payload: { task: Task; index: number }): void;
@@ -243,10 +250,17 @@ const dateRange = computed(() => {
 const dateHeaders = computed(() => {
   const start = dateRange.value.start;
   const end = dateRange.value.end;
-  const headers: string[] = [];
+  const headers: Array<{ label: string; iso: string; isWeekend: boolean; isToday: boolean }> = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const current = new Date(start);
   while (current <= end) {
-    headers.push(`${current.getDate()}.${current.getMonth() + 1}`);
+    headers.push({
+      label: `${current.getDate()}.${current.getMonth() + 1}`,
+      iso: current.toISOString(),
+      isWeekend: current.getDay() === 0 || current.getDay() === 6,
+      isToday: current.getTime() === today.getTime(),
+    });
     current.setDate(current.getDate() + 1);
   }
   return headers;
@@ -376,58 +390,91 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* стили без изменений – оставлены как в вашем исходном файле */
 .gantt-wrapper {
   margin-top: 20px;
-  border-top: 2px dashed var(--border-color);
-  padding-top: 15px;
+  border: 1px solid var(--border-color);
   background: var(--bg-card);
   border-radius: 12px;
-  padding: 20px;
+  padding: 0;
+  overflow: hidden;
   box-shadow: var(--shadow);
 }
 .gantt-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin: 0;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-color);
   flex-wrap: wrap;
   gap: 10px;
 }
+.gantt-header h3 {
+  margin: 0;
+  color: var(--heading-color);
+  font-size: 1rem;
+}
 .controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--completed-bg);
+}
+.zoom-btn,
+.expand-btn {
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-weight: 700;
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 .zoom-btn {
+  width: 34px;
+  padding: 0;
+  font-size: 1.1rem;
+}
+.expand-btn {
+  padding: 5px 12px;
+}
+.zoom-btn:hover:not(:disabled),
+.expand-btn:hover {
+  border-color: var(--accent-color);
   background: var(--accent-color);
   color: var(--button-text);
-  border: none;
-  border-radius: 20px;
-  padding: 4px 12px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: bold;
+  box-shadow: var(--shadow);
+}
+.zoom-btn:active:not(:disabled),
+.expand-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+.zoom-btn:focus-visible,
+.expand-btn:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+.zoom-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
 }
 .zoom-level {
   font-size: 0.85rem;
   color: var(--text-secondary);
-  min-width: 45px;
+  min-width: 48px;
   text-align: center;
 }
-.expand-btn {
-  background: var(--accent-color);
-  color: var(--button-text);
-  border: none;
-  border-radius: 20px;
-  padding: 4px 12px;
-  cursor: pointer;
-}
 .gantt-container {
-  overflow-x: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  max-height: 520px;
+  overflow: auto;
   position: relative;
+  scrollbar-color: var(--accent-color) var(--completed-bg);
+  scrollbar-width: thin;
 }
 .gantt-chart {
   display: table;
@@ -440,26 +487,51 @@ onUnmounted(() => {
   border-bottom: 1px solid var(--border-color);
 }
 .gantt-header-row {
-  background: var(--bg-card);
+  min-height: 42px;
+  background: var(--completed-bg);
   position: sticky;
   top: 0;
   z-index: 10;
 }
+.gantt-row {
+  min-height: 46px;
+  background: var(--bg-card);
+  transition: background-color 0.18s ease;
+}
+.gantt-row:nth-child(odd) {
+  background: var(--completed-bg);
+}
+.gantt-row:hover {
+  background: var(--bg-page);
+}
 .gantt-label {
   width: 200px;
-  padding: 8px;
+  flex: 0 0 200px;
+  padding: 12px;
   font-weight: 500;
   color: var(--heading-color);
   border-right: 1px solid var(--border-color);
-  background: var(--bg-card);
+  background: inherit;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  position: sticky;
+  left: 0;
+  z-index: 6;
+}
+.gantt-header-row .gantt-label {
+  z-index: 12;
+  background: var(--completed-bg);
+  font-weight: 700;
 }
 .gantt-timeline {
   position: relative;
+  min-height: 46px;
   background: var(--bg-page);
   height: 100%;
+}
+.gantt-header-row .gantt-timeline {
+  min-height: 42px;
 }
 .date-header {
   position: absolute;
@@ -467,10 +539,18 @@ onUnmounted(() => {
   text-align: center;
   font-size: 0.7rem;
   color: var(--text-secondary);
-  padding: 8px 0;
+  height: 100%;
+  padding: 12px 0;
   white-space: nowrap;
   border-left: 1px solid var(--border-color);
   box-sizing: border-box;
+}
+.date-header.weekend {
+  background: color-mix(in srgb, var(--accent-color) 7%, transparent);
+}
+.date-header.today {
+  color: var(--danger-color);
+  font-weight: 800;
 }
 .gantt-bar {
   position: absolute;
@@ -478,7 +558,8 @@ onUnmounted(() => {
   height: 32px;
   border-radius: 6px;
   cursor: pointer;
-  transition: box-shadow 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  transition: box-shadow 0.2s, transform 0.2s, filter 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -492,7 +573,9 @@ onUnmounted(() => {
   z-index: 2;
 }
 .gantt-bar:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 4;
+  filter: brightness(1.08);
+  box-shadow: 0 5px 12px rgba(0,0,0,0.24);
 }
 .gantt-bar.dragging {
   opacity: 0.8;
@@ -518,8 +601,11 @@ onUnmounted(() => {
   background: rgba(255,255,255,0.8);
 }
 .task-disabled .gantt-bar {
-  opacity: 0.5;
-  cursor: not-allowed;
+  opacity: 0.72;
+  cursor: default;
+}
+.task-disabled .gantt-bar:hover {
+  transform: none;
 }
 .bar-text {
   font-size: 0.7rem;
@@ -538,5 +624,14 @@ onUnmounted(() => {
   z-index: 5;
   pointer-events: none;
   box-shadow: 0 0 4px rgba(255,68,68,0.5);
+}
+.gantt-empty {
+  position: sticky;
+  left: 0;
+  width: 100%;
+  padding: 30px 18px;
+  color: var(--text-secondary);
+  text-align: center;
+  background: var(--bg-card);
 }
 </style>

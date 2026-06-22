@@ -4206,6 +4206,97 @@ async def update_project_tasks(
     db.commit()
     return project
 
+@app.patch("/projects/{project_id}/tasks/{task_index}", response_model=ProjectResponse, tags=["Projects"])
+async def update_single_project_task(
+    project_id: int,
+    task_index: int,
+    task_update: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    if project.is_old and not (current_user.is_admin or is_curator(current_user)):
+        raise HTTPException(403, "Old projects are read-only")
+
+    participant_role = get_participant_role(project, current_user.id)
+    allowed_roles = {ProjectRole.CUSTOMER.value, ProjectRole.EXECUTOR.value, ProjectRole.CURATOR.value}
+    can_manage_task = current_user.is_admin or is_curator(current_user) or participant_role in allowed_roles
+    can_update_progress = can_manage_task or is_project_participant(project, current_user.id)
+    if not can_update_progress:
+        raise HTTPException(403, "Only project participants, curators or admins can update task progress")
+
+    tasks = [dict(task) for task in (project.tasks or [])]
+    if task_index < 0 or task_index >= len(tasks):
+        raise HTTPException(404, "Task not found")
+
+    allowed_fields = {"status", "progress", "subtasks"}
+    unexpected_fields = set(task_update) - allowed_fields - {"mark_completed"}
+    if unexpected_fields:
+        raise HTTPException(400, f"Unsupported task fields: {sorted(unexpected_fields)}")
+
+    if "subtasks" in task_update and not can_manage_task:
+        raise HTTPException(403, "Only customer, executor, curator or admin can update subtasks")
+    if "status" in task_update and not task_update.get("mark_completed") and not can_manage_task:
+        raise HTTPException(403, "Only customer, executor, curator or admin can change task status")
+
+    update_data = {key: value for key, value in task_update.items() if key in allowed_fields}
+    if "progress" in update_data:
+        try:
+            progress = float(update_data["progress"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Task progress must be a number")
+        if progress < 0 or progress > 100:
+            raise HTTPException(400, "Task progress must be between 0 and 100")
+        update_data["progress"] = progress
+
+    if "subtasks" in update_data and not isinstance(update_data["subtasks"], list):
+        raise HTTPException(400, "Task subtasks must be a list")
+    if "status" in update_data and not isinstance(update_data["status"], str):
+        raise HTTPException(400, "Task status must be a string")
+
+    old_tasks = [dict(task) for task in tasks]
+    updated_task = {**tasks[task_index], **update_data}
+
+    if task_update.get("mark_completed"):
+        if float(updated_task.get("progress") or 0) < 100:
+            raise HTTPException(400, "A task can only be completed at 100% progress")
+        for required_file in updated_task.get("required_files", []):
+            required_file_id = required_file.get("id")
+            if not required_file_id:
+                continue
+            attached = db.query(ProjectFile).filter(
+                ProjectFile.project_id == project_id,
+                ProjectFile.required_file_id == required_file_id,
+                ProjectFile.is_deleted == False,
+            ).first()
+            if not attached:
+                raise HTTPException(400, f"Required file is missing: {required_file.get('name', required_file_id)}")
+
+    tasks[task_index] = updated_task
+    old_snapshot = create_project_snapshot(project)
+    project.tasks = tasks
+    flag_modified(project, "tasks")
+    db.commit()
+    db.refresh(project)
+
+    await notify_completed_tasks(db, project, current_user, old_tasks)
+    new_snapshot = create_project_snapshot(project)
+    await record_change(
+        db,
+        project_id,
+        "task_update",
+        3,
+        compute_project_diff(old_snapshot, new_snapshot),
+        current_user.id,
+        f"Task updated by {user_display_name(current_user)}",
+    )
+    db.commit()
+    return project
+
+
 @app.patch("/projects/{project_id}/subtasks/move", response_model=ProjectResponse, tags=["Projects"])
 async def move_subtask(
     project_id: int,

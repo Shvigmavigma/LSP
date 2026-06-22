@@ -621,6 +621,7 @@ function isValidDate(dateStr: string): boolean {
 
 function addTask() {
   tasks.value.push({
+    stage_id: currentDefaultTasksStageId.value || null,
     title: '',
     status: 'ожидает',
     body: '',
@@ -635,6 +636,7 @@ function addTask() {
 function addSelectedTasks(newTasks: any[]) {
   const tasksToAdd = newTasks.map(task => ({
     ...task,
+    stage_id: task.stage_id || currentDefaultTasksStageId.value || null,
     id: undefined,
     expanded: false,
     startError: undefined,

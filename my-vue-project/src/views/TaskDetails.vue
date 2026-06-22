@@ -230,7 +230,7 @@
       </section>
 
       <!-- Ползунок прогресса (появляется только когда все подзадачи выполнены) -->
-      <section v-if="canEditTask && !isOldReadOnly" class="progress-section" :class="{ disabled: !canChangeManualProgress }">
+      <section v-if="canUpdateTaskProgress" class="progress-section" :class="{ disabled: !canChangeManualProgress }">
         <h3>{{ $t('taskDetails.extraProgress') }}</h3>
         <div class="progress-slider-container">
           <span class="progress-value">{{ sliderValue }}%</span>
@@ -245,21 +245,18 @@
             step="1"
           />
         </div>
-        <p v-if="!canChangeManualProgress" class="disabled-message">
-          {{ $t('taskDetails.completeAllSubtasksForProgress') }}
-        </p>
         <button class="apply-progress-button" @click="openConfirmDialog" :disabled="!canChangeManualProgress">
           {{ $t('taskDetails.applyExtraProgress') }}
         </button>
       </section>
-      <div v-else-if="!canEditTask && !isOldReadOnly" class="progress-section-disabled">
+      <div v-else-if="!canUpdateTaskProgress && !isOldReadOnly" class="progress-section-disabled">
         <p class="disabled-message">🔒 {{ $t('taskDetails.onlyEditorsCanChangeProgress') }}</p>
       </div>
 
       <section class="action-buttons" v-if="hasFullAccess && !isOldReadOnly">
         <div v-if="task.status !== 'выполнена'">
           <button class="complete-button" @click="completeTask"
-                  :disabled="actionInProgress || totalProgress < 100 || !canEditTask || !areAllRequiredFilesAttached"
+                  :disabled="actionInProgress || totalProgress < 100 || !canUpdateTaskProgress || !areAllRequiredFilesAttached"
                   :title="getCompleteButtonTitle()">
             {{ actionInProgress ? $t('common.sending') : $t('taskDetails.completeTask') }}
           </button>
@@ -344,7 +341,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import CommentsSection from '@/components/CommentsSection.vue';
 import FilePreviewModal from '@/components/FilePreviewModal.vue';
 import ProjectTree from '@/components/ProjectTree.vue';
-import type { Task, SubTask, Comment, ProjectRole, RequiredFile, TaskAttachment } from '@/types';
+import type { Project, Task, SubTask, Comment, ProjectRole, RequiredFile, TaskAttachment } from '@/types';
 import axios from 'axios';
 import HomeButton from '@/components/HomeButton.vue';
 import api from '@/utils/api'
@@ -406,6 +403,10 @@ function showNotification(message: string, type: 'error' | 'info' | 'success' = 
   notificationTimeout = window.setTimeout(() => { notification.value.show = false; }, duration);
 }
 
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  return (error as any)?.response?.data?.detail || fallback;
+}
+
 function closeNotification() {
   notification.value.show = false;
   if (notificationTimeout) {
@@ -432,6 +433,7 @@ const isAdminOrCurator = computed(() => isAdmin.value || isCurator.value);
 const hasFullAccess = computed(() => !!userRole.value || isAdmin.value || isCurator.value);
 
 const isOldReadOnly = computed(() => project.value?.is_old === true && !isAdminOrCurator.value);
+const canUpdateTaskProgress = computed(() => hasFullAccess.value && !isOldReadOnly.value);
 
 const canEditTask = computed(() => 
   (userRole.value === 'customer' || 
@@ -499,10 +501,8 @@ const normalizedTotalProgress = computed(() => {
 });
 
 const canChangeManualProgress = computed(() => {
-  return task.value?.status === 'в работе' && 
-         subtasks.value.length > 0 && 
-         allSubtasksCompleted.value && 
-         maxExtra.value > 0;
+  if (!canUpdateTaskProgress.value) return false;
+  return savedProgress.value < 100 && maxExtra.value > 0;
 });
 
 const visibleFiles = computed(() => {
@@ -548,7 +548,7 @@ async function loadTask() {
         taskFiles.value = [];
       }
     }
-  } catch (err) {
+  } catch (err: any) {
     error.value = t('taskDetails.loadError');
     console.error(err);
   } finally {
@@ -648,21 +648,35 @@ function getTaskStatusText(status: string): string {
 }
 
 function getCompleteButtonTitle(): string {
-  if (!canEditTask.value) return t('taskDetails.onlyEditorsCanComplete');
+  if (!canUpdateTaskProgress.value) return t('taskDetails.onlyEditorsCanComplete');
   if (totalProgress.value < 100) return t('taskDetails.completeOnlyAt100');
   if (!areAllRequiredFilesAttached.value) return t('taskDetails.missingRequiredFiles');
   return '';
 }
 
 // --- Методы задач ---
+async function updateCurrentTask(update: Record<string, unknown>): Promise<Task> {
+  const response = await api.patch(
+    `${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}`,
+    update,
+  );
+  const updatedProject = response.data as Project;
+  const updatedTask = updatedProject.tasks?.[taskIndex.value];
+  if (!updatedTask) throw new Error('Updated task is missing in the server response');
+
+  project.value = updatedProject;
+  task.value = updatedTask;
+  projectsStore.currentProject = updatedProject;
+  return updatedTask;
+}
+
 const toggleSubtask = async (subtask: SubTask) => {
   if (!canEditTask.value || isOldReadOnly.value) { 
     showNotification(t('taskDetails.onlyEditorsCanEditSubtasks'), 'info'); 
     return; 
   }
-  const currentProject = project.value;
   const currentTask = task.value;
-  if (!currentProject || !currentTask) return;
+  if (!project.value || !currentTask) return;
   actionInProgress.value = true;
 
   try {
@@ -675,14 +689,8 @@ const toggleSubtask = async (subtask: SubTask) => {
     if (sliderValue.value > (100 - newCompletedSum)) sliderValue.value = 100 - newCompletedSum;
     const newTotal = newCompletedSum + sliderValue.value;
 
-    const updatedTask = { ...currentTask, subtasks: updatedSubtasks, progress: newTotal };
-    const updatedTasks = [...currentProject.tasks];
-    updatedTasks[taskIndex.value] = updatedTask;
-
-    await api.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks: updatedTasks });
-    project.value = { ...currentProject, tasks: updatedTasks };
-    task.value = updatedTask;
-    savedProgress.value = newTotal;
+    const savedTask = await updateCurrentTask({ subtasks: updatedSubtasks, progress: newTotal });
+    savedProgress.value = savedTask.progress ?? newTotal;
   } catch (err) {
     console.error('Ошибка при переключении подзадачи:', err);
     showNotification(t('taskDetails.subtaskUpdateError'), 'error');
@@ -692,7 +700,7 @@ const toggleSubtask = async (subtask: SubTask) => {
 };
 
 const completeTask = async () => {
-  if (!canEditTask.value || isOldReadOnly.value) { 
+  if (!canUpdateTaskProgress.value) {
     showNotification(t('taskDetails.onlyEditorsCanComplete'), 'info'); 
     return; 
   }
@@ -712,11 +720,15 @@ const completeTask = async () => {
   try {
     const updatedTasks = [...currentProject.tasks];
     updatedTasks[taskIndex.value] = { ...updatedTasks[taskIndex.value], status: 'выполнена' } as Task;
-    await projectsStore.updateProject(projectId.value, { tasks: updatedTasks });
+    await updateCurrentTask({
+      status: updatedTasks[taskIndex.value].status,
+      progress: 100,
+      mark_completed: true,
+    });
     router.push(`/project/${projectId.value}`);
   } catch (err) {
     console.error('Ошибка при завершении задачи:', err);
-    showNotification(t('taskDetails.completeError'), 'error');
+    showNotification(getApiErrorMessage(err, t('taskDetails.completeError')), 'error');
   } finally { actionInProgress.value = false; }
 };
 
@@ -725,18 +737,13 @@ const updateTaskStatus = async (newStatus: string) => {
     showNotification(t('taskDetails.onlyEditorsCanChangeStatus'), 'info'); 
     return; 
   }
-  const currentProject = project.value;
   const currentTask = task.value;
-  if (!currentProject || !currentTask || actionInProgress.value) return;
+  if (!project.value || !currentTask || actionInProgress.value) return;
   actionInProgress.value = true;
   try {
-    const updatedTasks = [...currentProject.tasks];
-    updatedTasks[taskIndex.value] = { ...updatedTasks[taskIndex.value], status: newStatus } as Task;
-    await projectsStore.updateProject(projectId.value, { tasks: updatedTasks });
-    project.value = { ...currentProject, tasks: updatedTasks };
-    task.value = updatedTasks[taskIndex.value];
+    await updateCurrentTask({ status: newStatus });
     showRenewOptions.value = false;
-  } catch (err) {
+  } catch (err: any) {
     console.error('Ошибка при обновлении статуса задачи:', err);
     showNotification(t('taskDetails.statusUpdateError'), 'error');
   } finally { actionInProgress.value = false; }
@@ -1010,27 +1017,24 @@ const closeConfirmDialog = () => {
   showConfirmDialog.value = false; 
 };
 const confirmExtraChange = async () => {
-  if (!canEditTask.value || isOldReadOnly.value || !canChangeManualProgress.value) { 
+  if (!canUpdateTaskProgress.value || !canChangeManualProgress.value) {
     showNotification(t('taskDetails.onlyEditorsCanChangeProgress'), 'info');
     closeConfirmDialog();
     return;
   }
-  const currentProject = project.value;
   const currentTask = task.value;
-  if (!currentProject || !currentTask) return;
+  if (!project.value || !currentTask) return;
 
   const newTotal = completedSubtasksPercent.value + sliderValue.value;
   actionInProgress.value = true;
   try {
-    const updatedTasks = [...currentProject.tasks];
-    updatedTasks[taskIndex.value] = { ...updatedTasks[taskIndex.value], progress: newTotal };
-    await api.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks: updatedTasks });
-    project.value = { ...currentProject, tasks: updatedTasks };
-    task.value = updatedTasks[taskIndex.value];
-    savedProgress.value = newTotal;
+    const savedTask = await updateCurrentTask({ progress: newTotal });
+    savedProgress.value = savedTask.progress ?? newTotal;
+    sliderValue.value = Math.max(0, savedProgress.value - completedSubtasksPercent.value);
+    showNotification(t('common.saved'), 'success');
   } catch (err) {
     console.error('Ошибка при обновлении прогресса:', err);
-    showNotification(t('taskDetails.progressUpdateError'), 'error');
+    showNotification(getApiErrorMessage(err, t('taskDetails.progressUpdateError')), 'error');
     sliderValue.value = savedProgress.value - completedSubtasksPercent.value;
   } finally {
     actionInProgress.value = false;

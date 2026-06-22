@@ -32,7 +32,12 @@
         "reject": "Адхіліць",
         "approve": "Ухваліць",
         "notSelected": "Не выбрана",
-        "readonly": "Толькі прагляд"
+        "readonly": "Толькі прагляд",
+        "create": "Стварыць",
+        "error": "Памылка",
+        "notSpecified": "Не пазначана",
+        "retry": "Паўтарыць",
+        "saved": "Захавана"
     },
     "invitations": {
         "title": "Запрашэнні",
@@ -85,7 +90,8 @@
         "rejectSuccess": "Праект адхілены",
         "approveError": "Памылка пры ўхваленні праекта",
         "rejectError": "Памылка пры адхіленні праекта",
-        "loadError": "Памылка загрузкі праектаў"
+        "loadError": "Памылка загрузкі праектаў",
+        "requestedAt": "Дата запыту"
     },
     "navigation": {
         "main_menu": "Галоўнае меню",
@@ -131,7 +137,9 @@
         "select": "Абярыце мову",
         "russian": "Руская",
         "english": "Англійская",
-        "belarusian": "Беларуская"
+        "belarusian": "Беларуская",
+        "chinese": "中文",
+        "arabic": "العربية"
     },
     "classInput": {
         "required": "Поле абавязковае",
@@ -194,7 +202,8 @@
         "selectedUser": "Выбраны карыстальнік",
         "roleLabel": "Роля",
         "sendButton": "Даслаць запрашэнне",
-        "inviteError": "Памылка пры дасылцы запрашэння"
+        "inviteError": "Памылка пры дасылцы запрашэння",
+        "inviteSuccess": "Запрашэнне адпраўлена"
     },
     "projectForm": {
         "titleLabel": "Назва",
@@ -232,6 +241,8 @@
             "link": "Спасылкі"
         },
         "show": "Паказаць",
+        "showButton": "Паказаць прапановы па праекце",
+        "hideButton": "Схаваць прапановы па праекце",
         "acceptError": "Памылка пры прыняцці прапановы",
         "rejectError": "Памылка пры адхіленні прапановы",
         "commentsNotImplemented": "Функцыя каментарыяў да прапаноў пакуль не рэалізавана"
@@ -388,13 +399,13 @@
             "title": "Жыццёвы цыкл праектаў",
             "desc": "Канструктар этапаў і роляў, якія могуць закрываць этапы"
         },
-    "quotaLimits": {
-      "title": "Ліміты праектаў і карыстальнікаў",
-      "desc": "Агульныя і персанальныя квоты загрузкі"
-    },
-    "accountClasses": {
-      "title": "Актуальнасць акаўнтаў",
-      "desc": "Дазволеныя класы, штогадовы перавод і заяўкі"
+        "quotaLimits": {
+            "title": "Ліміты праектаў і карыстальнікаў",
+            "desc": "Агульныя і персанальныя квоты загрузкі"
+        },
+        "accountClasses": {
+            "title": "Актуальнасць акаўнтаў",
+            "desc": "Дазволеныя класы, штогадовы перавод і заяўкі"
         }
     },
     "adminProjectEdit": {
@@ -500,9 +511,9 @@
         "teacherRoles": "Ролі настаўніка",
         "loadError": "Памылка загрузкі карыстальніка",
         "saveSuccess": "Змены захаваны",
-    "saveError": "Памылка захавання",
-    "outdated": "Састарэлы акаўнт",
-    "outdatedHint": "Састарэлы вучань захоўвае доступ, але не можа ствараць праекты."
+        "saveError": "Памылка захавання",
+        "outdated": "Састарэлы акаўнт",
+        "outdatedHint": "Састарэлы вучань захоўвае доступ, але не можа ствараць праекты."
     },
     "adminUsers": {
         "title": "Кіраванне карыстальнікамі",
@@ -606,7 +617,8 @@
         "loadingProjects": "Загрузка праектаў...",
         "errorLoad": "Памылка загрузкі праектаў",
         "participantsLabel": "Удзельнікі",
-        "notAuthorized": "Карыстальнік не аўтарызаваны"
+        "notAuthorized": "Карыстальнік не аўтарызаваны",
+        "noCreatePermission": "У вас няма правоў на стварэнне праекта"
     },
     "profile": {
         "changePendingTitle": "Змены профілю чакаюць праверкі",
@@ -651,30 +663,31 @@
         "noRoles": "Ролі не прызначаны",
         "emailNotifications": "Паштовыя апавяшчэнні",
         "emailNotificationsHint": "Атрымліваць лісты пра значныя змены ў вашых праектах.",
-    "notificationSaveError": "Не ўдалося змяніць налады апавяшчэнняў",
-    "outdatedTitle": "Акаўнт пазначаны як састарэлы",
-    "outdatedHint": "Вы можаце працаваць у праектах, але не ствараць новыя.",
-    "requestRestoration": "Падаць заяўку на аднаўленне",
-    "restorationPending": "Заяўка чакае разгляду",
-    "restorationError": "Не ўдалося адправіць заяўку"
-  },
-  "accountClasses": {
-    "title": "Актуальнасць вучнёўскіх акаўнтаў",
-    "allowedClasses": "Дазволеныя класы",
-    "rollover": "Штогадовы перавод класаў",
-    "rolloverEnabled": "Аўтаматычна пераводзіць класы ва ўсталяваную дату",
-    "month": "Месяц",
-    "day": "Дзень",
-    "lastRun": "Апошні выкананы год",
-    "runNow": "Выканаць перавод зараз",
-    "requests": "Заяўкі на аднаўленне",
-    "noRequests": "Новых заявак няма",
-    "selectClass": "Выберыце клас",
-    "approve": "Аднавіць",
-    "reject": "Адхіліць",
-    "saved": "Налады захаваны",
-    "runResult": "Пераведзена: {advanced}, састарэла: {outdated}"
-  },
+        "notificationSaveError": "Не ўдалося змяніць налады апавяшчэнняў",
+        "outdatedTitle": "Акаўнт пазначаны як састарэлы",
+        "outdatedHint": "Вы можаце працаваць у праектах, але не ствараць новыя.",
+        "requestRestoration": "Падаць заяўку на аднаўленне",
+        "restorationPending": "Заяўка чакае разгляду",
+        "restorationError": "Не ўдалося адправіць заяўку",
+        "noGoogleAccount": "Акаўнт Google не прывязаны"
+    },
+    "accountClasses": {
+        "title": "Актуальнасць вучнёўскіх акаўнтаў",
+        "allowedClasses": "Дазволеныя класы",
+        "rollover": "Штогадовы перавод класаў",
+        "rolloverEnabled": "Аўтаматычна пераводзіць класы ва ўсталяваную дату",
+        "month": "Месяц",
+        "day": "Дзень",
+        "lastRun": "Апошні выкананы год",
+        "runNow": "Выканаць перавод зараз",
+        "requests": "Заяўкі на аднаўленне",
+        "noRequests": "Новых заявак няма",
+        "selectClass": "Выберыце клас",
+        "approve": "Аднавіць",
+        "reject": "Адхіліць",
+        "saved": "Налады захаваны",
+        "runResult": "Пераведзена: {advanced}, састарэла: {outdated}"
+    },
     "profileEdit": {
         "pendingTitle": "Заяўка ўжо адпраўлена",
         "pendingHint": "Рэдагаванне стане даступным пасля рашэння адміністратара або адклікання заяўкі.",
@@ -743,8 +756,8 @@
         "addDrive": "Дадаць Google Дыск",
         "completedTasks": "Выкананыя задачы",
         "editProject": "Рэдагаваць праект",
-        "deleteProject": "🗑 Выдаліць праект",
-        "hideProject": "🗑 Схаваць праект",
+        "deleteProject": "Выдаліць праект",
+        "hideProject": "Схаваць праект",
         "activeTasks": "Актыўныя задачы",
         "suggestEdit": "Прапанаваць праўку",
         "invite": "Запрасіць",
@@ -816,8 +829,27 @@
         },
         "gantt": {
             "tasks": "Задачы",
-            "lifecycle": "Этапы"
-        }
+            "lifecycle": "Этапы",
+            "task": "Задача",
+            "zoomOut": "Паменшыць маштаб",
+            "zoomIn": "Павялічыць маштаб",
+            "collapse": "Згарнуць",
+            "expand": "Разгарнуць",
+            "noTasks": "Няма задач з вызначанымі тэрмінамі"
+        },
+        "approvalCancelled": "Запыт на ўхваленне скасаваны",
+        "approvalRequestError": "Не атрымалася адправіць запыт на ўхваленне",
+        "approvalRequestSent": "Запыт на ўхваленне адпраўлены",
+        "cancelApprovalError": "Не атрымалася скасаваць запыт на ўхваленне",
+        "linkDeleteError": "Не атрымалася выдаліць спасылку",
+        "linkDeleted": "Спасылка выдалена",
+        "linkUpdated": "Спасылка абноўлена",
+        "subtaskMoved": "Падзадача перамешчана",
+        "tasksReorderError": "Не атрымалася змяніць парадак задач",
+        "tasksReordered": "Парадак задач абноўлены",
+        "tasksUpdateError": "Не атрымалася абнавіць задачы",
+        "tasksUpdated": "Задачы абноўлены",
+        "timelineUpdated": "Тэрміны задачы абноўлены"
     },
     "projectTree": {
         "title": "Структура праекта",
@@ -911,7 +943,8 @@
         "defaultTasksAdded": "Дададзена {count} задач па змаўчанні",
         "classKey": "Паралель праекта",
         "directionKey": "Напрамак",
-        "directionPlaceholder": "Напрыклад: robotics, media, research"
+        "directionPlaceholder": "Напрыклад: robotics, media, research",
+        "oldProjectReadOnly": "Стары праект даступны толькі для прагляду"
     },
     "admin": {
         "createUsers": {
@@ -994,7 +1027,8 @@
         "codeSendError": "Памылка пры дасылцы кода. Магчыма, email ужо зарэгістраваны.",
         "networkError": "Памылка сеткі. Праверце падключэнне да сервера.",
         "genericError": "Адбылася памылка пры рэгістрацыі",
-        "invalidEmail": "Увядзіце карэктны email"
+        "invalidEmail": "Увядзіце карэктны email",
+        "passwordRequired": "Увядзіце пароль"
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы ўпэўнены, што жадаеце выдаліць гэты файл?",
@@ -1054,7 +1088,10 @@
         "progressUpdateError": "Не атрымалася змяніць прагрэс",
         "completeOnlyAt100": "Завяршыць задачу можна толькі пры 100% прагрэсе",
         "confirmExtraProgress": "Змяніць дадатковы прагрэс на {value}%?",
-        "subtasksCompleted": "Выканана падзадач"
+        "subtasksCompleted": "Выканана падзадач",
+        "hideFromOldProject": "Схаваць у старой версіі праекта",
+        "oldVisionToggleError": "Не атрымалася змяніць бачнасць файла ў старым праекце",
+        "showInOldProject": "Паказваць у старой версіі праекта"
     },
     "taskEdit": {
         "createTitle": "Стварэнне задачы",
@@ -1098,7 +1135,8 @@
         "invalidProjectId": "Некарэктны ID праекта",
         "projectNotFound": "Праект не знойдзены",
         "taskNotFound": "Задача не знойдзена",
-        "loadError": "Памылка загрузкі даных"
+        "loadError": "Памылка загрузкі даных",
+        "oldProjectReadOnly": "Задачы старога праекта даступныя толькі для прагляду"
     },
     "userDetails": {
         "title": "Профіль карыстальніка",
@@ -1163,12 +1201,16 @@
         "open": "Адкрыць",
         "deleteError": "Памылка выдалення файла",
         "deleteConfirmTitle": "Выдаліць файл",
-        "deleteConfirmMessage": "Вы ўпэўнены, што жадаеце выдаліць гэты файл?"
+        "deleteConfirmMessage": "Вы ўпэўнены, што жадаеце выдаліць гэты файл?",
+        "downloadError": "Не атрымалася спампаваць файл",
+        "previewError": "Не атрымалася адкрыць папярэдні прагляд"
     },
     "filePreview": {
         "title": "Прагляд файла",
         "previewNotAvailable": "Папярэдні прагляд недаступны",
-        "downloadFile": "Спампаваць файл"
+        "downloadFile": "Спампаваць файл",
+        "audioNotSupported": "Ваш браўзер не падтрымлівае прайграванне аўдыя",
+        "videoNotSupported": "Ваш браўзер не падтрымлівае прайграванне відэа"
     },
     "adminDefaultTasks": {
         "title": "Кіраванне задачамі па змаўчанні",
@@ -1301,8 +1343,21 @@
         "comment": "Каментарый да рашэння",
         "approve": "Прыняць",
         "reject": "Адхіліць",
-        "statuses": {"pending": "Чакае", "approved": "Прынята", "rejected": "Адхілена", "withdrawn": "Адклікана"},
-        "fields": {"fullname": "ПІБ", "email": "Пошта", "speciality": "Спецыялізацыя", "class_": "Клас", "teacher_info": "Ролі настаўніка", "direction_key": "Напрамак", "avatar": "Аватар"}
+        "statuses": {
+            "pending": "Чакае",
+            "approved": "Прынята",
+            "rejected": "Адхілена",
+            "withdrawn": "Адклікана"
+        },
+        "fields": {
+            "fullname": "ПІБ",
+            "email": "Пошта",
+            "speciality": "Спецыялізацыя",
+            "class_": "Клас",
+            "teacher_info": "Ролі настаўніка",
+            "direction_key": "Напрамак",
+            "avatar": "Аватар"
+        }
     },
     "adminQuotaLimits": {
         "title": "Ліміты праектаў і карыстальнікаў",
@@ -1331,5 +1386,26 @@
         "sort": "Сартаванне",
         "class": "Клас",
         "parallel": "Паралель"
+    },
+    "versionControl": {
+        "title": "Версіі",
+        "history": "Гісторыя версій",
+        "checkpoints": "Кантрольныя пункты",
+        "changes": "Змены",
+        "toNextCheckpoint": "Да наступнага пункта",
+        "createCheckpoint": "Стварыць кантрольны пункт",
+        "checkpointPlaceholder": "Апісанне кантрольнага пункта",
+        "current": "Бягучая",
+        "restore": "Аднавіць",
+        "delete": "Выдаліць",
+        "restoreToCheckpoint": "Аднавіць да пункта",
+        "deleteCheckpoint": "Выдаліць кантрольны пункт",
+        "noVersions": "Гісторыя версій пакуль пустая",
+        "confirmRestore": "Пацвердзіце аднаўленне",
+        "restoreWarning": "Бягучы стан праекта будзе заменены выбранай версіяй.",
+        "restoringTo": "Аднаўленне да версіі",
+        "confirm": "Аднавіць",
+        "confirmDelete": "Пацвердзіце выдаленне змены",
+        "confirmDeleteCheckpoint": "Пацвердзіце выдаленне кантрольнага пункта"
     }
 }

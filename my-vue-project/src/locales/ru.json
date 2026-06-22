@@ -32,7 +32,12 @@
         "reject": "Отклонить",
         "approve": "Одобрить",
         "notSelected": "Не выбрано",
-        "readonly": "Только просмотр"
+        "readonly": "Только просмотр",
+        "create": "Создать",
+        "error": "Ошибка",
+        "notSpecified": "Не указано",
+        "retry": "Повторить",
+        "saved": "Сохранено"
     },
     "invitations": {
         "title": "Приглашения",
@@ -85,7 +90,8 @@
         "rejectSuccess": "Проект отклонён",
         "approveError": "Ошибка при одобрении проекта",
         "rejectError": "Ошибка при отклонении проекта",
-        "loadError": "Ошибка загрузки проектов"
+        "loadError": "Ошибка загрузки проектов",
+        "requestedAt": "Дата запроса"
     },
     "navigation": {
         "main_menu": "Главное меню",
@@ -130,7 +136,10 @@
     "language": {
         "select": "Выберите язык",
         "russian": "Русский",
-        "english": "English"
+        "english": "English",
+        "belarusian": "Беларуская",
+        "chinese": "中文",
+        "arabic": "العربية"
     },
     "classInput": {
         "required": "Поле обязательно",
@@ -193,7 +202,8 @@
         "selectedUser": "Выбранный пользователь",
         "roleLabel": "Роль",
         "sendButton": "Отправить приглашение",
-        "inviteError": "Ошибка при отправке приглашения"
+        "inviteError": "Ошибка при отправке приглашения",
+        "inviteSuccess": "Приглашение отправлено"
     },
     "projectForm": {
         "titleLabel": "Название",
@@ -231,6 +241,8 @@
             "link": "Ссылки"
         },
         "show": "Показать",
+        "showButton": "Показать предложения по проекту",
+        "hideButton": "Скрыть предложения по проекту",
         "acceptError": "Ошибка при принятии предложения",
         "rejectError": "Ошибка при отклонении предложения",
         "commentsNotImplemented": "Функция комментариев к предложениям пока не реализована"
@@ -387,13 +399,13 @@
             "title": "Жизненный цикл проектов",
             "desc": "Конструктор этапов и ролей, которые могут закрывать этапы"
         },
-    "quotaLimits": {
-      "title": "Лимиты проектов и пользователей",
-      "desc": "Глобальные и персональные квоты загрузки"
-    },
-    "accountClasses": {
-      "title": "Актуальность аккаунтов",
-      "desc": "Разрешённые классы, ежегодный перевод и заявки на восстановление"
+        "quotaLimits": {
+            "title": "Лимиты проектов и пользователей",
+            "desc": "Глобальные и персональные квоты загрузки"
+        },
+        "accountClasses": {
+            "title": "Актуальность аккаунтов",
+            "desc": "Разрешённые классы, ежегодный перевод и заявки на восстановление"
         }
     },
     "adminProjectEdit": {
@@ -499,9 +511,9 @@
         "teacherRoles": "Роли учителя",
         "loadError": "Ошибка загрузки пользователя",
         "saveSuccess": "Изменения сохранены",
-    "saveError": "Ошибка сохранения",
-    "outdated": "Устаревший аккаунт",
-    "outdatedHint": "Устаревший ученик сохраняет доступ к системе, но не может создавать проекты."
+        "saveError": "Ошибка сохранения",
+        "outdated": "Устаревший аккаунт",
+        "outdatedHint": "Устаревший ученик сохраняет доступ к системе, но не может создавать проекты."
     },
     "adminUsers": {
         "toggleTeacherTitle": "Сделать учителем/учеником",
@@ -605,7 +617,8 @@
         "loadingProjects": "Загрузка проектов...",
         "errorLoad": "Ошибка загрузки проектов",
         "participantsLabel": "Участники",
-        "notAuthorized": "Пользователь не авторизован"
+        "notAuthorized": "Пользователь не авторизован",
+        "noCreatePermission": "У вас нет прав для создания проекта"
     },
     "profile": {
         "changePendingTitle": "Изменения профиля ожидают проверки",
@@ -650,30 +663,31 @@
         "noRoles": "Роли не назначены",
         "emailNotifications": "Почтовые уведомления",
         "emailNotificationsHint": "Получать письма о значимых изменениях в ваших проектах.",
-    "notificationSaveError": "Не удалось изменить настройку уведомлений",
-    "outdatedTitle": "Аккаунт отмечен как устаревший",
-    "outdatedHint": "Вы можете продолжать работать в проектах, но не можете создавать новые.",
-    "requestRestoration": "Подать заявку на восстановление",
-    "restorationPending": "Заявка на восстановление ожидает рассмотрения",
-    "restorationError": "Не удалось отправить заявку"
-  },
-  "accountClasses": {
-    "title": "Актуальность ученических аккаунтов",
-    "allowedClasses": "Разрешённые классы",
-    "rollover": "Ежегодный перевод классов",
-    "rolloverEnabled": "Автоматически переводить классы в установленную дату",
-    "month": "Месяц",
-    "day": "День",
-    "lastRun": "Последний выполненный год",
-    "runNow": "Выполнить перевод сейчас",
-    "requests": "Заявки на восстановление",
-    "noRequests": "Новых заявок нет",
-    "selectClass": "Выберите класс",
-    "approve": "Восстановить",
-    "reject": "Отклонить",
-    "saved": "Настройки сохранены",
-    "runResult": "Переведено: {advanced}, устарело: {outdated}"
-  },
+        "notificationSaveError": "Не удалось изменить настройку уведомлений",
+        "outdatedTitle": "Аккаунт отмечен как устаревший",
+        "outdatedHint": "Вы можете продолжать работать в проектах, но не можете создавать новые.",
+        "requestRestoration": "Подать заявку на восстановление",
+        "restorationPending": "Заявка на восстановление ожидает рассмотрения",
+        "restorationError": "Не удалось отправить заявку",
+        "noGoogleAccount": "Аккаунт Google не привязан"
+    },
+    "accountClasses": {
+        "title": "Актуальность ученических аккаунтов",
+        "allowedClasses": "Разрешённые классы",
+        "rollover": "Ежегодный перевод классов",
+        "rolloverEnabled": "Автоматически переводить классы в установленную дату",
+        "month": "Месяц",
+        "day": "День",
+        "lastRun": "Последний выполненный год",
+        "runNow": "Выполнить перевод сейчас",
+        "requests": "Заявки на восстановление",
+        "noRequests": "Новых заявок нет",
+        "selectClass": "Выберите класс",
+        "approve": "Восстановить",
+        "reject": "Отклонить",
+        "saved": "Настройки сохранены",
+        "runResult": "Переведено: {advanced}, устарело: {outdated}"
+    },
     "profileEdit": {
         "pendingTitle": "Заявка уже отправлена",
         "pendingHint": "Редактирование станет доступно после решения администратора или отзыва заявки.",
@@ -742,8 +756,8 @@
         "addDrive": "Добавить Google Диск",
         "completedTasks": "Выполненные задачи",
         "editProject": "Редактировать проект",
-        "deleteProject": "🗑 Удалить проект",
-        "hideProject": "🗑 Скрыть проект",
+        "deleteProject": "Удалить проект",
+        "hideProject": "Скрыть проект",
         "activeTasks": "Активные задачи",
         "suggestEdit": "Предложить правку",
         "invite": "Пригласить",
@@ -815,8 +829,27 @@
         },
         "gantt": {
             "tasks": "Задачи",
-            "lifecycle": "Этапы"
-        }
+            "lifecycle": "Этапы",
+            "task": "Задача",
+            "zoomOut": "Уменьшить масштаб",
+            "zoomIn": "Увеличить масштаб",
+            "collapse": "Свернуть",
+            "expand": "Развернуть",
+            "noTasks": "Нет задач с указанными сроками"
+        },
+        "approvalCancelled": "Запрос на одобрение отменён",
+        "approvalRequestError": "Не удалось отправить запрос на одобрение",
+        "approvalRequestSent": "Запрос на одобрение отправлен",
+        "cancelApprovalError": "Не удалось отменить запрос на одобрение",
+        "linkDeleteError": "Не удалось удалить ссылку",
+        "linkDeleted": "Ссылка удалена",
+        "linkUpdated": "Ссылка обновлена",
+        "subtaskMoved": "Подзадача перемещена",
+        "tasksReorderError": "Не удалось изменить порядок задач",
+        "tasksReordered": "Порядок задач обновлён",
+        "tasksUpdateError": "Не удалось обновить задачи",
+        "tasksUpdated": "Задачи обновлены",
+        "timelineUpdated": "Сроки задачи обновлены"
     },
     "projectTree": {
         "title": "Структура проекта",
@@ -910,7 +943,8 @@
         "defaultTasksAdded": "Добавлено {count} задач по умолчанию",
         "classKey": "Параллель проекта",
         "directionKey": "Направление",
-        "directionPlaceholder": "Например: robotics, media, research"
+        "directionPlaceholder": "Например: robotics, media, research",
+        "oldProjectReadOnly": "Старый проект доступен только для просмотра"
     },
     "admin": {
         "createUsers": {
@@ -987,7 +1021,14 @@
         "codeSendError": "Ошибка при отправке кода. Возможно, email уже зарегистрирован.",
         "networkError": "Ошибка сети. Проверьте подключение к серверу.",
         "genericError": "Произошла ошибка при регистрации",
-        "invalidEmail": "Введите корректный email"
+        "invalidEmail": "Введите корректный email",
+        "fullName": "Фамилия, имя, отчество",
+        "passwordRequired": "Введите пароль",
+        "roles": {
+            "customer": "Заказчик",
+            "expert": "Эксперт",
+            "supervisor": "Руководитель"
+        }
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы уверены, что хотите удалить этот файл?",
@@ -1047,7 +1088,10 @@
         "progressUpdateError": "Не удалось изменить прогресс",
         "completeOnlyAt100": "Завершить задачу можно только при 100% прогрессе",
         "confirmExtraProgress": "Изменить дополнительный прогресс на {value}%?",
-        "subtasksCompleted": "Выполнено подзадач"
+        "subtasksCompleted": "Выполнено подзадач",
+        "hideFromOldProject": "Скрыть в старой версии проекта",
+        "oldVisionToggleError": "Не удалось изменить видимость файла в старом проекте",
+        "showInOldProject": "Показывать в старой версии проекта"
     },
     "taskEdit": {
         "createTitle": "Создание задачи",
@@ -1091,7 +1135,8 @@
         "invalidProjectId": "Некорректный ID проекта",
         "projectNotFound": "Проект не найден",
         "taskNotFound": "Задача не найдена",
-        "loadError": "Ошибка загрузки данных"
+        "loadError": "Ошибка загрузки данных",
+        "oldProjectReadOnly": "Задачи старого проекта доступны только для просмотра"
     },
     "userDetails": {
         "title": "Профиль пользователя",
@@ -1156,12 +1201,16 @@
         "open": "Открыть",
         "deleteError": "Ошибка удаления файла",
         "deleteConfirmTitle": "Удалить файл",
-        "deleteConfirmMessage": "Вы уверены, что хотите удалить этот файл?"
+        "deleteConfirmMessage": "Вы уверены, что хотите удалить этот файл?",
+        "downloadError": "Не удалось скачать файл",
+        "previewError": "Не удалось открыть предпросмотр файла"
     },
     "filePreview": {
         "title": "Просмотр файла",
         "previewNotAvailable": "Предварительный просмотр недоступен",
-        "downloadFile": "Скачать файл"
+        "downloadFile": "Скачать файл",
+        "audioNotSupported": "Ваш браузер не поддерживает воспроизведение аудио",
+        "videoNotSupported": "Ваш браузер не поддерживает воспроизведение видео"
     },
     "adminDefaultTasks": {
         "title": "Управление задачами по умолчанию",
@@ -1337,5 +1386,26 @@
         "sort": "Сортировка",
         "class": "Класс",
         "parallel": "Параллель"
+    },
+    "versionControl": {
+        "title": "Версии",
+        "history": "История версий",
+        "checkpoints": "Контрольные точки",
+        "changes": "Изменения",
+        "toNextCheckpoint": "До следующей точки",
+        "createCheckpoint": "Создать контрольную точку",
+        "checkpointPlaceholder": "Описание контрольной точки",
+        "current": "Текущая",
+        "restore": "Восстановить",
+        "delete": "Удалить",
+        "restoreToCheckpoint": "Восстановить до точки",
+        "deleteCheckpoint": "Удалить контрольную точку",
+        "noVersions": "История версий пока пуста",
+        "confirmRestore": "Подтвердите восстановление",
+        "restoreWarning": "Текущее состояние проекта будет заменено выбранной версией.",
+        "restoringTo": "Восстановление до версии",
+        "confirm": "Восстановить",
+        "confirmDelete": "Подтвердите удаление изменения",
+        "confirmDeleteCheckpoint": "Подтвердите удаление контрольной точки"
     }
 }

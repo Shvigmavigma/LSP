@@ -191,9 +191,9 @@ const getStatusText = (status: string) => {
 
 const getTargetDisplay = (suggestion: Suggestion) => {
   switch (suggestion.target_type) {
-    case 'project': return t('suggestions.target.project');
-    case 'task': return t('suggestions.target.task', { id: suggestion.target_id });
-    case 'link': return t('suggestions.target.link');
+    case 'project': return t('suggestions.target1.project');
+    case 'task': return t('suggestions.target1.taskWithId', { id: suggestion.target_id });
+    case 'link': return t('suggestions.target1.link');
     default: return suggestion.target_type;
   }
 };

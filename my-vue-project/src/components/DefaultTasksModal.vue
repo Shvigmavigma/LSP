@@ -164,6 +164,7 @@ function addTasks() {
   if (previewTasks.value.length === 0) return;
   const tasksToAdd = previewTasks.value.map((task: any) => ({
     ...task,
+    stage_id: stageId.value,
     id: undefined,
     expanded: false,
     required_files: (task.required_files || []).map((rf: any) => ({
