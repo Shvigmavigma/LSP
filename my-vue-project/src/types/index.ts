@@ -102,6 +102,7 @@ export interface TaskAttachment {
 
 export interface Task {
   id?: string;
+  stage_id?: string | null;
   title: string;
   status: string;
   body: string;

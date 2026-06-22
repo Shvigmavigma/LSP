@@ -32,7 +32,12 @@
         "reject": "拒绝",
         "approve": "批准",
         "notSelected": "未选择",
-        "readonly": "只读"
+        "readonly": "只读",
+        "create": "创建",
+        "error": "错误",
+        "notSpecified": "未指定",
+        "retry": "重试",
+        "saved": "已保存"
     },
     "invitations": {
         "title": "邀请",
@@ -115,7 +120,8 @@
         "rejectSuccess": "项目已拒绝",
         "approveError": "批准项目时出错",
         "rejectError": "拒绝项目时出错",
-        "loadError": "加载项目时出错"
+        "loadError": "加载项目时出错",
+        "requestedAt": "申请时间"
     },
     "project": {
         "title": "项目标题",
@@ -196,7 +202,8 @@
         "selectedUser": "已选择的用户",
         "roleLabel": "角色",
         "sendButton": "发送邀请",
-        "inviteError": "发送邀请时出错"
+        "inviteError": "发送邀请时出错",
+        "inviteSuccess": "邀请已发送"
     },
     "projectForm": {
         "titleLabel": "标题",
@@ -234,6 +241,8 @@
             "link": "链接"
         },
         "show": "显示",
+        "showButton": "显示项目建议",
+        "hideButton": "隐藏项目建议",
         "acceptError": "接受建议时出错",
         "rejectError": "拒绝建议时出错",
         "commentsNotImplemented": "建议评论功能尚未实现"
@@ -390,13 +399,13 @@
             "title": "项目生命周期",
             "desc": "配置项目阶段以及可关闭阶段的角色"
         },
-    "quotaLimits": {
-      "title": "项目和用户限制",
-      "desc": "全局和个人上传配额"
-    },
-    "accountClasses": {
-      "title": "账户有效性",
-      "desc": "允许班级、年度升级和恢复申请"
+        "quotaLimits": {
+            "title": "项目和用户限制",
+            "desc": "全局和个人上传配额"
+        },
+        "accountClasses": {
+            "title": "账户有效性",
+            "desc": "允许班级、年度升级和恢复申请"
         }
     },
     "adminProjectEdit": {
@@ -502,9 +511,9 @@
         "teacherRoles": "教师角色",
         "loadError": "加载用户错误",
         "saveSuccess": "更改已保存",
-    "saveError": "保存错误",
-    "outdated": "过期账户",
-    "outdatedHint": "过期学生仍可访问系统，但不能创建项目。"
+        "saveError": "保存错误",
+        "outdated": "过期账户",
+        "outdatedHint": "过期学生仍可访问系统，但不能创建项目。"
     },
     "adminUsers": {
         "title": "用户管理",
@@ -608,7 +617,8 @@
         "loadingProjects": "加载项目中...",
         "errorLoad": "加载项目时出错",
         "participantsLabel": "参与者",
-        "notAuthorized": "用户未授权"
+        "notAuthorized": "用户未授权",
+        "noCreatePermission": "您没有创建项目的权限"
     },
     "profile": {
         "changePendingTitle": "个人资料更改正在等待审核",
@@ -653,30 +663,31 @@
         "noRoles": "未分配角色",
         "emailNotifications": "邮件通知",
         "emailNotificationsHint": "接收有关您项目中重要变更的电子邮件。",
-    "notificationSaveError": "无法更新通知设置",
-    "outdatedTitle": "账户已标记为过期",
-    "outdatedHint": "您可以继续参与项目，但不能创建新项目。",
-    "requestRestoration": "申请恢复账户",
-    "restorationPending": "恢复申请正在审核",
-    "restorationError": "无法提交恢复申请"
-  },
-  "accountClasses": {
-    "title": "学生账户有效性",
-    "allowedClasses": "允许的班级",
-    "rollover": "年度班级升级",
-    "rolloverEnabled": "在设定日期自动升级班级",
-    "month": "月份",
-    "day": "日期",
-    "lastRun": "上次完成年份",
-    "runNow": "立即运行升级",
-    "requests": "恢复申请",
-    "noRequests": "没有待处理申请",
-    "selectClass": "选择班级",
-    "approve": "恢复",
-    "reject": "拒绝",
-    "saved": "设置已保存",
-    "runResult": "已升级：{advanced}，已过期：{outdated}"
-  },
+        "notificationSaveError": "无法更新通知设置",
+        "outdatedTitle": "账户已标记为过期",
+        "outdatedHint": "您可以继续参与项目，但不能创建新项目。",
+        "requestRestoration": "申请恢复账户",
+        "restorationPending": "恢复申请正在审核",
+        "restorationError": "无法提交恢复申请",
+        "noGoogleAccount": "未关联 Google 帐号"
+    },
+    "accountClasses": {
+        "title": "学生账户有效性",
+        "allowedClasses": "允许的班级",
+        "rollover": "年度班级升级",
+        "rolloverEnabled": "在设定日期自动升级班级",
+        "month": "月份",
+        "day": "日期",
+        "lastRun": "上次完成年份",
+        "runNow": "立即运行升级",
+        "requests": "恢复申请",
+        "noRequests": "没有待处理申请",
+        "selectClass": "选择班级",
+        "approve": "恢复",
+        "reject": "拒绝",
+        "saved": "设置已保存",
+        "runResult": "已升级：{advanced}，已过期：{outdated}"
+    },
     "profileEdit": {
         "pendingTitle": "申请已提交",
         "pendingHint": "管理员决定或撤回申请后才能继续编辑。",
@@ -745,8 +756,8 @@
         "addDrive": "添加Google Drive",
         "completedTasks": "已完成任务",
         "editProject": "编辑项目",
-        "deleteProject": "🗑 删除项目",
-        "hideProject": "🗑 隐藏项目",
+        "deleteProject": "删除项目",
+        "hideProject": "隐藏项目",
         "activeTasks": "进行中的任务",
         "suggestEdit": "建议编辑",
         "invite": "邀请",
@@ -818,8 +829,27 @@
         },
         "gantt": {
             "tasks": "任务",
-            "lifecycle": "阶段"
-        }
+            "lifecycle": "阶段",
+            "task": "任务",
+            "zoomOut": "缩小",
+            "zoomIn": "放大",
+            "collapse": "收起",
+            "expand": "展开",
+            "noTasks": "没有设置日期的任务"
+        },
+        "approvalCancelled": "审批申请已取消",
+        "approvalRequestError": "审批申请发送失败",
+        "approvalRequestSent": "审批申请已发送",
+        "cancelApprovalError": "取消审批申请失败",
+        "linkDeleteError": "链接删除失败",
+        "linkDeleted": "链接已删除",
+        "linkUpdated": "链接已更新",
+        "subtaskMoved": "子任务已移动",
+        "tasksReorderError": "任务排序失败",
+        "tasksReordered": "任务顺序已更新",
+        "tasksUpdateError": "任务更新失败",
+        "tasksUpdated": "任务已更新",
+        "timelineUpdated": "任务日期已更新"
     },
     "projectTree": {
         "title": "项目结构",
@@ -913,7 +943,8 @@
         "defaultTasksAdded": "已添加{count}个默认任务",
         "classKey": "项目年级",
         "directionKey": "方向",
-        "directionPlaceholder": "例如：robotics, media, research"
+        "directionPlaceholder": "例如：robotics, media, research",
+        "oldProjectReadOnly": "旧项目为只读状态"
     },
     "admin": {
         "createUsers": {
@@ -996,7 +1027,8 @@
         "codeSendError": "发送验证码时出错。可能邮箱已注册。",
         "networkError": "网络错误。请检查服务器连接。",
         "genericError": "注册时发生错误",
-        "invalidEmail": "请输入有效的邮箱地址"
+        "invalidEmail": "请输入有效的邮箱地址",
+        "passwordRequired": "请输入密码"
     },
     "taskDetails": {
         "confirmDeleteFile": "您确定要删除此文件吗？",
@@ -1056,7 +1088,10 @@
         "progressUpdateError": "更改进度失败",
         "completeOnlyAt100": "只有在进度达到100%时才能完成任务",
         "confirmExtraProgress": "将额外进度更改为{value}%？",
-        "subtasksCompleted": "子任务已完成"
+        "subtasksCompleted": "子任务已完成",
+        "hideFromOldProject": "在旧项目版本中隐藏",
+        "oldVisionToggleError": "更改文件在旧项目中的可见性失败",
+        "showInOldProject": "在旧项目版本中显示"
     },
     "taskEdit": {
         "createTitle": "创建任务",
@@ -1100,7 +1135,8 @@
         "invalidProjectId": "无效的项目ID",
         "projectNotFound": "项目未找到",
         "taskNotFound": "任务未找到",
-        "loadError": "加载数据时出错"
+        "loadError": "加载数据时出错",
+        "oldProjectReadOnly": "旧项目中的任务为只读状态"
     },
     "userDetails": {
         "title": "用户资料",
@@ -1165,12 +1201,16 @@
         "open": "打开",
         "deleteError": "删除文件时出错",
         "deleteConfirmTitle": "删除文件",
-        "deleteConfirmMessage": "您确定要删除此文件吗？"
+        "deleteConfirmMessage": "您确定要删除此文件吗？",
+        "downloadError": "文件下载失败",
+        "previewError": "无法打开文件预览"
     },
     "filePreview": {
         "title": "文件预览",
         "previewNotAvailable": "预览不可用",
-        "downloadFile": "下载文件"
+        "downloadFile": "下载文件",
+        "audioNotSupported": "您的浏览器不支持音频播放",
+        "videoNotSupported": "您的浏览器不支持视频播放"
     },
     "adminDefaultTasks": {
         "title": "管理默认任务",
@@ -1303,8 +1343,21 @@
         "comment": "决定备注",
         "approve": "批准",
         "reject": "拒绝",
-        "statuses": {"pending": "待处理", "approved": "已批准", "rejected": "已拒绝", "withdrawn": "已撤回"},
-        "fields": {"fullname": "姓名", "email": "邮箱", "speciality": "专业", "class_": "班级", "teacher_info": "教师角色", "direction_key": "方向", "avatar": "头像"}
+        "statuses": {
+            "pending": "待处理",
+            "approved": "已批准",
+            "rejected": "已拒绝",
+            "withdrawn": "已撤回"
+        },
+        "fields": {
+            "fullname": "姓名",
+            "email": "邮箱",
+            "speciality": "专业",
+            "class_": "班级",
+            "teacher_info": "教师角色",
+            "direction_key": "方向",
+            "avatar": "头像"
+        }
     },
     "adminQuotaLimits": {
         "title": "项目和用户限制",
@@ -1333,5 +1386,26 @@
         "sort": "排序",
         "class": "班级",
         "parallel": "平行班"
+    },
+    "versionControl": {
+        "title": "版本",
+        "history": "版本历史",
+        "checkpoints": "检查点",
+        "changes": "更改",
+        "toNextCheckpoint": "距下一检查点",
+        "createCheckpoint": "创建检查点",
+        "checkpointPlaceholder": "检查点说明",
+        "current": "当前",
+        "restore": "恢复",
+        "delete": "删除",
+        "restoreToCheckpoint": "恢复到检查点",
+        "deleteCheckpoint": "删除检查点",
+        "noVersions": "暂无版本历史",
+        "confirmRestore": "确认恢复",
+        "restoreWarning": "当前项目状态将被所选版本替换。",
+        "restoringTo": "恢复到版本",
+        "confirm": "恢复",
+        "confirmDelete": "确认删除更改",
+        "confirmDeleteCheckpoint": "确认删除检查点"
     }
 }

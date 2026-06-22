@@ -51,8 +51,18 @@
           <div v-if="project.is_old" class="old-project-banner">
             {{ $t('projectDetails.oldProjectReadOnly') }}
           </div>
-          <h1 class="project-title-center">{{ project.title }}</h1>
-          <section v-if="lifecycleSchema.stages.length" class="lifecycle-train-section">
+          <div class="project-hero">
+            <div class="project-hero-heading">
+              <div>
+                <span class="project-hero-eyebrow">{{ $t('projectDetails.defaultTitle') }}</span>
+                <h1 class="project-title-center">{{ project.title }}</h1>
+              </div>
+              <div class="project-hero-badges">
+                <span v-if="project.class_key" class="project-hero-badge">{{ $t('projectDetails.projectClass', { class: project.class_key }) }}</span>
+                <span v-if="project.is_old" class="old-project-badge">{{ $t('projectDetails.oldProject') }}</span>
+              </div>
+            </div>
+            <section v-if="lifecycleSchema.stages.length" class="lifecycle-train-section">
             <div class="lifecycle-train-header">
               <div class="lifecycle-title-line">
                 <h3>{{ $t('projectDetails.lifecycle.title') }}</h3>
@@ -67,10 +77,12 @@
                 :class="stageStatus(stage.id)"
               >
                 <div class="train-car">
-                  <span class="train-index">{{ index + 1 }}</span>
+                  <div class="train-card-header">
+                    <span class="train-index">{{ index + 1 }}</span>
+                    <span class="stage-state">{{ stageStatusText(stage.id) }}</span>
+                  </div>
                   <strong>{{ stage.title }}</strong>
                   <small>{{ stage.description }}</small>
-                  <span class="stage-state">{{ stageStatusText(stage.id) }}</span>
                   <button
                     v-if="isAdminOrCurator && stageStatus(stage.id) === 'completed'"
                     class="reopen-stage-btn"
@@ -83,27 +95,53 @@
               </div>
             </div>
             <div v-if="currentLifecycleStage" class="lifecycle-actions">
-              <span>{{ $t('projectDetails.lifecycle.current') }}: <strong>{{ currentLifecycleStage.title }}</strong></span>
-              <span v-if="currentLifecycleStageState?.status === 'approval_pending'" class="lifecycle-request-info">
-                {{ $t('projectDetails.lifecycle.requestedBy') }}:
-                <strong>{{ currentLifecycleRequesterName }}</strong>,
-                {{ $t('projectDetails.lifecycle.requestedStage') }}:
+              <div class="lifecycle-action-context">
+                <span>{{ $t('projectDetails.lifecycle.current') }}</span>
                 <strong>{{ currentLifecycleStage.title }}</strong>
-              </span>
-              <input v-model="lifecycleComment" class="lifecycle-comment" :placeholder="$t('projectDetails.lifecycle.comment')" />
-              <button v-if="canCloseCurrentStage" class="lifecycle-action-btn" @click="requestLifecycleClose">
-                {{ currentLifecycleRequiresApproval ? $t('projectDetails.lifecycle.requestClose') : $t('projectDetails.lifecycle.closeStage') }}
-              </button>
-              <template v-if="isAdminOrCurator && currentLifecycleStageState?.status === 'approval_pending'">
-                <button class="lifecycle-action-btn approve" @click="decideLifecycleStage('approve')">{{ $t('common.approve') }}</button>
-                <button class="lifecycle-action-btn reject" @click="decideLifecycleStage('reject')">{{ $t('common.reject') }}</button>
-              </template>
+                <span v-if="currentLifecycleStageState?.status === 'approval_pending'" class="lifecycle-request-info">
+                  {{ $t('projectDetails.lifecycle.requestedBy') }}:
+                  <strong>{{ currentLifecycleRequesterName }}</strong>,
+                  {{ $t('projectDetails.lifecycle.requestedStage') }}:
+                  <strong>{{ currentLifecycleStage.title }}</strong>
+                </span>
+              </div>
+              <div class="lifecycle-action-controls">
+                <input v-model="lifecycleComment" class="lifecycle-comment" :placeholder="$t('projectDetails.lifecycle.comment')" />
+                <button v-if="canCloseCurrentStage" class="lifecycle-action-btn" @click="requestLifecycleClose">
+                  {{ currentLifecycleRequiresApproval ? $t('projectDetails.lifecycle.requestClose') : $t('projectDetails.lifecycle.closeStage') }}
+                </button>
+                <template v-if="isAdminOrCurator && currentLifecycleStageState?.status === 'approval_pending'">
+                  <button class="lifecycle-action-btn approve" @click="decideLifecycleStage('approve')">{{ $t('common.approve') }}</button>
+                  <button class="lifecycle-action-btn reject" @click="decideLifecycleStage('reject')">{{ $t('common.reject') }}</button>
+                </template>
+              </div>
             </div>
-          </section>
+            </section>
+            <div class="project-summary-grid">
+              <div class="project-summary-item project-summary-progress">
+                <span>{{ $t('projectDetails.progress') }}</span>
+                <strong>{{ overallProjectProgress }}%</strong>
+                <div class="summary-progress-track"><div :style="{ width: overallProjectProgress + '%' }"></div></div>
+              </div>
+              <div class="project-summary-item">
+                <span>{{ $t('projectDetails.activeTasks') }}</span>
+                <strong>{{ activeTasks.length }}</strong>
+              </div>
+              <div class="project-summary-item">
+                <span>{{ $t('projectDetails.completedTasks') }}</span>
+                <strong>{{ completedTasks.length }}</strong>
+              </div>
+              <div class="project-summary-item">
+                <span>{{ $t('projectDetails.participants') }}</span>
+                <strong>{{ project.participants?.length || 0 }}</strong>
+              </div>
+            </div>
+          </div>
           
           <div class="two-columns">
             <!-- ЛЕВАЯ КОЛОНКА -->
             <div class="info-column">
+              <div class="project-info-scroll">
               <div class="project-section">
                 <h3>{{ $t('projectDetails.description') }}</h3>
                 <p>{{ project.body }}</p>
@@ -124,7 +162,7 @@
                         {{ $t('projectDetails.githubRepo') }}
                       </a>
                       <div class="link-actions" v-if="!project.is_old || isAdminOrCurator">
-                        <button class="link-edit" @click="startEditGithub" :title="$t('common.edit')">✎</button>
+                        <button class="link-edit" @click="startEditGithub" :title="$t('common.edit')">{{ $t('common.edit') }}</button>
                         <button class="link-delete" @click="deleteGithubLink" :title="$t('common.delete')">✖</button>
                       </div>
                     </div>
@@ -153,7 +191,7 @@
                         {{ $t('projectDetails.googleDrive') }}
                       </a>
                       <div class="link-actions" v-if="!project.is_old || isAdminOrCurator">
-                        <button class="link-edit" @click="startEditDrive" :title="$t('common.edit')">✎</button>
+                        <button class="link-edit" @click="startEditDrive" :title="$t('common.edit')">{{ $t('common.edit') }}</button>
                         <button class="link-delete" @click="deleteDriveLink" :title="$t('common.delete')">✖</button>
                       </div>
                     </div>
@@ -201,9 +239,10 @@
                   </div>
                 </div>
               </div>
+              </div>
 
               <!-- Выполненные задачи -->
-              <div v-if="completedTasks.length" class="project-section">
+              <div v-if="completedTasks.length" class="project-section completed-tasks-section">
                 <h3>{{ $t('projectDetails.completedTasks') }}</h3>
                 <div class="completed-tasks">
                   <div v-for="task in completedTasks" :key="task.title" class="completed-task" @click="goToTask(task)">
@@ -215,7 +254,7 @@
 
               <!-- Кнопки управления проектом -->
               <div class="project-actions" v-if="hasManagementRights && (!project.is_old || isAdminOrCurator)">
-                <button class="edit-project-button" @click="goToEdit">✎ {{ $t('projectDetails.editProject') }}</button>
+                <button class="edit-project-button" @click="goToEdit">{{ $t('projectDetails.editProject') }}</button>
                 <button class="delete-project-button" @click="handleProjectDelete" :disabled="deleteInProgress">
                   {{ deleteInProgress ? $t('common.processing') : (isAdminOrCurator ? $t('projectDetails.deleteProject') : $t('projectDetails.hideProject')) }}
                 </button>
@@ -237,25 +276,23 @@
                 <!-- Предложения - только для одобренных -->
                 <button v-if="showSuggestionsButton && isProjectApproved" class="suggestions-btn" @click="showSuggestions = !showSuggestions">
                   <span class="btn-content">
-                    <span class="suggestions-icon">📋</span>
-                    {{ showSuggestions ? $t('common.hide') : $t('suggestions.show') }} {{ $t('suggestions.title') }}
+                    {{ showSuggestions ? $t('suggestions.hideButton') : $t('suggestions.showButton') }}
                     <span v-if="pendingSuggestionsCount > 0" class="header-unread-badge">{{ pendingSuggestionsCount }}</span>
                   </span>
                 </button>
 
                 <router-link v-if="showSuggestLink && isProjectApproved" :to="`/project/edit/${project.id}?mode=suggest`" custom v-slot="{ navigate }">
-                  <button class="suggest-btn" @click="navigate">💡 {{ $t('projectDetails.suggestEdit') }}</button>
+                  <button class="suggest-btn" @click="navigate">{{ $t('projectDetails.suggestEdit') }}</button>
                 </router-link>
 
                 <!-- Приглашения - всегда -->
                 <button v-if="showInviteButton" class="invite-btn" @click="openInviteModal">
-                  ✉️ {{ $t('projectDetails.invite') }}
+                  {{ $t('projectDetails.invite') }}
                 </button>
 
                 <!-- Комментарии - всегда -->
                 <button class="comments-header-btn" @click="showProjectComments = !showProjectComments">
                   <span class="btn-content">
-                    <span class="comment-icon">💬</span>
                     {{ showProjectComments ? $t('common.hide') : $t('common.show') }} {{ $t('commentsSection.title') }}
                     <span v-if="unreadProjectCommentsCount > 0" class="header-unread-badge">{{ unreadProjectCommentsCount }}</span>
                   </span>
@@ -264,7 +301,6 @@
                 <!-- Заявки на вступление - всегда -->
                 <button v-if="showJoinRequestsButton" class="requests-btn" @click="showJoinRequests = !showJoinRequests">
                   <span class="btn-content">
-                    <span class="requests-icon">👥</span>
                     {{ showJoinRequests ? $t('common.hide') : $t('projectDetails.requests') }}
                     <span v-if="pendingJoinRequestsCount > 0" class="header-unread-badge">{{ pendingJoinRequestsCount }}</span>
                   </span>
@@ -329,14 +365,15 @@
                       </div>
                     </div>
                     <div class="request-actions">
-                      <button class="accept-request-btn" @click="acceptJoinRequest(request.id)">✅ {{ $t('common.accept') }}</button>
-                      <button class="reject-request-btn" @click="rejectJoinRequest(request.id)">❌ {{ $t('common.reject') }}</button>
+                      <button class="accept-request-btn" @click="acceptJoinRequest(request.id)">{{ $t('common.accept') }}</button>
+                      <button class="reject-request-btn" @click="rejectJoinRequest(request.id)">{{ $t('common.reject') }}</button>
                     </div>
                   </div>
                 </div>
               </div>
 
               <!-- Активные задачи - только для одобренных проектов -->
+              <div class="active-tasks-scroll">
               <div v-if="isProjectApproved">
                 <div v-if="inProgressTasks.length > 0" class="task-group">
                   <h4 class="task-group-title in-progress-title">{{ $t('projectDetails.inProgress') }}</h4>
@@ -417,6 +454,7 @@
               <div v-else class="not-approved-tasks-message">
                 <p>📋 {{ $t('projectDetails.tasksUnavailable') }}</p>
               </div>
+              </div>
             </div>
           </div>
 
@@ -453,6 +491,7 @@
           <h1 class="project-title-center">{{ project.title }}</h1>
           <div class="two-columns">
             <div class="info-column">
+              <div class="project-info-scroll">
               <div class="project-section">
                 <h3>{{ $t('projectDetails.description') }}</h3>
                 <p>{{ project.body }}</p>
@@ -482,7 +521,8 @@
                 </div>
                 <p v-else>{{ $t('projectDetails.noParticipants') }}</p>
               </div>
-              <div v-if="completedTasks.length" class="project-section">
+              </div>
+              <div v-if="completedTasks.length" class="project-section completed-tasks-section">
                 <h3>{{ $t('projectDetails.completedTasks') }}</h3>
                 <div class="completed-tasks">
                   <div v-for="task in completedTasks" :key="task.title" class="completed-task" @click="goToTask(task)">
@@ -494,6 +534,7 @@
             </div>
             <div class="tasks-column">
               <h3 class="tasks-section-title">{{ $t('projectDetails.activeTasks') }}</h3>
+              <div class="active-tasks-scroll">
               <div v-if="inProgressTasks.length > 0" class="task-group">
                 <h4 class="task-group-title in-progress-title">{{ $t('projectDetails.inProgress') }}</h4>
                 <div class="task-tree">
@@ -565,6 +606,7 @@
                 </div>
               </div>
               <div v-if="inProgressTasks.length === 0 && waitingTasks.length === 0" class="no-tasks">{{ $t('projectDetails.noActiveTasks') }}</div>
+              </div>
             </div>
           </div>
           <GanttChart :tasks="activeTasks" :title="$t('projectDetails.timeline')" :readonly="true" @update-tasks="handleTaskUpdate" />
@@ -678,7 +720,7 @@
 
     <!-- Фиксированная кнопка "Покинуть проект" -->
     <button v-if="canLeaveProject" class="floating-leave-button" @click="leaveProject" :disabled="deleteInProgress">
-      🚪 {{ $t('projectDetails.leaveProject') }}
+      {{ $t('projectDetails.leaveProject') }}
     </button>
 
     <div v-if="showAuditModal" class="audit-modal-overlay" @click.self="showAuditModal = false">
@@ -736,6 +778,7 @@ const usersStore = useUsersStore();
 
 // ========== Состояние ==========
 const project = ref<Project | null>(null);
+const projectFiles = ref<Array<{ required_file_id?: string | null }>>([]);
 const loading = ref(true);
 const error = ref('');
 const showProjectComments = ref(false);
@@ -908,6 +951,23 @@ const activeTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.s
 const completedTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'выполнена') || []);
 const inProgressTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'в работе') || []);
 const waitingTasks = computed<Task[]>(() => project.value?.tasks?.filter(t => t.status === 'ожидает') || []);
+const overallProjectProgress = computed(() => {
+  const stages = lifecycleSchema.value.stages || [];
+  const tasks = project.value?.tasks || [];
+  if (stages.length === 0 || tasks.length === 0) return 0;
+
+  const fallbackStageId = lifecycleState.value.current_stage_id || stages[0]?.id;
+  const stageWeight = 100 / stages.length;
+  const progress = stages.reduce((total, stage) => {
+    const stageTasks = tasks.filter(task => (task.stage_id || fallbackStageId) === stage.id);
+    if (stageTasks.length === 0) return total;
+
+    const completedCount = stageTasks.filter(task => task.status === 'выполнена').length;
+    return total + stageWeight * (completedCount / stageTasks.length);
+  }, 0);
+
+  return Math.round(progress);
+});
 
 const lifecycleGanttTasks = computed<Task[]>(() => lifecycleSchema.value.stages.map((stage, index) => ({
   title: stage.title,
@@ -1061,7 +1121,8 @@ function taskProgress(task: Task): number {
 }
 
 function isTaskRequiredFileAttached(task: Task, requiredFileId: string): boolean {
-  return task.attachments?.some(att => att.required_file_id === requiredFileId) ?? false;
+  return (task.attachments?.some(att => att.required_file_id === requiredFileId) ?? false) ||
+    projectFiles.value.some(file => file.required_file_id === requiredFileId);
 }
 
 // ========== Уведомления ==========
@@ -1160,6 +1221,12 @@ async function loadProject(force = false) {
   }
   try {
     project.value = await projectsStore.fetchProjectById(id, force);
+    try {
+      const filesResponse = await api.get(`${baseUrl}/projects/${id}/files`);
+      projectFiles.value = filesResponse.data;
+    } catch {
+      projectFiles.value = [];
+    }
     if (usersStore.users.length === 0) await usersStore.fetchAllUsers();
     // Проверяем статус одобрения через отдельный эндпоинт
     await checkApprovalStatus(id);
@@ -1585,7 +1652,7 @@ watch(() => route.params.id, () => { loadProject(true); });
 .approval-rejected { background: linear-gradient(135deg, rgba(244,67,54,0.1), rgba(244,67,54,0.05)); border: 1px solid #f44336; color: #f44336; }
 .approval-icon { font-size: 1.5rem; }
 .approval-action-btn { padding: 8px 16px; border: none; border-radius: 20px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-left: auto; background: white; color: inherit; }
-.approval-action-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.approval-action-btn:hover { box-shadow: var(--shadow); }
 .approval-action-btn.cancel { background: rgba(244,67,54,0.1); color: #f44336; }
 
 .lifecycle-train-section {
@@ -1826,7 +1893,13 @@ watch(() => route.params.id, () => { loadProject(true); });
 .link-save, .link-cancel, .link-edit, .link-delete { background: transparent; border: none; font-size: 1.2rem; cursor: pointer; padding: 4px 8px; border-radius: 50%; transition: background 0.2s; display: inline-flex; align-items: center; justify-content: center; }
 .link-save { color: #4caf50; } .link-save:hover { background: rgba(76,175,80,0.2); }
 .link-cancel { color: #f44336; } .link-cancel:hover { background: rgba(244,67,54,0.2); }
-.link-edit { color: #ff9800; } .link-edit:hover { background: rgba(255,152,0,0.2); }
+.link-edit {
+  color: #ff9800;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.link-edit:hover { background: rgba(255,152,0,0.2); }
 .link-delete { color: #f44336; } .link-delete:hover { background: rgba(244,67,54,0.2); }
 .link-display { display: flex; align-items: center; gap: 8px; }
 .link-actions { display: flex; gap: 4px; }
@@ -1951,8 +2024,569 @@ watch(() => route.params.id, () => { loadProject(true); });
 
 .loading, .error { text-align: center; color: var(--text-primary); font-size: 1.2rem; padding: 40px; }
 
+/* Project workspace redesign */
+.project-details-page {
+  padding: 24px 36px 64px;
+}
+.details-header,
+.author-layout {
+  max-width: 1364px;
+}
+.details-header {
+  min-height: 48px;
+  margin-bottom: 16px;
+}
+.header-buttons {
+  padding: 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+}
+.audit-header-btn {
+  min-height: 36px;
+  border-radius: 7px;
+}
+.project-hero {
+  padding: 24px 26px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+  margin-bottom: 18px;
+}
+.project-hero-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.project-hero-eyebrow {
+  color: var(--accent-color);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.project-title-center {
+  margin: 6px 0 0;
+  text-align: left;
+  font-size: clamp(2rem, 3vw, 2.65rem);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+.project-hero-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.project-hero-badge {
+  padding: 7px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--completed-bg);
+  color: var(--heading-color);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.project-hero .lifecycle-train-section {
+  margin: 22px 0 0;
+  padding: 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--completed-bg);
+  box-shadow: none;
+}
+.project-hero .lifecycle-train-header {
+  margin-bottom: 12px;
+}
+.project-hero .lifecycle-train {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(190px, 1fr);
+  gap: 10px;
+  padding: 0 0 6px;
+  align-items: stretch;
+}
+.project-hero .train-stage {
+  position: relative;
+  display: block;
+  min-width: 190px;
+}
+.project-hero .train-car {
+  width: 100%;
+  height: 100%;
+  min-height: 142px;
+  padding: 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+  box-shadow: none;
+}
+.project-hero .train-stage.completed .train-car,
+.project-hero .train-stage.current .train-car,
+.project-hero .train-stage.approval_pending .train-car {
+  background: var(--bg-card);
+  box-shadow: none;
+}
+.project-hero .train-stage.completed .train-car {
+  border-color: var(--accent-color);
+}
+.project-hero .train-stage.current .train-car,
+.project-hero .train-stage.approval_pending .train-car {
+  border-width: 2px;
+  border-color: var(--accent-color);
+  box-shadow: var(--shadow);
+}
+.project-hero .train-stage.rejected .train-car {
+  border-color: var(--danger-color);
+  background: var(--danger-bg);
+}
+.project-hero .train-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.project-hero .train-car strong {
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+.project-hero .train-car small {
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+.project-hero .train-index {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--completed-bg);
+  color: var(--text-secondary);
+}
+.project-hero .train-stage.completed .train-index {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--button-text);
+}
+.project-hero .train-stage.current .train-index,
+.project-hero .train-stage.approval_pending .train-index {
+  border-color: var(--accent-color);
+  background: var(--completed-bg);
+  color: var(--accent-color);
+}
+.project-hero .train-connector {
+  position: absolute;
+  z-index: 2;
+  top: 27px;
+  right: -10px;
+  width: 10px;
+  height: 2px;
+  margin: 0;
+  background: var(--border-color);
+}
+.project-hero .stage-state {
+  margin: 0;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: var(--completed-bg);
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+.project-hero .lifecycle-actions {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.65fr) minmax(300px, 1.35fr);
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+.project-hero .lifecycle-action-context {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+.project-hero .lifecycle-action-context > span:first-child {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+.project-hero .lifecycle-action-context > strong {
+  color: var(--heading-color);
+  overflow-wrap: anywhere;
+}
+.project-hero .lifecycle-action-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.project-hero .lifecycle-comment {
+  min-width: 220px;
+  flex: 1 1 260px;
+  background: var(--completed-bg);
+}
+.project-summary-grid {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-color);
+}
+.project-summary-item {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--completed-bg);
+}
+.project-summary-item span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+.project-summary-item strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--heading-color);
+  font-size: 1.4rem;
+}
+.summary-progress-track {
+  height: 6px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-card);
+}
+.summary-progress-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-color);
+}
+.two-columns {
+  --project-columns-height: 800px;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  gap: 18px;
+  align-items: stretch;
+}
+.info-column,
+.tasks-column {
+  display: flex;
+  flex-direction: column;
+  height: var(--project-columns-height);
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+  backdrop-filter: none;
+  box-shadow: var(--shadow);
+}
+.active-tasks-scroll,
+.completed-tasks {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-color: var(--accent-color) var(--completed-bg);
+  scrollbar-width: thin;
+}
+.project-info-scroll {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
+}
+.active-tasks-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.active-tasks-scroll::-webkit-scrollbar,
+.completed-tasks::-webkit-scrollbar {
+  width: 9px;
+}
+.active-tasks-scroll::-webkit-scrollbar-track,
+.completed-tasks::-webkit-scrollbar-track {
+  background: var(--completed-bg);
+}
+.active-tasks-scroll::-webkit-scrollbar-thumb,
+.completed-tasks::-webkit-scrollbar-thumb {
+  border: 2px solid var(--completed-bg);
+  border-radius: 999px;
+  background: var(--accent-color);
+}
+.project-info-scroll > .project-section,
+.project-info-scroll > .project-links,
+.info-column > .completed-tasks-section {
+  margin: 0;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+.project-info-scroll > .project-section:last-of-type {
+  border-bottom: 0;
+}
+.project-section h3,
+.project-links h3,
+.tasks-section-title {
+  margin: 0 0 12px;
+  color: var(--heading-color);
+  font-size: 1rem;
+  font-weight: 700;
+}
+.project-section p {
+  margin: 0;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.participants-list {
+  gap: 7px;
+}
+.participant-link {
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--completed-bg);
+  text-decoration: none;
+  font-size: 0.84rem;
+}
+.role-badge {
+  border-radius: 5px;
+}
+.required-roles-info {
+  margin-top: 0;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: transparent;
+}
+.role-info-item {
+  padding: 10px 12px;
+}
+.project-actions {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 18px 20px;
+  border-top: 1px solid var(--border-color);
+}
+.edit-project-button,
+.delete-project-button,
+.mark-old-button,
+.unmark-old-button {
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  box-shadow: none;
+  transform: none;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.edit-project-button:hover,
+.mark-old-button:hover,
+.unmark-old-button:hover {
+  border-color: var(--accent-color);
+  background: var(--accent-hover);
+  color: var(--button-text);
+  box-shadow: none;
+  transform: none;
+}
+.delete-project-button:hover:not(:disabled),
+.floating-leave-button:hover:not(:disabled) {
+  border-color: var(--danger-color);
+  background: var(--danger-color);
+  color: var(--button-text);
+  box-shadow: none;
+  transform: none;
+}
+.link-save:hover,
+.link-cancel:hover,
+.link-edit:hover,
+.link-delete:hover,
+.accept-request-btn:hover,
+.reject-request-btn:hover {
+  box-shadow: var(--shadow);
+}
+.tasks-section-title {
+  margin: 0;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg-card);
+}
+.task-header-buttons {
+  margin: 0;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+.suggestions-btn,
+.suggest-btn,
+.invite-btn,
+.comments-header-btn,
+.requests-btn {
+  min-height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--completed-bg);
+  color: var(--heading-color);
+  box-shadow: none;
+}
+.suggestions-btn:hover,
+.suggest-btn:hover,
+.invite-btn:hover,
+.comments-header-btn:hover,
+.requests-btn:hover {
+  border-color: var(--accent-color);
+  background: var(--accent-color);
+  color: var(--button-text);
+  box-shadow: var(--shadow);
+}
+.suggestions-container,
+.comments-container,
+.requests-container {
+  margin: 14px 18px;
+  max-height: 230px;
+  overflow-y: auto;
+  border-radius: 9px;
+  box-shadow: none;
+}
+.task-group {
+  margin: 0;
+  padding: 18px 20px 0;
+}
+.task-group:last-child {
+  padding-bottom: 18px;
+}
+.task-group-title {
+  margin: 0 0 9px;
+  padding: 0 0 8px;
+  border-bottom-width: 1px;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.task-tree {
+  gap: 8px;
+}
+.task-node {
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-card);
+  box-shadow: none;
+}
+.task-node:hover {
+  border-color: var(--accent-color);
+  background: var(--completed-bg);
+  box-shadow: var(--shadow);
+}
+.task-node.task-overdue,
+.task-node.task-invalid,
+.task-node.task-not-started {
+  padding-inline: 10px;
+  border-left: 3px solid;
+}
+.task-content p {
+  line-height: 1.45;
+}
+.task-progress {
+  max-width: none;
+  margin-right: 0;
+}
+.completed-tasks {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 8px;
+  margin-top: 10px;
+  padding-right: 4px;
+  border: 0;
+  border-radius: 0;
+}
+.completed-task {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-color);
+  border-radius: 10px;
+  box-shadow: none;
+}
+.completed-task:hover {
+  border-color: var(--accent-color);
+  background: var(--completed-bg);
+  box-shadow: var(--shadow);
+}
+.completed-tasks-section {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+.gantt-switcher {
+  width: max-content;
+  margin: 18px 0 10px;
+  padding: 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--bg-card);
+}
+.gantt-switcher button {
+  border-color: transparent;
+  border-radius: 6px;
+  box-shadow: none;
+}
+.gantt-switcher button:hover:not(.active) {
+  border-color: var(--accent-color);
+  background: var(--completed-bg);
+  color: var(--accent-color);
+}
+:deep(.gantt-wrapper) {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+:deep(.project-tree-wrapper) {
+  margin-top: 18px;
+}
+.non-author-layout {
+  width: min(100%, 1160px);
+}
+.non-author-layout .project-card,
+.join-request-form {
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+.join-request-form {
+  border-left: 4px solid var(--accent-color);
+}
+.role-join-card {
+  border-left-width: 1px;
+  border-radius: 9px;
+  box-shadow: none;
+}
+.respond-role-btn {
+  border-radius: 8px;
+}
+.audit-modal {
+  border-radius: 12px;
+}
+
 @media (max-width: 768px) {
   .two-columns { grid-template-columns: 1fr; }
+  .tasks-column { height: auto; max-height: none; }
   .approval-banner { flex-direction: column; text-align: center; }
   .approval-action-btn { margin-left: 0; width: 100%; }
 }

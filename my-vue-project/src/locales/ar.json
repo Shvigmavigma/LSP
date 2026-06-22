@@ -32,7 +32,12 @@
         "reject": "رفض",
         "approve": "موافقة",
         "notSelected": "غير محدد",
-        "readonly": "قراءة فقط"
+        "readonly": "قراءة فقط",
+        "create": "إنشاء",
+        "error": "خطأ",
+        "notSpecified": "غير محدد",
+        "retry": "إعادة المحاولة",
+        "saved": "تم الحفظ"
     },
     "invitations": {
         "title": "الدعوات",
@@ -115,7 +120,8 @@
         "rejectSuccess": "تم رفض المشروع",
         "approveError": "خطأ في اعتماد المشروع",
         "rejectError": "خطأ في رفض المشروع",
-        "loadError": "خطأ في تحميل المشاريع"
+        "loadError": "خطأ في تحميل المشاريع",
+        "requestedAt": "تاريخ الطلب"
     },
     "project": {
         "title": "عنوان المشروع",
@@ -132,7 +138,8 @@
         "russian": "الروسية",
         "english": "الإنجليزية",
         "belarusian": "البيلاروسية",
-        "arabic": "العربية"
+        "arabic": "العربية",
+        "chinese": "中文"
     },
     "classInput": {
         "required": "هذا الحقل مطلوب",
@@ -195,7 +202,8 @@
         "selectedUser": "المستخدم المختار",
         "roleLabel": "الدور",
         "sendButton": "إرسال الدعوة",
-        "inviteError": "خطأ في إرسال الدعوة"
+        "inviteError": "خطأ في إرسال الدعوة",
+        "inviteSuccess": "تم إرسال الدعوة"
     },
     "projectForm": {
         "titleLabel": "العنوان",
@@ -233,6 +241,8 @@
             "link": "الروابط"
         },
         "show": "عرض",
+        "showButton": "عرض اقتراحات المشروع",
+        "hideButton": "إخفاء اقتراحات المشروع",
         "acceptError": "خطأ في قبول الاقتراح",
         "rejectError": "خطأ في رفض الاقتراح",
         "commentsNotImplemented": "وظيفة التعليقات على الاقتراحات لم يتم تنفيذها بعد"
@@ -389,13 +399,13 @@
             "title": "دورة حياة المشاريع",
             "desc": "إعداد مراحل المشروع والأدوار التي يمكنها إغلاق كل مرحلة"
         },
-    "quotaLimits": {
-      "title": "حدود المشاريع والمستخدمين",
-      "desc": "حصص رفع عامة وشخصية"
-    },
-    "accountClasses": {
-      "title": "صلاحية الحسابات",
-      "desc": "الفصول المسموحة والترقية السنوية وطلبات الاستعادة"
+        "quotaLimits": {
+            "title": "حدود المشاريع والمستخدمين",
+            "desc": "حصص رفع عامة وشخصية"
+        },
+        "accountClasses": {
+            "title": "صلاحية الحسابات",
+            "desc": "الفصول المسموحة والترقية السنوية وطلبات الاستعادة"
         }
     },
     "adminProjectEdit": {
@@ -501,9 +511,9 @@
         "teacherRoles": "أدوار المعلم",
         "loadError": "خطأ في تحميل المستخدم",
         "saveSuccess": "تم حفظ التغييرات",
-    "saveError": "خطأ في الحفظ",
-    "outdated": "حساب قديم",
-    "outdatedHint": "يحتفظ الطالب القديم بإمكانية الوصول لكنه لا يستطيع إنشاء مشاريع."
+        "saveError": "خطأ في الحفظ",
+        "outdated": "حساب قديم",
+        "outdatedHint": "يحتفظ الطالب القديم بإمكانية الوصول لكنه لا يستطيع إنشاء مشاريع."
     },
     "adminUsers": {
         "title": "إدارة المستخدمين",
@@ -607,7 +617,8 @@
         "loadingProjects": "جاري تحميل المشاريع...",
         "errorLoad": "خطأ في تحميل المشاريع",
         "participantsLabel": "المشاركون",
-        "notAuthorized": "المستخدم غير مصرح له"
+        "notAuthorized": "المستخدم غير مصرح له",
+        "noCreatePermission": "ليست لديك صلاحية إنشاء مشروع"
     },
     "profile": {
         "changePendingTitle": "تغييرات الملف الشخصي بانتظار المراجعة",
@@ -652,30 +663,31 @@
         "noRoles": "لم يتم تعيين أدوار",
         "emailNotifications": "إشعارات البريد الإلكتروني",
         "emailNotificationsHint": "تلقي رسائل بريد إلكتروني حول التغييرات المهمة في مشاريعك.",
-    "notificationSaveError": "تعذر تحديث إعدادات الإشعارات",
-    "outdatedTitle": "تم وضع علامة قديم على الحساب",
-    "outdatedHint": "يمكنك متابعة العمل في المشاريع، لكن لا يمكنك إنشاء مشاريع جديدة.",
-    "requestRestoration": "طلب استعادة الحساب",
-    "restorationPending": "طلب الاستعادة قيد المراجعة",
-    "restorationError": "تعذر إرسال طلب الاستعادة"
-  },
-  "accountClasses": {
-    "title": "صلاحية حسابات الطلاب",
-    "allowedClasses": "الفصول المسموحة",
-    "rollover": "الترقية السنوية للفصول",
-    "rolloverEnabled": "ترقية الفصول تلقائياً في التاريخ المحدد",
-    "month": "الشهر",
-    "day": "اليوم",
-    "lastRun": "آخر سنة مكتملة",
-    "runNow": "تشغيل الترقية الآن",
-    "requests": "طلبات الاستعادة",
-    "noRequests": "لا توجد طلبات معلقة",
-    "selectClass": "اختر الفصل",
-    "approve": "استعادة",
-    "reject": "رفض",
-    "saved": "تم حفظ الإعدادات",
-    "runResult": "تمت الترقية: {advanced}، قديمة: {outdated}"
-  },
+        "notificationSaveError": "تعذر تحديث إعدادات الإشعارات",
+        "outdatedTitle": "تم وضع علامة قديم على الحساب",
+        "outdatedHint": "يمكنك متابعة العمل في المشاريع، لكن لا يمكنك إنشاء مشاريع جديدة.",
+        "requestRestoration": "طلب استعادة الحساب",
+        "restorationPending": "طلب الاستعادة قيد المراجعة",
+        "restorationError": "تعذر إرسال طلب الاستعادة",
+        "noGoogleAccount": "حساب Google غير مرتبط"
+    },
+    "accountClasses": {
+        "title": "صلاحية حسابات الطلاب",
+        "allowedClasses": "الفصول المسموحة",
+        "rollover": "الترقية السنوية للفصول",
+        "rolloverEnabled": "ترقية الفصول تلقائياً في التاريخ المحدد",
+        "month": "الشهر",
+        "day": "اليوم",
+        "lastRun": "آخر سنة مكتملة",
+        "runNow": "تشغيل الترقية الآن",
+        "requests": "طلبات الاستعادة",
+        "noRequests": "لا توجد طلبات معلقة",
+        "selectClass": "اختر الفصل",
+        "approve": "استعادة",
+        "reject": "رفض",
+        "saved": "تم حفظ الإعدادات",
+        "runResult": "تمت الترقية: {advanced}، قديمة: {outdated}"
+    },
     "profileEdit": {
         "pendingTitle": "تم إرسال طلب بالفعل",
         "pendingHint": "يتاح التعديل بعد قرار المسؤول أو سحب الطلب.",
@@ -744,8 +756,8 @@
         "addDrive": "إضافة Google Drive",
         "completedTasks": "المهام المكتملة",
         "editProject": "تعديل المشروع",
-        "deleteProject": "🗑 حذف المشروع",
-        "hideProject": "🗑 إخفاء المشروع",
+        "deleteProject": "حذف المشروع",
+        "hideProject": "إخفاء المشروع",
         "activeTasks": "المهام النشطة",
         "suggestEdit": "اقتراح تعديل",
         "invite": "دعوة",
@@ -817,8 +829,27 @@
         },
         "gantt": {
             "tasks": "المهام",
-            "lifecycle": "المراحل"
-        }
+            "lifecycle": "المراحل",
+            "task": "المهمة",
+            "zoomOut": "تصغير",
+            "zoomIn": "تكبير",
+            "collapse": "طي",
+            "expand": "توسيع",
+            "noTasks": "لا توجد مهام ذات تواريخ محددة"
+        },
+        "approvalCancelled": "تم إلغاء طلب الموافقة",
+        "approvalRequestError": "تعذر إرسال طلب الموافقة",
+        "approvalRequestSent": "تم إرسال طلب الموافقة",
+        "cancelApprovalError": "تعذر إلغاء طلب الموافقة",
+        "linkDeleteError": "تعذر حذف الرابط",
+        "linkDeleted": "تم حذف الرابط",
+        "linkUpdated": "تم تحديث الرابط",
+        "subtaskMoved": "تم نقل المهمة الفرعية",
+        "tasksReorderError": "تعذر إعادة ترتيب المهام",
+        "tasksReordered": "تم تحديث ترتيب المهام",
+        "tasksUpdateError": "تعذر تحديث المهام",
+        "tasksUpdated": "تم تحديث المهام",
+        "timelineUpdated": "تم تحديث تواريخ المهمة"
     },
     "projectTree": {
         "title": "هيكل المشروع",
@@ -912,7 +943,8 @@
         "defaultTasksAdded": "تمت إضافة {count} مهمة افتراضية",
         "classKey": "صف المشروع",
         "directionKey": "المسار",
-        "directionPlaceholder": "مثال: robotics, media, research"
+        "directionPlaceholder": "مثال: robotics, media, research",
+        "oldProjectReadOnly": "المشروع القديم للعرض فقط"
     },
     "admin": {
         "createUsers": {
@@ -995,7 +1027,8 @@
         "codeSendError": "خطأ في إرسال الرمز. ربما البريد الإلكتروني مسجل بالفعل.",
         "networkError": "خطأ في الشبكة. تحقق من اتصالك بالخادم.",
         "genericError": "حدث خطأ أثناء التسجيل",
-        "invalidEmail": "أدخل عنوان بريد إلكتروني صالح"
+        "invalidEmail": "أدخل عنوان بريد إلكتروني صالح",
+        "passwordRequired": "أدخل كلمة المرور"
     },
     "taskDetails": {
         "confirmDeleteFile": "هل أنت متأكد أنك تريد حذف هذا الملف؟",
@@ -1055,7 +1088,10 @@
         "progressUpdateError": "فشل في تغيير التقدم",
         "completeOnlyAt100": "لا يمكن إكمال المهمة إلا عند اكتمال 100% من التقدم",
         "confirmExtraProgress": "تغيير التقدم الإضافي إلى {value}%؟",
-        "subtasksCompleted": "تم إكمال المهام الفرعية"
+        "subtasksCompleted": "تم إكمال المهام الفرعية",
+        "hideFromOldProject": "إخفاء في الإصدار القديم للمشروع",
+        "oldVisionToggleError": "تعذر تغيير ظهور الملف في المشروع القديم",
+        "showInOldProject": "إظهار في الإصدار القديم للمشروع"
     },
     "taskEdit": {
         "createTitle": "إنشاء مهمة",
@@ -1099,7 +1135,8 @@
         "invalidProjectId": "معرف مشروع غير صالح",
         "projectNotFound": "المشروع غير موجود",
         "taskNotFound": "المهمة غير موجودة",
-        "loadError": "خطأ في تحميل البيانات"
+        "loadError": "خطأ في تحميل البيانات",
+        "oldProjectReadOnly": "مهام المشروع القديم للعرض فقط"
     },
     "userDetails": {
         "title": "الملف الشخصي للمستخدم",
@@ -1164,12 +1201,16 @@
         "open": "فتح",
         "deleteError": "خطأ في حذف الملف",
         "deleteConfirmTitle": "حذف الملف",
-        "deleteConfirmMessage": "هل أنت متأكد أنك تريد حذف هذا الملف؟"
+        "deleteConfirmMessage": "هل أنت متأكد أنك تريد حذف هذا الملف؟",
+        "downloadError": "تعذر تنزيل الملف",
+        "previewError": "تعذر فتح معاينة الملف"
     },
     "filePreview": {
         "title": "معاينة الملف",
         "previewNotAvailable": "المعاينة غير متاحة",
-        "downloadFile": "تنزيل الملف"
+        "downloadFile": "تنزيل الملف",
+        "audioNotSupported": "متصفحك لا يدعم تشغيل الصوت",
+        "videoNotSupported": "متصفحك لا يدعم تشغيل الفيديو"
     },
     "adminDefaultTasks": {
         "title": "إدارة المهام الافتراضية",
@@ -1302,8 +1343,21 @@
         "comment": "تعليق القرار",
         "approve": "قبول",
         "reject": "رفض",
-        "statuses": {"pending": "قيد الانتظار", "approved": "مقبول", "rejected": "مرفوض", "withdrawn": "مسحوب"},
-        "fields": {"fullname": "الاسم الكامل", "email": "البريد", "speciality": "التخصص", "class_": "الفصل", "teacher_info": "أدوار المعلم", "direction_key": "الاتجاه", "avatar": "الصورة الشخصية"}
+        "statuses": {
+            "pending": "قيد الانتظار",
+            "approved": "مقبول",
+            "rejected": "مرفوض",
+            "withdrawn": "مسحوب"
+        },
+        "fields": {
+            "fullname": "الاسم الكامل",
+            "email": "البريد",
+            "speciality": "التخصص",
+            "class_": "الفصل",
+            "teacher_info": "أدوار المعلم",
+            "direction_key": "الاتجاه",
+            "avatar": "الصورة الشخصية"
+        }
     },
     "adminQuotaLimits": {
         "title": "حدود المشاريع والمستخدمين",
@@ -1332,5 +1386,26 @@
         "sort": "الترتيب",
         "class": "الصف",
         "parallel": "الشعبة"
+    },
+    "versionControl": {
+        "title": "الإصدارات",
+        "history": "سجل الإصدارات",
+        "checkpoints": "نقاط التحقق",
+        "changes": "التغييرات",
+        "toNextCheckpoint": "حتى نقطة التحقق التالية",
+        "createCheckpoint": "إنشاء نقطة تحقق",
+        "checkpointPlaceholder": "وصف نقطة التحقق",
+        "current": "الحالي",
+        "restore": "استعادة",
+        "delete": "حذف",
+        "restoreToCheckpoint": "الاستعادة إلى نقطة التحقق",
+        "deleteCheckpoint": "حذف نقطة التحقق",
+        "noVersions": "لا يوجد سجل إصدارات بعد",
+        "confirmRestore": "تأكيد الاستعادة",
+        "restoreWarning": "سيتم استبدال حالة المشروع الحالية بالإصدار المحدد.",
+        "restoringTo": "الاستعادة إلى الإصدار",
+        "confirm": "استعادة",
+        "confirmDelete": "تأكيد حذف التغيير",
+        "confirmDeleteCheckpoint": "تأكيد حذف نقطة التحقق"
     }
 }

@@ -137,7 +137,7 @@ onUnmounted(() => {
 .language-dropdown {
   position: absolute;
   top: calc(100% + 8px);
-  right: -105px;
+  right: 0px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 12px;
