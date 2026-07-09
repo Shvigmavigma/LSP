@@ -1,4 +1,6 @@
 {
   "project_limit": 1073741824,
-  "user_limit": 104857600
+  "user_limit": 104857600,
+  "user_overrides": {},
+  "role_overrides": {}
 }

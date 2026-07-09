@@ -31,6 +31,16 @@
     <div v-else-if="error" class="error">{{ error }}</div>
 
     <div v-else-if="task" class="task-card" :class="taskStatusClass">
+      <div v-if="taskPresence.length" class="task-presence-banner">
+        <span class="task-presence-label">{{ $t('taskDetails.openedByOthers') }}</span>
+        <div class="task-presence-users">
+          <span v-for="person in taskPresence" :key="person.user_id" class="task-presence-user" :title="person.user_name">
+            <img v-if="person.avatar" :src="`${baseUrl}/avatars/${person.avatar}`" :alt="person.user_name" />
+            <span v-else class="task-presence-avatar">{{ person.user_name?.charAt(0).toUpperCase() || '?' }}</span>
+            <span>{{ person.user_name }}</span>
+          </span>
+        </div>
+      </div>
       <h2 class="task-title">{{ task.title }}</h2>
 
       <section class="task-section">
@@ -330,7 +340,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useProjectsStore } from '@/stores/projects';
@@ -369,6 +379,9 @@ const showTaskComments = ref(false);
 const previewModalVisible = ref(false);
 const previewFile = ref<any>(null);
 const taskFiles = ref<any[]>([]);
+const taskPresence = ref<Array<{ user_id: number; user_name: string; avatar?: string | null }>>([]);
+let presenceTimer: ReturnType<typeof setInterval> | null = null;
+let presenceFailureCount = 0;
 
 const savedProgress = ref(0);
 const sliderValue = ref(0);
@@ -524,7 +537,7 @@ async function loadTask() {
   error.value = '';
   
   try {
-    const response = await api.get(`${baseUrl}/projects/${currentProjectId}`);
+    const response = await api.get(`/projects/${currentProjectId}`);
     project.value = response.data;
     if (!project.value || !project.value.tasks || !project.value.tasks[currentTaskIndex]) {
       error.value = t('taskDetails.taskNotFound');
@@ -541,7 +554,7 @@ async function loadTask() {
         sliderValue.value = savedProgress.value;
       }
       try {
-        const filesResponse = await api.get(`${baseUrl}/projects/${currentProjectId}/files`);
+        const filesResponse = await api.get(`/projects/${currentProjectId}/files`);
         taskFiles.value = filesResponse.data;
       } catch (fileErr) {
         console.error('Failed to load project files:', fileErr);
@@ -556,15 +569,60 @@ async function loadTask() {
   }
 }
 
-onMounted(loadTask);
+function stopTaskPresence() {
+  if (presenceTimer) {
+    clearInterval(presenceTimer);
+    presenceTimer = null;
+  }
+}
+
+async function syncTaskPresence() {
+  if (!task.value || !projectId.value) return;
+  const targetId = String(task.value.id ?? taskIndex.value);
+  try {
+    await api.post(`/projects/${projectId.value}/editing-presence`, {
+      target_type: 'task',
+      target_id: targetId,
+    });
+    const response = await api.get(`/projects/${projectId.value}/editing-presence`, {
+      params: { target_type: 'task', target_id: targetId },
+    });
+    taskPresence.value = response.data.items || [];
+    presenceFailureCount = 0;
+  } catch (presenceError) {
+    taskPresence.value = [];
+    presenceFailureCount += 1;
+    if (presenceFailureCount >= 3) {
+      stopTaskPresence();
+      console.warn('Task presence stopped after repeated network failures', presenceError);
+      return;
+    }
+    console.warn('Failed to update task presence', presenceError);
+  }
+}
+
+function startTaskPresence() {
+  stopTaskPresence();
+  presenceFailureCount = 0;
+  void syncTaskPresence();
+  presenceTimer = setInterval(syncTaskPresence, 20_000);
+}
+
+onMounted(async () => {
+  await loadTask();
+  startTaskPresence();
+});
+
+onUnmounted(stopTaskPresence);
 
 // Следим за изменением параметров маршрута
 watch(
   () => route.params,
-  (newParams, oldParams) => {
+  async (newParams, oldParams) => {
     if (newParams.projectId !== oldParams.projectId || 
         newParams.taskIndex !== oldParams.taskIndex) {
-      loadTask();
+      await loadTask();
+      startTaskPresence();
     }
   },
   { deep: true }
@@ -657,7 +715,7 @@ function getCompleteButtonTitle(): string {
 // --- Методы задач ---
 async function updateCurrentTask(update: Record<string, unknown>): Promise<Task> {
   const response = await api.patch(
-    `${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}`,
+    `/projects/${projectId.value}/tasks/${taskIndex.value}`,
     update,
   );
   const updatedProject = response.data as Project;
@@ -767,7 +825,7 @@ const addTaskComment = async (content: string) => {
   };
 
   try {
-    const response = await api.post(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments`, newComment);
+    const response = await api.post(`/projects/${projectId.value}/tasks/${taskIndex.value}/comments`, newComment);
     project.value = response.data;
     task.value = project.value.tasks[taskIndex.value];
     showTaskComments.value = true;
@@ -780,7 +838,7 @@ const addTaskComment = async (content: string) => {
 const markTaskCommentAsRead = async (commentId: string) => {
   if (!task.value || !hasFullAccess.value) return;
   try {
-    await api.put(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/read`);
+    await api.put(`/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/read`);
     if (task.value.comments) {
       const updatedComments = task.value.comments.map(c => c.id === commentId ? { ...c, isRead: true } : c);
       const updatedTask = { ...task.value, comments: updatedComments };
@@ -798,7 +856,7 @@ const markTaskCommentAsRead = async (commentId: string) => {
 const hideTaskComment = async (commentId: string) => {
   if (!project.value || isOldReadOnly.value) return;
   try {
-    const response = await api.delete(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}`);
+    const response = await api.delete(`/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}`);
     project.value = response.data;
     task.value = project.value.tasks[taskIndex.value];
   } catch (error) {
@@ -810,7 +868,7 @@ const hideTaskComment = async (commentId: string) => {
 const permanentDeleteComment = async (commentId: string) => {
   if (!project.value || isOldReadOnly.value) return;
   try {
-    await api.delete(`${baseUrl}/admin/comments/${commentId}`);
+    await api.delete(`/admin/comments/${commentId}`);
     showNotification(t('commentsSection.permanentDeleteSuccess'), 'success');
     const updatedProject = await projectsStore.fetchProjectById(projectId.value);
     project.value = updatedProject;
@@ -826,7 +884,7 @@ const permanentDeleteComment = async (commentId: string) => {
 const restoreTaskComment = async (commentId: string) => {
   if (!project.value || isOldReadOnly.value) return;
   try {
-    await api.post(`${baseUrl}/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/restore`);
+    await api.post(`/projects/${projectId.value}/tasks/${taskIndex.value}/comments/${commentId}/restore`);
     showNotification(t('commentsSection.restoreSuccess'), 'success');
     const updatedProject = await projectsStore.fetchProjectById(projectId.value);
     project.value = updatedProject;
@@ -851,7 +909,7 @@ function getRequiredFileName(reqId: string): string {
 
 async function updateFileRequirement(fileId: number, requiredId: string) {
   try {
-    await api.patch(`${baseUrl}/files/${fileId}/set-requirement`, {
+    await api.patch(`/files/${fileId}/set-requirement`, {
       required_file_id: requiredId || null
     });
     const file = taskFiles.value.find(f => f.id === fileId);
@@ -864,7 +922,7 @@ async function updateFileRequirement(fileId: number, requiredId: string) {
 
 async function toggleFileOldVision(fileId: number) {
   try {
-    const response = await api.patch(`${baseUrl}/files/${fileId}/toggle-old-vision`);
+    const response = await api.patch(`/files/${fileId}/toggle-old-vision`);
     const updatedFile = response.data;
     const index = taskFiles.value.findIndex(f => f.id === fileId);
     if (index !== -1) {
@@ -896,7 +954,7 @@ async function handleFileUpload(file: File) {
   
   try {
     const response = await axios.post(
-      `${baseUrl}/projects/${projectId.value}/files`,
+      `/projects/${projectId.value}/files`,
       formData,
       {
         headers: {
@@ -970,8 +1028,8 @@ async function deleteAttachment(fileId: number) {
   if (isOldReadOnly.value) return;
   deletingAttachment.value = true;
   try {
-    await api.delete(`${baseUrl}/files/${fileId}`);
-    const response = await api.get(`${baseUrl}/projects/${projectId.value}`);
+    await api.delete(`/files/${fileId}`);
+    const response = await api.get(`/projects/${projectId.value}`);
     project.value = response.data;
     task.value = project.value.tasks[taskIndex.value];
     savedProgress.value = task.value?.progress ?? 0;
@@ -984,7 +1042,7 @@ async function deleteAttachment(fileId: number) {
       sliderValue.value = savedProgress.value;
     }
     try {
-      const filesResponse = await api.get(`${baseUrl}/projects/${projectId.value}/files`);
+      const filesResponse = await api.get(`/projects/${projectId.value}/files`);
       taskFiles.value = filesResponse.data;
     } catch {}
     showNotification(t('taskDetails.fileDeleted'), 'success');
@@ -1050,7 +1108,7 @@ const handleTaskMove = async (fromIndex: number, toIndex: number) => {
   tasks.splice(toIndex, 0, movedTask);
 
   try {
-    await api.patch(`${baseUrl}/projects/${projectId.value}/tasks`, { tasks });
+    await api.patch(`/projects/${projectId.value}/tasks`, { tasks });
     project.value = { ...project.value, tasks };
     showNotification(t('projectDetails.tasksReordered'), 'success');
   } catch (error: any) {
@@ -1065,6 +1123,58 @@ const goBack = () => router.push(`/project/${projectId.value}`);
 
 
 <style scoped>
+.task-presence-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-color);
+  border-radius: 9px;
+  background: var(--completed-bg);
+  color: var(--text-primary);
+}
+.task-presence-label {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.task-presence-users {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.task-presence-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--heading-color);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.task-presence-user img,
+.task-presence-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+.task-presence-user img {
+  object-fit: cover;
+}
+.task-presence-avatar {
+  display: grid;
+  place-items: center;
+  background: var(--accent-color);
+  color: var(--button-text);
+  font-size: 0.7rem;
+}
 .readonly-notice {
   max-width: 800px;
   margin: 0 auto 20px;

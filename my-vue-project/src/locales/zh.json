@@ -1032,6 +1032,7 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "您确定要删除此文件吗？",
+        "openedByOthers": "任务已被其他用户打开",
         "completeAllSubtasksForProgress": "完成所有子任务以启用进度滑块",
         "dragFilesHere": "将文件拖拽到这里",
         "notAttached": "未附加",
@@ -1136,7 +1137,8 @@
         "projectNotFound": "项目未找到",
         "taskNotFound": "任务未找到",
         "loadError": "加载数据时出错",
-        "oldProjectReadOnly": "旧项目中的任务为只读状态"
+        "oldProjectReadOnly": "旧项目中的任务为只读状态",
+        "openedByOthers": "其他正在查看的用户"
     },
     "userDetails": {
         "title": "用户资料",

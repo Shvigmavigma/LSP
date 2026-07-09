@@ -1032,6 +1032,7 @@
     },
     "taskDetails": {
         "confirmDeleteFile": "Вы ўпэўнены, што жадаеце выдаліць гэты файл?",
+        "openedByOthers": "Задача ўжо адкрыта іншым карыстальнікам",
         "completeAllSubtasksForProgress": "Выканайце ўсе падзадачы, каб адкрыць паўзунок прагрэсу",
         "dragFilesHere": "Перацягніце файлы сюды",
         "notAttached": "Не прымацаваны",
@@ -1136,7 +1137,8 @@
         "projectNotFound": "Праект не знойдзены",
         "taskNotFound": "Задача не знойдзена",
         "loadError": "Памылка загрузкі даных",
-        "oldProjectReadOnly": "Задачы старога праекта даступныя толькі для прагляду"
+        "oldProjectReadOnly": "Задачы старога праекта даступныя толькі для прагляду",
+        "openedByOthers": "Таксама адкрыта ў"
     },
     "userDetails": {
         "title": "Профіль карыстальніка",

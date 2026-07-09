@@ -470,7 +470,7 @@ async function sendInvite() {
   inviteSuccess.value = false;
 
   try {
-    const response = await api.post(`${baseUrl}/projects/${projectId}/invite`, {
+    const response = await api.post(`/projects/${projectId}/invite`, {
       email: inviteEmail.value,
       role: inviteRole.value,
     });

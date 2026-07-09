@@ -1222,7 +1222,7 @@ async function loadProject(force = false) {
   try {
     project.value = await projectsStore.fetchProjectById(id, force);
     try {
-      const filesResponse = await api.get(`${baseUrl}/projects/${id}/files`);
+      const filesResponse = await api.get(`/projects/${id}/files`);
       projectFiles.value = filesResponse.data;
     } catch {
       projectFiles.value = [];
@@ -1284,7 +1284,7 @@ async function respondToProjectWithRole(role: ProjectRole) {
   if (respondingRole.value === role) return;
   respondingRole.value = role;
   try {
-    await api.post(`${baseUrl}/projects/${project.value.id}/join-requests`, { requested_role: role });
+    await api.post(`/projects/${project.value.id}/join-requests`, { requested_role: role });
     showNotification(t('projectDetails.requestSent'), 'success');
     await loadProject(true);
   } catch (err: any) {
@@ -1298,7 +1298,7 @@ async function respondToProjectWithRole(role: ProjectRole) {
 async function acceptJoinRequest(requestId: string) {
   if (!project.value) return;
   try {
-    await axios.put(`${baseUrl}/projects/${project.value.id}/join-requests/${requestId}/accept`);
+    await axios.put(`/projects/${project.value.id}/join-requests/${requestId}/accept`);
     showNotification(t('projectDetails.requestAccepted'), 'success');
     await loadProject(true);
   } catch (err) {
@@ -1310,7 +1310,7 @@ async function acceptJoinRequest(requestId: string) {
 async function rejectJoinRequest(requestId: string) {
   if (!project.value) return;
   try {
-    await axios.put(`${baseUrl}/projects/${project.value.id}/join-requests/${requestId}/reject`);
+    await axios.put(`/projects/${project.value.id}/join-requests/${requestId}/reject`);
     showNotification(t('projectDetails.requestRejected'), 'success');
     await loadProject(true);
   } catch (err) {
@@ -1331,7 +1331,7 @@ async function addProjectComment(content: string) {
     hidden: false,
   };
   try {
-    const response = await axios.post(`${baseUrl}/projects/${project.value.id}/comments`, newComment);
+    const response = await axios.post(`/projects/${project.value.id}/comments`, newComment);
     project.value = response.data;
     showProjectComments.value = true;
   } catch (error) {
@@ -1342,7 +1342,7 @@ async function addProjectComment(content: string) {
 async function markProjectCommentAsRead(commentId: string) {
   if (!project.value || !commentId) return;
   try {
-    await axios.put(`${baseUrl}/projects/${project.value.id}/comments/${commentId}/read`);
+    await axios.put(`/projects/${project.value.id}/comments/${commentId}/read`);
     if (project.value.comments) {
       project.value.comments = project.value.comments.map(c => c.id === commentId ? { ...c, isRead: true } : c);
     }
@@ -1354,7 +1354,7 @@ async function markProjectCommentAsRead(commentId: string) {
 async function hideProjectComment(commentId: string) {
   if (!project.value || !commentId) return;
   try {
-    const response = await axios.delete(`${baseUrl}/projects/${project.value.id}/comments/${commentId}`);
+    const response = await axios.delete(`/projects/${project.value.id}/comments/${commentId}`);
     project.value = response.data;
   } catch (error) {
     alert(t('commentsSection.hideError'));
@@ -1364,7 +1364,7 @@ async function hideProjectComment(commentId: string) {
 async function restoreProjectComment(commentId: string) {
   if (!project.value || !commentId) return;
   try {
-    await axios.post(`${baseUrl}/projects/${project.value.id}/comments/${commentId}/restore`);
+    await axios.post(`/projects/${project.value.id}/comments/${commentId}/restore`);
     showNotification(t('commentsSection.restoreSuccess'), 'success');
     await loadProject();
   } catch (error) {
@@ -1375,7 +1375,7 @@ async function restoreProjectComment(commentId: string) {
 async function permanentDeleteComment(commentId: string) {
   if (!project.value || !commentId) return;
   try {
-    await axios.delete(`${baseUrl}/admin/comments/${commentId}`);
+    await axios.delete(`/admin/comments/${commentId}`);
     showNotification(t('commentsSection.permanentDeleteSuccess'), 'success');
     await loadProject();
   } catch (error) {
@@ -1387,7 +1387,7 @@ async function permanentDeleteComment(commentId: string) {
 async function acceptSuggestion(suggestionId: string) {
   if (!project.value) return;
   try {
-    const response = await axios.put(`${baseUrl}/projects/${project.value.id}/suggestions/${suggestionId}/accept`);
+    const response = await axios.put(`/projects/${project.value.id}/suggestions/${suggestionId}/accept`);
     project.value = response.data;
   } catch (error) {
     alert(t('suggestions.acceptError'));
@@ -1397,7 +1397,7 @@ async function acceptSuggestion(suggestionId: string) {
 async function rejectSuggestion(suggestionId: string) {
   if (!project.value) return;
   try {
-    const response = await axios.put(`${baseUrl}/projects/${project.value.id}/suggestions/${suggestionId}/reject`);
+    const response = await axios.put(`/projects/${project.value.id}/suggestions/${suggestionId}/reject`);
     project.value = response.data;
   } catch (error) {
     alert(t('suggestions.rejectError'));
@@ -1427,7 +1427,7 @@ function openInviteModal() { showInviteModal.value = true; }
 async function updateProjectLinks(updates: Record<string, string | null>) {
   if (!project.value) return;
   try {
-    const response = await axios.patch(`${baseUrl}/projects/${project.value.id}/links`, updates);
+    const response = await axios.patch(`/projects/${project.value.id}/links`, updates);
     project.value = response.data;
     showNotification(t('projectDetails.linkUpdated'), 'success');
   } catch (err: any) {
@@ -1444,7 +1444,7 @@ async function deleteGithubLink() {
   if (!project.value?.links?.github) return;
   if (confirm(t('projectDetails.confirmDeleteGithub'))) {
     try {
-      const response = await axios.delete(`${baseUrl}/projects/${project.value.id}/links/github`);
+      const response = await axios.delete(`/projects/${project.value.id}/links/github`);
       project.value = response.data;
       showNotification(t('projectDetails.linkDeleted'), 'success');
     } catch (err: any) { showNotification(err.response?.data?.detail || t('projectDetails.linkDeleteError'), 'error'); }
@@ -1459,7 +1459,7 @@ async function deleteDriveLink() {
   if (!project.value?.links?.google_drive) return;
   if (confirm(t('projectDetails.confirmDeleteDrive'))) {
     try {
-      const response = await axios.delete(`${baseUrl}/projects/${project.value.id}/links/google-drive`);
+      const response = await axios.delete(`/projects/${project.value.id}/links/google-drive`);
       project.value = response.data;
       showNotification(t('projectDetails.linkDeleted'), 'success');
     } catch (err: any) { showNotification(err.response?.data?.detail || t('projectDetails.linkDeleteError'), 'error'); }
@@ -1473,7 +1473,7 @@ const handleProjectDelete = async () => {
   if (isAdminOrCurator.value) {
     if (confirm(t('projectDetails.confirmDeleteProject'))) {
       try {
-        await axios.delete(`${baseUrl}/projects/${project.value.id}`);
+        await axios.delete(`/projects/${project.value.id}`);
         showNotification(t('projectDetails.projectDeleted'), 'success');
         router.push('/main');
       } catch (error) { showNotification(t('projectDetails.deleteError'), 'error'); }
@@ -1481,7 +1481,7 @@ const handleProjectDelete = async () => {
   } else {
     if (confirm(t('projectDetails.confirmHideProject'))) {
       try {
-        await axios.patch(`${baseUrl}/projects/${project.value.id}/hide`);
+        await axios.patch(`/projects/${project.value.id}/hide`);
         showNotification(t('projectDetails.projectHidden'), 'success');
         router.push('/main');
       } catch (error) { showNotification(t('projectDetails.hideError'), 'error'); }
@@ -1493,7 +1493,7 @@ const handleProjectDelete = async () => {
 const markAsOld = async () => {
   if (!project.value) return;
   try {
-    await axios.put(`${baseUrl}/projects/${project.value.id}/mark-old`);
+    await axios.put(`/projects/${project.value.id}/mark-old`);
     showNotification(t('projectDetails.markedAsOld'), 'success');
     await loadProject(true);
   } catch (err: any) { showNotification(err.response?.data?.detail || t('projectDetails.markOldError'), 'error'); }
@@ -1502,7 +1502,7 @@ const markAsOld = async () => {
 const unmarkAsOld = async () => {
   if (!project.value) return;
   try {
-    await axios.put(`${baseUrl}/projects/${project.value.id}/unmark-old`);
+    await axios.put(`/projects/${project.value.id}/unmark-old`);
     showNotification(t('projectDetails.unmarkedAsOld'), 'success');
     await loadProject(true);
   } catch (err: any) { showNotification(err.response?.data?.detail || t('projectDetails.unmarkOldError'), 'error'); }
@@ -1513,7 +1513,7 @@ const leaveProject = async () => {
   if (!confirm(t('projectDetails.confirmLeaveProject'))) return;
   deleteInProgress.value = true;
   try {
-    await axios.post(`${baseUrl}/projects/${project.value.id}/leave`);
+    await axios.post(`/projects/${project.value.id}/leave`);
     showNotification(t('projectDetails.leftProject'), 'success');
     router.push('/my-projects');
   } catch (error: any) {
@@ -1546,7 +1546,7 @@ const handleTaskUpdate = async (payload: { task: Task; index: number }) => {
     if (!seenTitles.has(title)) { seenTitles.add(title); uniqueTasks.push(t); }
   }
   try {
-    await axios.patch(`${baseUrl}/projects/${project.value.id}/tasks`, { tasks: uniqueTasks });
+    await axios.patch(`/projects/${project.value.id}/tasks`, { tasks: uniqueTasks });
     project.value = { ...project.value, tasks: uniqueTasks };
     showNotification(t('projectDetails.timelineUpdated'), 'success');
   } catch (error: any) {
@@ -1562,7 +1562,7 @@ const handleTaskMove = async (fromIndex: number, toIndex: number) => {
   const [movedTask] = tasks.splice(fromIndex, 1);
   tasks.splice(toIndex, 0, movedTask);
   try {
-    await axios.patch(`${baseUrl}/projects/${project.value.id}/tasks`, { tasks });
+    await axios.patch(`/projects/${project.value.id}/tasks`, { tasks });
     project.value = { ...project.value, tasks };
     showNotification(t('projectDetails.tasksReordered'), 'success');
   } catch (error: any) {
@@ -1583,7 +1583,7 @@ const handleSubtaskMove = async (fromTaskIndex: number, fromSubtaskIndex: number
     const insertIndex = Math.min(toSubtaskIndex, toSubtasks.length);
     toSubtasks.splice(insertIndex, 0, movedSubtask);
     tasksCopy[toTaskIndex] = { ...tasksCopy[toTaskIndex], subtasks: toSubtasks };
-    await axios.patch(`${baseUrl}/projects/${project.value.id}/tasks`, { tasks: tasksCopy });
+    await axios.patch(`/projects/${project.value.id}/tasks`, { tasks: tasksCopy });
     project.value = { ...project.value, tasks: tasksCopy };
     showNotification(t('projectDetails.subtaskMoved'), 'success');
   } catch (error) {
@@ -1596,7 +1596,7 @@ const handleSubtaskMove = async (fromTaskIndex: number, fromSubtaskIndex: number
 const handleUpdateTasks = async (tasks: Task[]) => {
   if (!project.value) return;
   try {
-    await api.patch(`${baseUrl}/projects/${project.value.id}/tasks`, { tasks });
+    await api.patch(`/projects/${project.value.id}/tasks`, { tasks });
     project.value = { ...project.value, tasks };
     showNotification(t('projectDetails.tasksUpdated'), 'success');
   } catch (error) {

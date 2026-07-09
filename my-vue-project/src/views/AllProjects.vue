@@ -253,7 +253,7 @@ onMounted(async () => {
 async function fetchAll() {
   loading.value = true;
   try {
-    const res = await api.get<Project[]>(`${baseUrl}/projects/`, {
+    const res = await api.get<Project[]>('/projects/', {
       params: { class_key: classFilter.value || undefined }
     });
     projects.value = res.data;
@@ -274,7 +274,7 @@ async function searchProjects() {
   }
   loading.value = true;
   try {
-    const res = await api.get<Project[]>(`${baseUrl}/search`, {
+    const res = await api.get<Project[]>('/search', {
       params: { q: search.value }
     });
     projects.value = classFilter.value ? res.data.filter(project => project.class_key === classFilter.value) : res.data;

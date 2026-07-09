@@ -2251,8 +2251,6 @@ async def touch_editing_presence(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
-        raise HTTPException(status_code=403, detail="Only project participants can edit")
     data = {
         "user_id": current_user.id,
         "user_name": user_display_name(current_user),
@@ -2275,8 +2273,6 @@ async def get_editing_presence(
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    if not (current_user.is_admin or is_curator(current_user) or is_project_participant(project, current_user.id)):
-        raise HTTPException(status_code=403, detail="Only project participants can view presence")
     pattern = f"presence:{project_id}:{target_type or '*'}:{target_id or '*'}:*"
     items = []
     for key in redis_client.scan_iter(pattern):
