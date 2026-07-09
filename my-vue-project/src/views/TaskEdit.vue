@@ -524,7 +524,7 @@ async function handleSubmit() {
 
   try {
     // Используем новый эндпоинт только для задач
-    await api.patch(`${baseUrl}/projects/${projectId}/tasks`, { tasks: updatedTasks });
+    await api.patch(`/projects/${projectId}/tasks`, { tasks: updatedTasks });
     project.value = { ...project.value, tasks: updatedTasks };
     showNotification(t('taskEdit.saveSuccess'), 'success');
     setTimeout(() => {

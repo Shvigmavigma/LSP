@@ -1031,6 +1031,7 @@
         }
     },
     "taskDetails": {
+        "openedByOthers": "Task is already opened by another user",
         "confirmDeleteFile": "Are you sure you want to delete this file?",
         "completeAllSubtasksForProgress": "Complete all subtasks to enable progress slider",
         "dragFilesHere": "Drag files here",
@@ -1136,7 +1137,8 @@
         "projectNotFound": "Project not found",
         "taskNotFound": "Task not found",
         "loadError": "Error loading data",
-        "oldProjectReadOnly": "Tasks in old projects are read-only"
+        "oldProjectReadOnly": "Tasks in old projects are read-only",
+        "openedByOthers": "Also open by"
     },
     "userDetails": {
         "title": "User Profile",

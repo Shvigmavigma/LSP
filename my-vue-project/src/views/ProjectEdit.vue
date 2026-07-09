@@ -564,7 +564,7 @@ async function assignCurrentUserAsCurator() {
       });
     }
     
-    await api.put(`${baseUrl}/projects/${projectId}`, { participants: updatedParticipants });
+    await api.put(`/projects/${projectId}`, { participants: updatedParticipants });
     participants.value = updatedParticipants;
     userRole.value = 'curator';
     showNotification(t('projectEdit.curatorAssigned'), 'success');
@@ -857,7 +857,7 @@ async function handleSubmit() {
 
   try {
     if (isApplyingSuggestion.value && applyingSuggestionId.value) {
-      await api.put(`${baseUrl}/projects/${projectId}/suggestions/${applyingSuggestionId.value}/accept`);
+      await api.put(`/projects/${projectId}/suggestions/${applyingSuggestionId.value}/accept`);
       showNotification(t('projectEdit.suggestionAccepted'), 'success');
     }
 
@@ -879,7 +879,7 @@ async function handleSubmit() {
         target_type: 'project',
         changes: projectData,
       };
-      await api.post(`${baseUrl}/projects/${projectId}/suggestions`, suggestionData);
+      await api.post(`/projects/${projectId}/suggestions`, suggestionData);
       showNotification(t('projectEdit.suggestionSent'), 'success');
       setTimeout(() => router.push(`/project/${projectId}`), 1500);
     } else {

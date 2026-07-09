@@ -184,7 +184,7 @@ onMounted(async () => {
 const loginWithGoogle = async () => {
   oauthLoading.value = true;
   try {
-    const response = await api.get(`${baseUrl}/auth/google/login`);
+    const response = await api.get('/auth/google/login');
     const { url } = response.data;
     
     localStorage.setItem('oauth_return_url', '/main');
