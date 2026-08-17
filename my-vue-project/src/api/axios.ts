@@ -2,7 +2,7 @@
 import axios from 'axios'
 
 // Настройка базового URL
-axios.defaults.baseURL = 'http://localhost:8000'
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 let isRefreshing = false
 let failedQueue: { resolve: (value: any) => void; reject: (reason?: any) => void }[] = []

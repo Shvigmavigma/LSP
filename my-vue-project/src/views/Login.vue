@@ -102,7 +102,7 @@ const oauthLoading = ref(false);
 const errorMessage = ref('');
 const hasError = ref(false);
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const notification = ref({
   show: false,

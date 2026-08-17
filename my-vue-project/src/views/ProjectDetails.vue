@@ -768,7 +768,7 @@ import { parseDate } from '@/utils/dateUtils';
 import api from '@/utils/api'
 
 const { t } = useI18n();
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const route = useRoute();
 const router = useRouter();

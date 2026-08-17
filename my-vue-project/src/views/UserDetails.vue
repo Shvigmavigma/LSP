@@ -147,7 +147,7 @@ const inviteRole = ref<ProjectRole>('executor');
 const sendingInvite = ref(false);
 const inviteMessage = ref('');
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const avatarUrl = computed(() => {
   if (!user.value?.avatar) return '';

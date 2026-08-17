@@ -180,6 +180,7 @@ const { t } = useI18n();
 const authStore = useAuthStore();
 const router = useRouter();
 const route = useRoute();
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 const user = computed(() => authStore.user);
 const avatarError = ref(false);
 const showAvatarModal = ref(false);
@@ -204,7 +205,7 @@ const oauthSuccess = ref('');
 
 const avatarUrl = computed(() => {
   if (!user.value?.avatar) return '';
-  return `http://localhost:8000/avatars/${user.value.avatar}`;
+  return `${baseUrl}/avatars/${user.value.avatar}`;
 });
 
 // Функция проверки статуса привязки Google

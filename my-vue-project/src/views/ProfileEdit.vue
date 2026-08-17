@@ -21,7 +21,7 @@
         <div class="avatar-preview">
           <img
             v-if="previewAvatar || (authStore.user?.avatar && !avatarError)"
-            :src="previewAvatar || `http://localhost:8000/avatars/${authStore.user?.avatar}`"
+            :src="previewAvatar || `${baseUrl}/avatars/${authStore.user?.avatar}`"
             :alt="displayUserName(authStore.user)"
             @error="avatarError = true"
           />
@@ -190,7 +190,7 @@ import ClassInput from '@/components/ClassInput.vue';
 import type { TeacherInfo } from '@/types';
 import HomeButton from '@/components/HomeButton.vue';
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 const { t } = useI18n();
 const authStore = useAuthStore();
 const router = useRouter();

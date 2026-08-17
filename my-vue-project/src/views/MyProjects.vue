@@ -120,7 +120,7 @@ const projectStatuses = ref<Map<number, { status: string; text: string; badgeCla
 const currentUserId = computed(() => authStore.user?.id);
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Проверка, может ли пользователь создавать проекты
 // Ученик НЕ может создавать проекты (только заказчик или куратор)

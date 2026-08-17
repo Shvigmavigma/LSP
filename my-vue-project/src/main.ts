@@ -6,7 +6,7 @@ import axios from 'axios'
 import i18n from './i18n'
 import 'flag-icons/css/flag-icons.min.css'
 
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // ✅ ВАЖНО: Добавляем request interceptor для КАЖДОГО запроса
 axios.interceptors.request.use((config) => {

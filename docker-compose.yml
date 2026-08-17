@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lsp-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lsp}
+      POSTGRES_USER: ${POSTGRES_USER:-lsp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lsp_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lsp} -d ${POSTGRES_DB:-lsp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lsp-backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-lsp}:${POSTGRES_PASSWORD:-lsp_password}@postgres:5432/${POSTGRES_DB:-lsp}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8000/auth/google/callback}
+      GOOGLE_LINK_REDIRECT_URI: ${GOOGLE_LINK_REDIRECT_URI:-http://localhost:8000/auth/google/link-callback}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./avatars:/app/avatars
+      - ./accepted_emails.json:/app/accepted_emails.json
+      - ./accepted_student_emails.json:/app/accepted_student_emails.json
+      - ./account_class_settings.json:/app/account_class_settings.json
+      - ./default_tasks.json:/app/default_tasks.json
+      - ./file_quotas.json:/app/file_quotas.json
+      - ./file_size_limits.json:/app/file_size_limits.json
+      - ./project_lifecycle.json:/app/project_lifecycle.json
+      - ./user_directions.json:/app/user_directions.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./my-vue-project
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    container_name: lsp-frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

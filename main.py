@@ -266,11 +266,16 @@ def run_account_class_rollover(db: Session, settings: Optional[Dict[str, Any]] =
     db.commit()
     return {"advanced": advanced, "outdated": outdated}
 
-origins = [
+default_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
+]
+origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", ",".join(default_origins)).split(",")
+    if origin.strip()
 ]
 
 app.add_middleware(
@@ -673,6 +678,8 @@ async def restore_to_version(
 Base.metadata.create_all(bind=engine)
 
 def ensure_runtime_schema():
+    if engine.dialect.name != "sqlite":
+        return
     with engine.begin() as connection:
         columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(projects)").fetchall()}
         if "class_key" not in columns:
