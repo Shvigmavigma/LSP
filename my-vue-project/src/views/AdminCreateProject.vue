@@ -312,7 +312,7 @@ import api from '@/utils/api';
 import UserSearchFilters, { type UserSearchFilterValue } from '@/components/UserSearchFilters.vue';
 
 const { t } = useI18n();
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 const router = useRouter();
 const authStore = useAuthStore();
 const usersStore = useUsersStore();

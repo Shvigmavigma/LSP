@@ -195,7 +195,7 @@ const commentToRestore = ref<Comment | null>(null);
 const showPermanentDeleteModal = ref(false);
 const commentToDeletePermanently = ref<Comment | null>(null);
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const filteredComments = computed(() => {
   const result = props.isAdmin || props.isCurator

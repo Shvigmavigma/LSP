@@ -5,3 +5,19 @@
 npm install
 там прописать команду npm run dev
 перейти по ссылки localhost
+
+Docker + PostgreSQL:
+1. При необходимости скопировать .env.docker.example в .env и заполнить секреты/почту/OAuth.
+2. Запустить весь стек:
+   docker compose up -d --build
+3. Открыть фронтенд:
+   http://localhost:5173
+4. API доступно напрямую:
+   http://localhost:8000/docs
+5. API через фронтовый nginx-прокси:
+   http://localhost:5173/api/docs
+6. Остановить стек:
+   docker compose down
+
+По умолчанию backend использует PostgreSQL из docker-compose.
+Если DATABASE_URL не задан, локальный запуск backend остаётся на SQLite: sqlite:///./my_database.db.

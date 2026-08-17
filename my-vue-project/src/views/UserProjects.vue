@@ -88,7 +88,7 @@ const router = useRouter();
 const projects = ref<Project[]>([]);
 const loading = ref(true);
 const avatarError = ref<Record<number, boolean>>({});
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 const canCreateProject = computed(() => {
   const user = authStore.user;
   if (!user || loading.value || user.is_outdated) return false;

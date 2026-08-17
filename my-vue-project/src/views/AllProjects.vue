@@ -144,7 +144,7 @@ const filterType = ref<'all' | 'free' | 'taken'>('all');
 // Кэш статусов проектов
 const projectStatuses = ref<Map<number, { status: string; text: string; badgeClass: string }>>(new Map());
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Функция для получения статуса проекта через эндпоинт
 async function fetchProjectStatus(projectId: number): Promise<{ status: string; text: string; badgeClass: string } | null> {

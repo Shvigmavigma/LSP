@@ -60,6 +60,7 @@ import api from '@/utils/api'
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
 const email = ref(route.query.email || '')
 const code = ref('')
 const verifying = ref(false)
@@ -164,7 +165,7 @@ async function verifyCode() {
         formData.append('file', file)
         
         await api.post(
-          `http://localhost:8000/users/${response.data.id}/avatar`,
+          `${baseUrl}/users/${response.data.id}/avatar`,
           formData,
           { headers: { 'Content-Type': 'multipart/form-data' } }
         )

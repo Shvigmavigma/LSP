@@ -121,7 +121,7 @@ const loading = ref(false);
 const expandedComments = ref<string | null>(null);
 const authorImageErrors = ref<Record<number, boolean>>({});
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const pendingCount = computed(() => props.suggestions.filter(s => s.status === 'pending').length);
 
